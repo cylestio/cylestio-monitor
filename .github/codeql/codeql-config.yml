@@ -1,0 +1,32 @@
+name: "Cylestio Monitor CodeQL config"
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+  - uses: ./custom-queries/*.ql
+
+query-filters:
+  - exclude:
+      problem.severity:
+        - warning
+        - recommendation
+      tags contain: test
+
+paths-ignore:
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/*.test.py'
+  - 'docs/**'
+
+security-severity-override:
+  - security-severity: 8.0
+    tags:
+      - injection
+      - security
+  - security-severity: 9.0
+    tags:
+      - cwe-78
+      - cwe-89
+      - cwe-94
+      - cwe-95
+      - cwe-601 

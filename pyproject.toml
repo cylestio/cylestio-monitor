@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cylestio-monitor"
+version = "0.1.0"
+description = "A powerful open-source monitoring solution for AI agents"
+authors = [
+    {name = "Cylestio Team", email = "support@cylestio.com"},
+]
+dependencies = [
+    "anthropic>=0.18.1",
+    "pydantic>=2.6.1",
+    "httpx>=0.26.0",
+    "fastapi>=0.109.2",
+    "uvicorn>=0.27.1",
+]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=4.1.0",
+    "pytest-github-actions-annotate-failures>=0.2.0",
+    "httpx>=0.26.0",
+]
+security = [
+    "bandit>=1.7.7",
+    "safety>=2.3.5",
+    "pip-audit>=2.7.2",
+    "ruff>=0.2.1",
+    "semgrep>=1.55.1",
+    "detect-secrets>=1.4.0",
+]
+dev = [
+    "black>=24.1.1",
+    "isort>=5.13.2",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --cov=cylestio_monitor --cov-report=xml --cov-report=term-missing"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.ruff]
+select = ["E", "F", "B", "S"]
+ignore = []
+line-length = 100
+target-version = "py311"
+fix = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples"]
+skips = ["B101"]

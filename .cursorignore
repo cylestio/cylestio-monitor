@@ -1,0 +1,18 @@
+# Ignore environment files containing API keys
+.env
+*.env
+
+# Ignore monitoring output
+*.json
+*.log
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environments
+venv/
+env/
+.venv/
+.env/ 

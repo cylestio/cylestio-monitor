@@ -1,0 +1,29 @@
+fail_on:
+  - moderate_severity
+  - high_severity
+  - critical_severity
+
+licenses:
+  deny:
+    - GPL-1.0-or-later
+    - LGPL-2.0-or-later
+    - GPL-2.0-or-later
+    - GPL-3.0-or-later
+  allow:
+    - MIT
+    - Apache-2.0
+    - BSD-3-Clause
+    - ISC
+
+vulnerability_check:
+  fail_on_severity: moderate
+  allow_ghsa_ids: []  # No allowed vulnerabilities
+
+dependency_type:
+  development: false  # Check dev dependencies too
+  production: true
+
+update_rules:
+  - dependency_type: "production"
+    update_type: "security"
+    auto_merge: true 
