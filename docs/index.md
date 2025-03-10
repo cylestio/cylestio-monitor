@@ -6,7 +6,7 @@ A lightweight, drop-in monitoring SDK for AI agents, MCP, and LLM API calls.
 
 Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, durations, and responses as structured JSON events. Each event includes a severity flag ("alert") if suspicious or dangerous terms are detected. Dangerous prompts are blocked, while suspicious ones are flagged for review.
 
-## Features
+## Key Features
 
 - **Zero-configuration setup**: Just import and enable monitoring
 - **Automatic framework detection**: Works with MCP and popular LLM clients
@@ -15,13 +15,13 @@ Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, dura
 - **Performance tracking**: Monitors call durations and response times
 - **Global SQLite database**: Stores all events in a shared, OS-agnostic location
 
-## Installation
+## Quick Installation
 
 ```bash
 pip install cylestio-monitor
 ```
 
-## Quick Start
+## Basic Usage
 
 ```python
 from cylestio_monitor import enable_monitoring
@@ -44,10 +44,6 @@ response = client.messages.create(
 )
 ```
 
-## Documentation
+## Getting Started
 
-For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cylestio.github.io/cylestio-monitor/).
-
-## License
-
-MIT
+Ready to start monitoring your AI agents? Check out the [Installation Guide](getting-started/installation.md) and [Quick Start Guide](getting-started/quick-start.md) to get up and running in minutes. 

@@ -1,0 +1,89 @@
+site_name: Cylestio Monitor
+site_description: A lightweight, drop-in monitoring SDK for AI agents, MCP, and LLM API calls
+site_author: Cylest.io
+site_url: https://cylestio.github.io/cylestio-monitor/
+repo_name: cylestio/cylestio-monitor
+repo_url: https://github.com/cylestio/cylestio-monitor
+copyright: Copyright &copy; 2024 Cylest.io
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cylestio
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/cylestio
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Overview: user-guide/overview.md
+    - Monitoring LLM Calls: user-guide/monitoring-llm.md
+    - Monitoring MCP: user-guide/monitoring-mcp.md
+    - Security Features: user-guide/security-features.md
+    - Logging Options: user-guide/logging-options.md
+  - API Reference:
+    - Overview: api-reference/overview.md
+    - Monitor Module: api-reference/monitor.md
+    - Events Processor: api-reference/events-processor.md
+    - Events Listener: api-reference/events-listener.md
+    - Database: api-reference/database.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Changelog: development/changelog.md 
