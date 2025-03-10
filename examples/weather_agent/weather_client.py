@@ -46,7 +46,7 @@ class WeatherAIAgent:
 
         # Enable monitoring with our SDK
         enable_monitoring(
-            logger_id="weather-agent", llm_client=self.anthropic, log_file="weather_monitoring.json"
+            agent_id="weather-agent", llm_client=self.anthropic, log_file="output/my_weather_agent_monitoring.json"
         )
         logger.info("Monitoring enabled for Weather AI Agent")
 

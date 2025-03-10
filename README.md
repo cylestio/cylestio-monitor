@@ -13,6 +13,9 @@ Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, dura
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Structured logging**: All events are logged in a structured JSON format
 - **Performance tracking**: Monitors call durations and response times
+- **Global SQLite database**: Stores all events in a shared, OS-agnostic location
+- **Agent-based aggregation**: Logs include agent ID for multi-project aggregation
+- **Flexible output options**: Log to both SQLite database and JSON files
 
 ## Installation
 
@@ -23,30 +26,76 @@ pip install cylestio-monitor
 ## Quick Start
 
 ```python
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import enable_monitoring, disable_monitoring
 from anthropic import Anthropic
 
 # Create your LLM client
-llm_client = Anthropic()
+client = Anthropic()
 
-# Enable monitoring
+# Enable monitoring with SQLite database only
 enable_monitoring(
-    logger_id="my-app",  # Optional identifier
-    llm_client=llm_client,  # Your LLM client instance
-    log_file="monitoring.json"  # Output file path
+    agent_id="my_agent",
+    llm_client=client  # Pass your LLM client for monitoring
+)
+
+# Enable monitoring with both SQLite and JSON logging
+enable_monitoring(
+    agent_id="my_agent",
+    llm_client=client,
+    log_file="/path/to/logs/"
 )
 
 # Use your client as normal - monitoring happens automatically
-response = llm_client.messages.create(
+response = client.messages.create(
     model="claude-3-sonnet-20240229",
     max_tokens=1000,
     messages=[{"role": "user", "content": "Hello, Claude!"}]
 )
 
 # When done, you can disable monitoring
-from cylestio_monitor import disable_monitoring
 disable_monitoring()
 ```
+
+## Logging
+
+The Cylestio Monitor SDK logs events to both a SQLite database and optionally to JSON files.
+
+### SQLite Database
+
+All events are logged to a SQLite database, which is created in the user's application data directory. The database contains tables for agents, events, and other monitoring data.
+
+### JSON Logging
+
+You can enable JSON logging by providing a `log_file` parameter to the `enable_monitoring` function:
+
+```python
+from cylestio_monitor import enable_monitoring
+from anthropic import Anthropic
+
+# Create your LLM client
+client = Anthropic()
+
+# Log to a specific file
+enable_monitoring(
+    agent_id="my_agent",
+    llm_client=client,
+    log_file="/path/to/logs/monitoring.json"
+)
+
+# Log to a directory (a timestamped file will be created)
+enable_monitoring(
+    agent_id="my_agent",
+    llm_client=client,
+    log_file="/path/to/logs/"
+)
+```
+
+The SDK will use the following naming conventions for JSON log files:
+
+1. If a directory is provided, a file named `{agent_id}_monitoring_{timestamp}.json` will be created.
+2. If a file without extension is provided, `.json` will be added.
+
+For more details, see the [Integration Tests README](tests/integration/README.md).
 
 ## Monitoring MCP
 
@@ -57,7 +106,7 @@ from mcp import ClientSession
 from cylestio_monitor import enable_monitoring
 
 # Enable monitoring before creating your MCP session
-enable_monitoring(logger_id="mcp-app")
+enable_monitoring(agent_id="mcp-project")
 
 # Create and use your MCP client as normal
 session = ClientSession(stdio, write)
@@ -68,11 +117,73 @@ result = await session.call_tool("weather", {"location": "New York"})
 
 The `enable_monitoring` function accepts the following parameters:
 
-- `logger_id`: Optional identifier for the logger
+- `agent_id`: Unique identifier for this agent/project (required)
 - `llm_client`: Optional LLM client instance (Anthropic, OpenAI, etc.)
 - `llm_method_path`: Path to the LLM client method to patch (default: "messages.create")
-- `log_file`: Path to the output log file (default: "cylestio_monitoring.json")
+- `log_file`: Path to the output log file (if None, only SQLite logging is used)
 - `debug_level`: Logging level for SDK's internal debug logs (default: "INFO")
+
+## Global SQLite Database
+
+Cylestio Monitor stores all events in a global SQLite database, ensuring that all instances of the SDK write to the same database regardless of the virtual environment in which they're installed.
+
+### Location
+
+The database file is stored in an OS-specific location determined by the `platformdirs` library:
+
+- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\cylestio_monitor.db`
+- **macOS**: `~/Library/Application Support/cylestio-monitor/cylestio_monitor.db`
+- **Linux**: `~/.local/share/cylestio-monitor/cylestio_monitor.db`
+
+### Database Schema
+
+The database has two main tables:
+
+1. **agents**: Stores information about each agent (project)
+   - `id`: Primary key
+   - `agent_id`: Unique ID of the agent
+   - `created_at`: When the agent was first seen
+   - `last_seen`: When the agent was last seen
+
+2. **events**: Stores all monitoring events
+   - `id`: Primary key
+   - `agent_id`: Foreign key to the agents table
+   - `event_type`: Type of event (e.g., "LLM_call_start", "MCP_tool_call_finish")
+   - `channel`: Channel of the event (e.g., "LLM", "MCP", "SYSTEM")
+   - `level`: Log level (e.g., "info", "warning", "error")
+   - `timestamp`: When the event occurred
+   - `data`: JSON data containing the event details
+
+### Accessing the Database
+
+You can access the database programmatically:
+
+```python
+from cylestio_monitor import get_database_path
+from cylestio_monitor.db import utils as db_utils
+
+# Get the path to the database
+db_path = get_database_path()
+print(f"Database path: {db_path}")
+
+# Get recent events for a specific agent
+events = db_utils.get_recent_events(agent_id="my-project", limit=10)
+
+# Get events by type
+llm_events = db_utils.get_events_by_type("LLM_call_start", agent_id="my-project")
+
+# Get events from the last 24 hours
+recent_events = db_utils.get_events_last_hours(24, agent_id="my-project")
+
+# Search events
+search_results = db_utils.search_events("error", agent_id="my-project")
+
+# Get agent statistics
+stats = db_utils.get_agent_stats(agent_id="my-project")
+
+# Clean up old events
+deleted_count = db_utils.cleanup_old_events(days=30)
+```
 
 ## Global Configuration File
 
@@ -171,6 +282,7 @@ The SDK logs events in a structured JSON format:
   "timestamp": "2023-06-15T12:34:56.789Z",
   "level": "INFO",
   "channel": "LLM",
+  "agent_id": "my-project",
   "event": "LLM_call_start",
   "data": {
     "prompt": "...",
@@ -247,29 +359,3 @@ The pre-commit hooks automatically check for:
 - Common security issues in Python code
 
 These checks run automatically before each commit. If a check fails, the commit will be blocked until the issue is resolved.
-
-### Local Security Workflow
-
-Our security workflow consists of:
-
-1. **Pre-commit hooks** (fast, run on every commit):
-   - Detect private keys and credentials
-   - Run basic security linting (Ruff, Bandit)
-   - Scan for vulnerable dependencies (Safety)
-
-2. **Pre-push hooks** (comprehensive, run before push):
-   - Run more thorough Bandit security scan
-   - Run complete dependency vulnerability checks
-   - Run security-specific tests
-
-3. **CI/CD Pipeline** (complete, runs on GitHub):
-   - Runs all security checks in a clean environment
-   - Performs additional scans not feasible locally
-   - Generates security reports
-
-### CI/CD Pipeline
-
-Our CI/CD pipeline runs additional security checks on each pull request. To avoid CI failures:
-1. Always run `pre-commit run --all-files` before pushing changes
-2. Address all security warnings and errors locally
-3. Document any false positives or accepted risks in your PR description

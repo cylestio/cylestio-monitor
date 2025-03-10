@@ -8,7 +8,12 @@ import json
 import logging
 from datetime import datetime
 from typing import Any, Optional
+import os
 
+import platformdirs
+
+from .config import ConfigManager
+from .db import utils as db_utils
 from .events_listener import monitor_call, monitor_llm_call
 from .events_processor import log_event
 
@@ -19,23 +24,22 @@ logging.basicConfig(
 
 
 def enable_monitoring(
-    logger_id: Optional[str] = None,
+    agent_id: str,
     llm_client: Any = None,
     llm_method_path: str = "messages.create",
-    log_file: str = "cylestio_monitoring.json",
+    log_file: Optional[str] = None,
     debug_level: str = "INFO",
-):
+) -> None:
     """
-    Enable monitoring by patching MCP and LLM clients.
-
-    This is the main entry point for the Cylestio Monitor SDK. It automatically detects
-    and patches supported frameworks and clients.
-
+    Enable monitoring for LLM API calls.
+    
     Args:
-        logger_id: Optional identifier for the logger
+        agent_id: Unique identifier for the agent
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
         llm_method_path: Path to the LLM client method to patch (default: "messages.create")
-        log_file: Path to the output log file
+        log_file: Path to the output log file (if None, only SQLite logging is used)
+            - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
+            - If a file without extension is provided, ".json" will be added
         debug_level: Logging level for SDK's internal debug logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
     # Set up logging configuration for the monitor
@@ -49,28 +53,44 @@ def enable_monitoring(
     for handler in monitor_logger.handlers[:]:
         monitor_logger.removeHandler(handler)
 
-    # Add a file handler for JSON logs
-    json_handler = logging.FileHandler(log_file)
-    json_handler.setLevel(logging.INFO)
+    # Add a file handler for JSON logs if log_file is specified
+    if log_file:
+        # If log_file is a directory, create a file with the agent_id in the name
+        if os.path.isdir(log_file):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_filename = f"{agent_id}_monitoring_{timestamp}.json"
+            log_file = os.path.join(log_file, log_filename)
+        # If log_file doesn't have an extension, add .json
+        elif not os.path.splitext(log_file)[1]:
+            log_file = f"{log_file}.json"
+            
+        # Create the directory if it doesn't exist
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+            
+        json_handler = logging.FileHandler(log_file)
+        json_handler.setLevel(logging.INFO)
 
-    # Create a JSON formatter
-    class JSONFormatter(logging.Formatter):
-        def format(self, record):
-            try:
-                data = json.loads(record.msg)
-            except Exception:
-                data = {"message": record.msg}
-            log_entry = {
-                "timestamp": datetime.now().isoformat(),
-                "level": record.levelname,
-                "channel": getattr(record, "channel", "SYSTEM"),
-            }
-            log_entry.update(data)
-            return json.dumps(log_entry)
+        # Create a JSON formatter
+        class JSONFormatter(logging.Formatter):
+            def format(self, record):
+                try:
+                    data = json.loads(record.msg)
+                except Exception:
+                    data = {"message": record.msg}
+                log_entry = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": record.levelname,
+                    "channel": getattr(record, "channel", "SYSTEM"),
+                    "agent_id": agent_id,
+                }
+                log_entry.update(data)
+                return json.dumps(log_entry)
 
-    json_formatter = JSONFormatter()
-    json_handler.setFormatter(json_formatter)
-    monitor_logger.addHandler(json_handler)
+        json_formatter = JSONFormatter()
+        json_handler.setFormatter(json_formatter)
+        monitor_logger.addHandler(json_handler)
 
     # Add a console handler for debug logs
     console_handler = logging.StreamHandler()
@@ -78,8 +98,17 @@ def enable_monitoring(
     console_handler.setFormatter(logging.Formatter("CylestioSDK - %(levelname)s: %(message)s"))
     monitor_logger.addHandler(console_handler)
 
-    # Log the debug level
+    # Store the agent ID in the configuration
+    config_manager = ConfigManager()
+    config_manager.set("monitoring.agent_id", agent_id)
+
+    # Log the debug level and agent ID
     monitor_logger.debug(f"Cylestio Monitor SDK initialized with debug level: {debug_level}")
+    monitor_logger.debug(f"Agent ID: {agent_id}")
+
+    # Log database path
+    db_path = db_utils.get_db_path()
+    monitor_logger.debug(f"Using database at: {db_path}")
 
     # Patch MCP if available
     try:
@@ -122,14 +151,54 @@ def enable_monitoring(
 
     # Log that monitoring is enabled
     log_event(
-        "monitoring_enabled", {"MCP_server_id": logger_id, "LLM_provider": llm_provider}, "SYSTEM"
+        "monitoring_enabled", 
+        {
+            "agent_id": agent_id,
+            "LLM_provider": llm_provider,
+            "database_path": db_path
+        }, 
+        "SYSTEM"
     )
 
 
 def disable_monitoring():
     """Disable monitoring and clean up resources."""
+    # Get agent ID from configuration
+    config_manager = ConfigManager()
+    agent_id = config_manager.get("monitoring.agent_id", "unknown")
+    
+    # Log that monitoring is disabled
+    log_event(
+        "monitoring_disabled", 
+        {
+            "agent_id": agent_id,
+            "timestamp": datetime.now().isoformat()
+        }, 
+        "SYSTEM"
+    )
+    
     # Flush all handlers
     logging.shutdown()
 
-    # Log that monitoring is disabled
-    log_event("monitoring_disabled", {"timestamp": datetime.now().isoformat()}, "SYSTEM")
+
+def get_database_path() -> str:
+    """
+    Get the path to the global SQLite database.
+    
+    Returns:
+        Path to the database file
+    """
+    return db_utils.get_db_path()
+
+
+def cleanup_old_events(days: int = 30) -> int:
+    """
+    Delete events older than the specified number of days.
+    
+    Args:
+        days: Number of days to keep
+        
+    Returns:
+        Number of deleted events
+    """
+    return db_utils.cleanup_old_events(days)

@@ -38,8 +38,10 @@ monitoring:
     - "none"
     - "suspicious"
     - "dangerous"
-  
+
 # Dashboard integration
 dashboard:
   enabled: true
-  metrics_retention_days: 30 
+  metrics_retention_days: 30
+  sync_enabled: false
+  sync_interval_minutes: 60 
