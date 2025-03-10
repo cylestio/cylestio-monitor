@@ -1,5 +1,10 @@
 # Installation
 
+!!! info "Quick Install"
+    ```bash
+    pip install cylestio-monitor
+    ```
+
 ## Requirements
 
 - Python 3.11 or higher
@@ -23,15 +28,16 @@ pip install -e .
 
 ## Dependencies
 
-Cylestio Monitor has the following dependencies:
+!!! note "Dependencies"
+    Cylestio Monitor has the following dependencies:
 
-- `anthropic`: For monitoring Anthropic Claude API calls
-- `mcp`: For monitoring MCP tool calls
-- `pydantic`: For data validation
-- `python-dotenv`: For environment variable support
-- `structlog`: For structured logging
-- `platformdirs`: For OS-agnostic file paths
-- `pyyaml`: For configuration file parsing
+    - `anthropic`: For monitoring Anthropic Claude API calls
+    - `mcp`: For monitoring MCP tool calls
+    - `pydantic`: For data validation
+    - `python-dotenv`: For environment variable support
+    - `structlog`: For structured logging
+    - `platformdirs`: For OS-agnostic file paths
+    - `pyyaml`: For configuration file parsing
 
 ## Verifying Installation
 
@@ -41,6 +47,13 @@ You can verify that Cylestio Monitor is installed correctly by running:
 import cylestio_monitor
 print(cylestio_monitor.__version__)
 ```
+
+!!! tip "Database Location"
+    The database file is stored in an OS-specific location:
+
+    - **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\cylestio_monitor.db`
+    - **macOS**: `~/Library/Application Support/cylestio-monitor/cylestio_monitor.db`
+    - **Linux**: `~/.local/share/cylestio-monitor/cylestio_monitor.db`
 
 ## Next Steps
 

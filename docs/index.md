@@ -1,6 +1,61 @@
 # Cylestio Monitor
 
-A lightweight, drop-in monitoring SDK for AI agents, MCP, and LLM API calls.
+<div class="grid-container">
+  <div class="feature-card">
+    <div class="feature-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    </div>
+    <div class="feature-content">
+      <h3>Security Monitoring</h3>
+      <p>Detect and block dangerous prompts, flag suspicious activity</p>
+    </div>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    </div>
+    <div class="feature-content">
+      <h3>Performance Tracking</h3>
+      <p>Monitor call durations and response times</p>
+    </div>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <rect x="2" y="3" width="20" height="18" rx="2" ry="2" />
+        <line x1="7" y1="7" x2="7" y2="7" />
+        <line x1="7" y1="11" x2="7" y2="11" />
+        <line x1="7" y1="15" x2="7" y2="15" />
+        <line x1="11" y1="7" x2="17" y2="7" />
+        <line x1="11" y1="11" x2="17" y2="11" />
+        <line x1="11" y1="15" x2="17" y2="15" />
+      </svg>
+    </div>
+    <div class="feature-content">
+      <h3>Structured Logging</h3>
+      <p>Store events in SQLite with flexible output options</p>
+    </div>
+  </div>
+  
+  <div class="feature-card">
+    <div class="feature-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    </div>
+    <div class="feature-content">
+      <h3>Zero Configuration</h3>
+      <p>Drop-in monitoring for MCP and popular LLM clients</p>
+    </div>
+  </div>
+</div>
 
 ## Overview
 
