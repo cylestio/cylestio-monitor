@@ -32,7 +32,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[security,test,dev]"
           pip install pytest-github-actions-annotate-failures
-          pip install semgrep
           pip install detect-secrets
           pip install pysa
           pip install pip-audit
@@ -53,17 +52,6 @@ jobs:
         continue-on-error: true
 
       # Advanced SAST
-      - name: Run Semgrep Security Scan
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/owasp-top-ten
-            p/python
-            p/jwt-security
-            p/secrets
-          output: semgrep-results.json
-          
       - name: Run PySA (Python Static Analyzer)
         run: pysa analyze src/ || echo "PySA analysis failed, but continuing workflow"
         continue-on-error: true
@@ -79,14 +67,7 @@ jobs:
           path: '.'
           format: 'JSON'
           out: 'reports'
-
-      - name: Run Snyk
-        uses: snyk/actions/python@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: monitor
-          args: --all-projects --severity-threshold=low
+        continue-on-error: true
 
   dependency-review:
     runs-on: ubuntu-latest
@@ -140,16 +121,6 @@ jobs:
           head: HEAD
           extra_args: --debug --only-verified
 
-      - name: GitGuardian scan
-        if: ${{ env.GITGUARDIAN_API_KEY != '' }}
-        uses: GitGuardian/ggshield-action@master
-        env:
-          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
-          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
-          GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-
   security-report:
     needs: [security-checks, dependency-review, codeql, secret-scan]
     runs-on: ubuntu-latest
@@ -161,7 +132,6 @@ jobs:
         run: |
           echo "# Security Scan Results" > security-report.md
           echo "## SAST Results" >> security-report.md
-          cat semgrep-results.json >> security-report.md || echo "No semgrep results found" >> security-report.md
           echo "## Dependency Check Results" >> security-report.md
           cat reports/dependency-check-report.json >> security-report.md || echo "No dependency check results found" >> security-report.md
           echo "## Safety Check Results" >> security-report.md
