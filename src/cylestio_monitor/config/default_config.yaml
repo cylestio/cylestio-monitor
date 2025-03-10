@@ -1,0 +1,45 @@
+# Default configuration for Cylestio Monitor
+# This file will be copied to a global location on first run
+
+# Security monitoring settings
+security:
+  # Keywords for security checks
+  suspicious_keywords:
+    - "REMOVE"
+    - "CLEAR"
+    - "HACK"
+    - "BOMB"
+  
+  dangerous_keywords:
+    - "DROP"
+    - "DELETE"
+    - "SHUTDOWN"
+    - "EXEC("
+    - "FORMAT"
+    - "RM -RF"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  file_rotation: true
+  max_file_size_mb: 10
+  backup_count: 5
+
+# Monitoring settings
+monitoring:
+  enabled: true
+  channels:
+    - "SYSTEM"
+    - "LLM"
+    - "API"
+    - "MCP"
+  alert_levels:
+    - "none"
+    - "suspicious"
+    - "dangerous"
+  
+# Dashboard integration
+dashboard:
+  enabled: true
+  metrics_retention_days: 30 

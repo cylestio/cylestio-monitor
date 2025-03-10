@@ -1,16 +1,43 @@
 """Security tests for the Cylestio Monitor package."""
 
 import pytest
+from unittest.mock import patch
 
-from src.cylestio_monitor.events_processor import (
+from cylestio_monitor.config.config_manager import ConfigManager
+from cylestio_monitor.events_processor import (
     contains_dangerous,
     contains_suspicious,
     normalize_text,
 )
 
 
+@pytest.fixture(autouse=True)
+def reset_singleton():
+    """Reset the ConfigManager singleton instance before each test."""
+    # Save the original instance
+    original_instance = ConfigManager._instance
+    
+    # Reset the instance
+    ConfigManager._instance = None
+    
+    # Run the test
+    yield
+    
+    # Restore the original instance
+    ConfigManager._instance = original_instance
+
+
+@pytest.fixture
+def mock_config_manager():
+    """Create a mock config manager."""
+    with patch("cylestio_monitor.events_processor.config_manager") as mock_cm:
+        mock_cm.get_suspicious_keywords.return_value = ["HACK", "BOMB", "REMOVE"]
+        mock_cm.get_dangerous_keywords.return_value = ["DROP", "RM -RF", "EXEC(", "FORMAT"]
+        yield mock_cm
+
+
 @pytest.mark.security
-def test_dangerous_keywords_detection():
+def test_dangerous_keywords_detection(mock_config_manager):
     """Test that dangerous keywords are properly detected."""
     # Test with dangerous keywords
     assert contains_dangerous("DROP TABLE users") is True
@@ -24,7 +51,7 @@ def test_dangerous_keywords_detection():
 
 
 @pytest.mark.security
-def test_suspicious_keywords_detection():
+def test_suspicious_keywords_detection(mock_config_manager):
     """Test that suspicious keywords are properly detected."""
     # Test with suspicious keywords
     assert contains_suspicious("HACK the system") is True

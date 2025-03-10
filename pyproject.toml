@@ -31,7 +31,15 @@ dependencies = [
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.1.0",
+    "platformdirs>=4.0.0",
+    "pyyaml>=6.0.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cylestio_monitor"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/cylestio_monitor/config/default_config.yaml" = "cylestio_monitor/config/default_config.yaml"
 
 [project.optional-dependencies]
 dev = [

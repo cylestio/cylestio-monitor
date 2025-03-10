@@ -5,12 +5,12 @@ import time
 from datetime import datetime
 from typing import Any, Dict
 
+from cylestio_monitor.config import ConfigManager
+
 monitor_logger = logging.getLogger("CylestioMonitor")
 
-# Define keywords for security checks
-SUSPICIOUS_KEYWORDS = ["REMOVE", "CLEAR", "HACK", "BOMB"]
-DANGEROUS_KEYWORDS = ["DROP", "DELETE", "SHUTDOWN", "EXEC(", "FORMAT", "RM -RF"]
-
+# Get configuration manager instance
+config_manager = ConfigManager()
 
 # --------------------------------------
 # Helper functions for normalization and keyword checking
@@ -23,13 +23,15 @@ def normalize_text(text: str) -> str:
 def contains_suspicious(text: str) -> bool:
     """Check if text contains suspicious keywords."""
     up = normalize_text(text)
-    return any(kw in up for kw in SUSPICIOUS_KEYWORDS)
+    suspicious_keywords = config_manager.get_suspicious_keywords()
+    return any(kw in up for kw in suspicious_keywords)
 
 
 def contains_dangerous(text: str) -> bool:
     """Check if text contains dangerous keywords."""
     up = normalize_text(text)
-    return any(kw in up for kw in DANGEROUS_KEYWORDS)
+    dangerous_keywords = config_manager.get_dangerous_keywords()
+    return any(kw in up for kw in dangerous_keywords)
 
 
 # --------------------------------------
@@ -130,3 +132,68 @@ def post_monitor_call(func: Any, channel: str, start_time: float, result: Any) -
         result_str = str(result)
     data = {"function": func.__name__, "duration": duration, "result": result_str}
     log_event("call_finish", data, channel)
+
+
+# -------------- Helpers for MCP tool calls --------------
+def pre_monitor_mcp_tool(channel: str, tool_name: str, args: tuple, kwargs: Dict[str, Any]) -> float:
+    """Pre-monitoring hook for MCP tool calls."""
+    start_time = time.time()
+    
+    # Convert args and kwargs to strings for logging
+    try:
+        args_str = json.dumps(args)
+    except:
+        args_str = str(args)
+    
+    try:
+        kwargs_str = json.dumps(kwargs)
+    except:
+        kwargs_str = str(kwargs)
+    
+    # Check for suspicious or dangerous content in the tool call
+    combined_input = f"{tool_name} {args_str} {kwargs_str}"
+    if contains_dangerous(combined_input):
+        alert = "dangerous"
+        log_event(
+            "MCP_tool_call_blocked",
+            {"tool": tool_name, "args": args_str, "kwargs": kwargs_str, "reason": "dangerous content"},
+            channel,
+            "warning",
+        )
+        raise ValueError("Blocked MCP tool call due to dangerous terms")
+    elif contains_suspicious(combined_input):
+        alert = "suspicious"
+    else:
+        alert = "none"
+    
+    log_event(
+        "MCP_tool_call_start",
+        {"tool": tool_name, "args": args_str, "kwargs": kwargs_str, "alert": alert},
+        channel,
+    )
+    return start_time
+
+
+def post_monitor_mcp_tool(channel: str, tool_name: str, start_time: float, result: Any) -> None:
+    """Post-monitoring hook for MCP tool calls."""
+    duration = time.time() - start_time
+    
+    # Convert result to string for logging
+    try:
+        result_str = json.dumps(result)
+    except:
+        result_str = str(result)
+    
+    # Check for suspicious or dangerous content in the result
+    if contains_dangerous(result_str):
+        alert = "dangerous"
+    elif contains_suspicious(result_str):
+        alert = "suspicious"
+    else:
+        alert = "none"
+    
+    log_event(
+        "MCP_tool_call_finish",
+        {"tool": tool_name, "duration": duration, "result": result_str, "alert": alert},
+        channel,
+    )

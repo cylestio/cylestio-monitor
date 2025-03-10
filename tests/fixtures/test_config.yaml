@@ -1,0 +1,20 @@
+# Test configuration for Cylestio Monitor
+
+# Security monitoring settings
+security:
+  # Keywords for security checks
+  suspicious_keywords:
+    - "TEST1"
+    - "TEST2"
+  
+  dangerous_keywords:
+    - "DANGER1"
+    - "DANGER2"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  file_rotation: true
+  max_file_size_mb: 10
+  backup_count: 5 
