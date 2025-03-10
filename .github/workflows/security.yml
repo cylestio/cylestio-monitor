@@ -35,6 +35,7 @@ jobs:
           pip install semgrep
           pip install detect-secrets
           pip install pysa
+          pip install pip-audit
 
       # Basic Security Checks
       - name: Run Bandit
