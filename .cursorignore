@@ -2,10 +2,6 @@
 .env
 *.env
 
-# Ignore monitoring output
-*.json
-*.log
-
 # Ignore Python cache
 __pycache__/
 *.py[cod]

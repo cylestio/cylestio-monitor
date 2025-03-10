@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from cylestio_monitor.config import ConfigManager
+from cylestio_monitor.db import utils as db_utils
 
 monitor_logger = logging.getLogger("CylestioMonitor")
 
@@ -22,16 +23,16 @@ def normalize_text(text: str) -> str:
 
 def contains_suspicious(text: str) -> bool:
     """Check if text contains suspicious keywords."""
-    up = normalize_text(text)
+    normalized = normalize_text(text)
     suspicious_keywords = config_manager.get_suspicious_keywords()
-    return any(kw in up for kw in suspicious_keywords)
+    return any(keyword in normalized for keyword in suspicious_keywords)
 
 
 def contains_dangerous(text: str) -> bool:
     """Check if text contains dangerous keywords."""
-    up = normalize_text(text)
+    normalized = normalize_text(text)
     dangerous_keywords = config_manager.get_dangerous_keywords()
-    return any(kw in up for kw in dangerous_keywords)
+    return any(keyword in normalized for keyword in dangerous_keywords)
 
 
 # --------------------------------------
@@ -48,6 +49,8 @@ def log_event(
         "channel": channel,
     }
     msg = json.dumps(record)
+    
+    # Log to the standard logger
     if level.lower() == "debug":
         monitor_logger.debug(msg, extra={"channel": channel})
     elif level.lower() == "warning":
@@ -56,6 +59,25 @@ def log_event(
         monitor_logger.error(msg, extra={"channel": channel})
     else:
         monitor_logger.info(msg, extra={"channel": channel})
+    
+    # Log to the SQLite database
+    try:
+        # Get agent ID from configuration
+        agent_id = config_manager.get("monitoring.agent_id")
+        
+        # Only log to database if agent_id is set
+        if agent_id:
+            # Log to the database
+            db_utils.log_to_db(
+                agent_id=agent_id,
+                event_type=event_type,
+                data=data,
+                channel=channel,
+                level=level,
+                timestamp=datetime.now()
+            )
+    except Exception as e:
+        monitor_logger.error(f"Failed to log event to database: {e}")
 
 
 # -------------- Helpers for LLM calls --------------
@@ -116,11 +138,30 @@ def post_monitor_llm(channel: str, start_time: float, result: Any) -> None:
     )
 
 
-# -------------- Helpers for normal calls --------------
-def pre_monitor_call(func: Any, channel: str, args: tuple, kwargs: Dict[str, Any]) -> None:
+# --------------------------------------
+# Monitoring hooks for function calls
+# --------------------------------------
+def pre_monitor_call(func: Any, channel: str, args: tuple, kwargs: Dict[str, Any]) -> float:
     """Pre-monitoring hook for normal function calls."""
-    data = {"function": func.__name__, "args": str(args), "kwargs": str(kwargs)}
-    log_event("call_start", data, channel)
+    start_time = time.time()
+    
+    # Convert args and kwargs to strings for logging
+    try:
+        args_str = json.dumps(args)
+    except:
+        args_str = str(args)
+    
+    try:
+        kwargs_str = json.dumps(kwargs)
+    except:
+        kwargs_str = str(kwargs)
+    
+    log_event(
+        "call_start",
+        {"function": func.__name__, "args": args_str, "kwargs": kwargs_str},
+        channel,
+    )
+    return start_time
 
 
 def post_monitor_call(func: Any, channel: str, start_time: float, result: Any) -> None:

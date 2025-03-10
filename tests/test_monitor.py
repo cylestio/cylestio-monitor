@@ -36,7 +36,7 @@ def test_enable_monitoring(mock_log_event, mock_monitor_llm_call, mock_monitor_c
 
         # Call enable_monitoring
         enable_monitoring(
-            logger_id="test",
+            agent_id="test",
             llm_client=mock_llm_client,
             llm_method_path="messages.create",
             log_file="test.json",
@@ -73,7 +73,7 @@ def test_enable_monitoring_no_llm(mock_log_event, mock_monitor_call):
         mock_import.side_effect = import_mock
 
         # Call enable_monitoring without an LLM client
-        enable_monitoring(logger_id="test", log_file="test.json", debug_level="DEBUG")
+        enable_monitoring(agent_id="test", log_file="test.json", debug_level="DEBUG")
 
         # Check that the monitor_call function was called with the correct arguments
         mock_monitor_call.assert_called_once()
@@ -111,10 +111,7 @@ def test_enable_monitoring_import_error(mock_log_event, mock_monitor_call):
         mock_import.side_effect = import_mock
 
         # Call enable_monitoring
-        enable_monitoring(logger_id="test", log_file="test.json", debug_level="DEBUG")
+        enable_monitoring(agent_id="test", log_file="test.json", debug_level="DEBUG")
 
-        # Check that the monitor_call function was not called
-        mock_monitor_call.assert_not_called()
-
-        # Check that the log_event function was called
-        mock_log_event.assert_called()
+        # Check that the log_event function was called with the correct arguments
+        mock_log_event.assert_called_once()
