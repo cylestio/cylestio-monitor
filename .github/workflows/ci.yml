@@ -81,14 +81,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run Snyk to check for vulnerabilities
-      if: ${{ env.SNYK_TOKEN != '' }}
-      uses: snyk/actions/python@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        command: monitor
-        
     - name: Run OWASP Dependency Check
       uses: dependency-check/Dependency-Check_Action@main
       with:
