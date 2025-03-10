@@ -48,7 +48,7 @@ venv.bak/
 
 # Testing and Coverage
 .tox/
-.coverage
+.coverage*
 .coverage.*
 .cache
 nosetests.xml

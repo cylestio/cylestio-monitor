@@ -17,6 +17,12 @@ prevent_xss = true
 prevent_yaml_load = true
 prevent_eval = true
 prevent_pickle = true
+# Local security checks
+require_pre_commit_hooks = true
+require_pre_push_hooks = true
+require_pii_scan = true
+require_dependency_scan = true
+block_dangerous_patterns = true
 
 [testing]
 # Enforce Test-Driven Development
@@ -78,6 +84,11 @@ commit_types = [
     "chore",
     "security"
 ]
+# Local commit hooks
+require_pre_commit_security_checks = true
+run_security_checks_before_commit = true
+prevent_credential_leaks = true
+prevent_pii_leaks = true
 
 [files]
 # File organization
@@ -107,10 +118,22 @@ require_pinned_versions = true
 require_dependency_updates = true
 prevent_vulnerable_dependencies = true
 require_dependency_documentation = true
+# Security scanning
+require_safety_check = true
+require_pip_audit = true
 
 [review]
 # Code review requirements
 require_security_review = true
 require_performance_review = true
 require_documentation_review = true
-require_test_review = true 
+require_test_review = true
+
+[local_ci]
+# Local CI requirements before push
+run_bandit = true
+run_safety = true
+run_pii_scan = true
+run_security_tests = true
+prevent_push_on_security_failure = true
+require_local_checks_before_ci = true 

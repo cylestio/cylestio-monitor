@@ -1,0 +1,37 @@
+rules:
+  - id: python-hardcoded-secret
+    pattern: |
+      $SECRET = "..."
+    message: "Hardcoded secret detected"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      
+  - id: python-insecure-hash
+    patterns:
+      - pattern: |
+          import hashlib
+          ...
+          hashlib.md5(...)
+      - pattern: |
+          import hashlib
+          ...
+          hashlib.sha1(...)
+    message: "Insecure hash algorithm detected"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      
+  - id: python-sql-injection
+    pattern: |
+      $DB.execute("...".format(...))
+    message: "Potential SQL injection detected"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command" 
