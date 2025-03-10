@@ -3,6 +3,7 @@
 import functools
 import json
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from ..events_processor import log_event
@@ -24,14 +25,13 @@ class MCPPatcher(BasePatcher):
         self.logger = logging.getLogger("CylestioMonitor.MCP")
         
     def patch(self) -> None:
-        """Apply monitoring patches to MCP client."""
+        """Apply patches to MCP client."""
         if not self.client:
             self.logger.warning("No MCP client provided, skipping patch")
             return
             
-        if self.is_patched:
-            return
-            
+        self.logger.info("Applying MCP monitoring patches")
+        
         # Patch list_tools
         original_list_tools = self.client.list_tools
         self.original_funcs['list_tools'] = original_list_tools
@@ -83,105 +83,112 @@ class MCPPatcher(BasePatcher):
         self.client.list_tools = wrapped_list_tools
         
         # Patch call_tool
-        original_call_tool = self.client.call_tool
-        self.original_funcs['call_tool'] = original_call_tool
-        
-        @functools.wraps(original_call_tool)
-        async def wrapped_call_tool(tool_name: str, tool_args: Dict[str, Any], *args, **kwargs):
-            # Log request
-            log_event(
-                "mcp_request",
-                {
-                    "method": "call_tool",
-                    "tool_name": tool_name,
-                    "tool_args": tool_args,
-                    "args": str(args),
-                    "kwargs": kwargs
-                },
-                "MCP"
-            )
+        if hasattr(self.client, 'call_tool'):
+            original_call_tool = self.client.call_tool
+            self.original_funcs['call_tool'] = original_call_tool
             
-            try:
-                # Call original function
-                result = await original_call_tool(tool_name, tool_args, *args, **kwargs)
-                
-                # Log response
+            @functools.wraps(original_call_tool)
+            async def wrapped_call_tool(tool_name, tool_args, *args, **kwargs):
+                """Wrapped call_tool with monitoring."""
+                # Log the call start
+                start_time = time.time()
                 log_event(
-                    "mcp_response",
+                    "call_start",
                     {
                         "method": "call_tool",
-                        "tool_name": tool_name,
-                        "response": result.model_dump()
+                        "tool": tool_name,
+                        "args": str(tool_args),
+                        "kwargs": str(kwargs)
                     },
                     "MCP"
                 )
                 
-                return result
+                # Call the original method
+                try:
+                    result = await original_call_tool(tool_name, tool_args, *args, **kwargs)
+                    
+                    # Log the call finish
+                    duration = time.time() - start_time
+                    log_event(
+                        "call_finish",
+                        {
+                            "method": "call_tool",
+                            "tool": tool_name,
+                            "duration": duration,
+                            "result": str(result)
+                        },
+                        "MCP"
+                    )
+                    
+                    return result
+                except Exception as e:
+                    # Log the error
+                    log_event(
+                        "call_error",
+                        {
+                            "method": "call_tool",
+                            "tool": tool_name,
+                            "error": str(e)
+                        },
+                        "MCP",
+                        "error"
+                    )
+                    raise
                 
-            except Exception as e:
-                # Log error
-                log_event(
-                    "mcp_error",
-                    {
-                        "method": "call_tool",
-                        "tool_name": tool_name,
-                        "error": str(e)
-                    },
-                    "MCP",
-                    level="error"
-                )
-                raise
-                
-        self.client.call_tool = wrapped_call_tool
+            self.client.call_tool = wrapped_call_tool
         
         # Patch get_completion
-        original_get_completion = self.client.get_completion
-        self.original_funcs['get_completion'] = original_get_completion
-        
-        @functools.wraps(original_get_completion)
-        async def wrapped_get_completion(context, *args, **kwargs):
-            # Log request
-            log_event(
-                "mcp_request",
-                {
-                    "method": "get_completion",
-                    "context": context.model_dump(),
-                    "args": str(args),
-                    "kwargs": kwargs
-                },
-                "MCP"
-            )
+        if hasattr(self.client, 'get_completion'):
+            original_get_completion = self.client.get_completion
+            self.original_funcs['get_completion'] = original_get_completion
             
-            try:
-                # Call original function
-                result = await original_get_completion(context, *args, **kwargs)
-                
-                # Log response
+            @functools.wraps(original_get_completion)
+            async def wrapped_get_completion(context, *args, **kwargs):
+                """Wrapped get_completion with monitoring."""
+                # Log the call start
+                start_time = time.time()
                 log_event(
-                    "mcp_response",
+                    "call_start",
                     {
                         "method": "get_completion",
-                        "response": result.model_dump() if hasattr(result, 'model_dump') else str(result)
+                        "context": str(context),
+                        "args": str(args),
+                        "kwargs": str(kwargs)
                     },
                     "MCP"
                 )
                 
-                return result
+                # Call the original method
+                try:
+                    result = await original_get_completion(context, *args, **kwargs)
+                    
+                    # Log the call finish
+                    duration = time.time() - start_time
+                    log_event(
+                        "call_finish",
+                        {
+                            "method": "get_completion",
+                            "duration": duration,
+                            "result": str(result)
+                        },
+                        "MCP"
+                    )
+                    
+                    return result
+                except Exception as e:
+                    # Log the error
+                    log_event(
+                        "call_error",
+                        {
+                            "method": "get_completion",
+                            "error": str(e)
+                        },
+                        "MCP",
+                        "error"
+                    )
+                    raise
                 
-            except Exception as e:
-                # Log error
-                log_event(
-                    "mcp_error",
-                    {
-                        "method": "get_completion",
-                        "error": str(e)
-                    },
-                    "MCP",
-                    level="error"
-                )
-                raise
-                
-        self.client.get_completion = wrapped_get_completion
+            self.client.get_completion = wrapped_get_completion
         
         self.is_patched = True
         self.logger.info("Applied MCP monitoring patches")

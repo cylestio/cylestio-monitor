@@ -1,40 +1,18 @@
 # Cylestio Monitor
 
-A powerful open-source monitoring solution for AI agents, providing real-time event logging, security intelligence, and performance tracking with Model Context Protocol (MCP) support.
+A lightweight, drop-in monitoring SDK for MCP and LLM API calls.
 
 ## Overview
 
-Cylestio Monitor is designed to seamlessly integrate with various AI frameworks and tools, offering comprehensive monitoring capabilities through dynamic function patching and MCP integration. It captures events, logs, and performance metrics while performing security checks on prompts and responses, making it ideal for enterprise AI deployments.
+Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, durations, and responses as structured JSON events. Each event includes a severity flag ("alert") if suspicious or dangerous terms are detected. Dangerous prompts are blocked, while suspicious ones are flagged for review.
 
 ## Features
 
-- **Real-Time Event Logging**: 
-  - Capture detailed metrics about LLM calls, tool usage, and system events
-  - Track token usage, response times, and model performance
-  - Monitor tool invocations and their outcomes
-  
-- **Security Intelligence**: 
-  - Detect dangerous keywords and patterns
-  - Identify potential security vulnerabilities
-  - Block high-risk operations automatically
-  - Comprehensive audit trails for compliance
-  
-- **Model Context Protocol Support**:
-  - Full MCP client and server integration
-  - Standardized context handling
-  - Interoperable with MCP-compliant systems
-  - Enhanced context management capabilities
-
-- **Framework Agnostic**: Support for multiple frameworks through dedicated patchers:
-  - Anthropic Client
-  - Model Context Protocol
-  - More frameworks coming soon...
-
-- **Enterprise Features**:
-  - Role-based access control
-  - Audit logging
-  - Performance analytics
-  - Security compliance reporting
+- **Zero-configuration setup**: Just import and enable monitoring
+- **Automatic framework detection**: Works with MCP and popular LLM clients
+- **Security monitoring**: Detects and blocks dangerous prompts
+- **Structured logging**: All events are logged in a structured JSON format
+- **Performance tracking**: Monitors call durations and response times
 
 ## Installation
 
@@ -44,80 +22,82 @@ pip install cylestio-monitor
 
 ## Quick Start
 
-### Basic Usage
-
 ```python
+from cylestio_monitor import enable_monitoring
 from anthropic import Anthropic
-from cylestio_monitor import patch_anthropic_client
 
-# Initialize your Anthropic client
-client = Anthropic()
+# Create your LLM client
+llm_client = Anthropic()
 
-# Patch the client with Cylestio monitoring
-patch_anthropic_client(client)
-
-# Use the client as normal - all calls will be monitored
-response = client.messages.create(
-    model="claude-3-opus-20240229",
-    messages=[{"role": "user", "content": "Hello!"}]
+# Enable monitoring
+enable_monitoring(
+    logger_id="my-app",  # Optional identifier
+    llm_client=llm_client,  # Your LLM client instance
+    log_file="monitoring.json"  # Output file path
 )
+
+# Use your client as normal - monitoring happens automatically
+response = llm_client.messages.create(
+    model="claude-3-sonnet-20240229",
+    max_tokens=1000,
+    messages=[{"role": "user", "content": "Hello, Claude!"}]
+)
+
+# When done, you can disable monitoring
+from cylestio_monitor import disable_monitoring
+disable_monitoring()
 ```
 
-### MCP Integration
+## Monitoring MCP
+
+The SDK automatically patches the MCP `ClientSession` class to monitor tool calls:
 
 ```python
-from cylestio_monitor.mcp import MCPClient, MCPServer
+from mcp import ClientSession
+from cylestio_monitor import enable_monitoring
 
-# Initialize MCP client
-client = MCPClient(
-    base_url="http://localhost:8000",
-    api_key="your-api-key"
-)
+# Enable monitoring before creating your MCP session
+enable_monitoring(logger_id="mcp-app")
 
-# Create a monitored context
-context = client.create_context({
-    "messages": [
-        {"role": "user", "content": "Hello!"}
-    ]
-})
-
-# Get response with full monitoring
-response = client.get_completion(context)
+# Create and use your MCP client as normal
+session = ClientSession(stdio, write)
+result = await session.call_tool("weather", {"location": "New York"})
 ```
 
-## Architecture
+## Configuration Options
 
-The monitoring system consists of several key components:
+The `enable_monitoring` function accepts the following parameters:
 
-1. **Patchers**: Framework-specific modules that intercept and monitor function calls
-2. **Event Listeners**: Capture and process events in real-time
-3. **Event Processors**: Handle logging and security checks
-4. **Security Analyzer**: Evaluates prompts and responses for potential risks
-5. **MCP Integration**: Handles Model Context Protocol compatibility
-6. **Analytics Engine**: Processes and visualizes monitoring data
+- `logger_id`: Optional identifier for the logger
+- `llm_client`: Optional LLM client instance (Anthropic, OpenAI, etc.)
+- `llm_method_path`: Path to the LLM client method to patch (default: "messages.create")
+- `log_file`: Path to the output log file (default: "cylestio_monitoring.json")
+- `debug_level`: Logging level for SDK's internal debug logs (default: "INFO")
 
-## Security & Compliance
+## Security Features
 
-- Enterprise-grade security measures
-- SOC 2 compliance ready
-- GDPR and CCPA compliant
-- Regular security audits
-- Comprehensive access controls
+The SDK checks for suspicious and dangerous terms in both prompts and responses:
 
-## Contributing
+- **Suspicious terms**: Flagged but allowed (e.g., "REMOVE", "CLEAR", "HACK", "BOMB")
+- **Dangerous terms**: Blocked entirely (e.g., "DROP", "DELETE", "SHUTDOWN", "EXEC(", "FORMAT", "RM -RF")
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+## Log Format
+
+The SDK logs events in a structured JSON format:
+
+```json
+{
+  "timestamp": "2023-06-15T12:34:56.789Z",
+  "level": "INFO",
+  "channel": "LLM",
+  "event": "LLM_call_start",
+  "data": {
+    "prompt": "...",
+    "alert": "none"
+  }
+}
+```
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details
-
-## Documentation
-
-Full documentation is available at [docs.cylestio.com](https://docs.cylestio.com)
-
-## Contact
-
-- Website: [cylestio.com](https://cylestio.com)
-- Email: support@cylestio.com
-- GitHub: [github.com/cylestio](https://github.com/cylestio)
+MIT

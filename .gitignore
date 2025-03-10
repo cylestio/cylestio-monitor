@@ -254,6 +254,7 @@ settings.json
 
 # Tests
 test_import.py
+old_examples/
 
 # Output files
 *_monitoring.json

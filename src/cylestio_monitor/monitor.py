@@ -1,20 +1,18 @@
 """Cylestio Monitor core module.
 
 This module provides a framework-agnostic monitoring solution for AI agents.
-It supports dynamic patching of different frameworks and collects monitoring data
-in a standardized format.
+It supports monitoring of MCP and LLM API calls.
 """
 
 import json
 import logging
-from typing import Optional, Any, Dict, List
+import functools
+from typing import Optional, Any, Dict
 from datetime import datetime
-from pathlib import Path
+import asyncio
 
-from .events_processor import events_processor, log_event
-from .events_listener import EventsListener
-from .auto_detect import detect_frameworks
-from .patchers.base import BasePatcher
+from .events_processor import log_event, contains_dangerous, contains_suspicious
+from .events_listener import monitor_call, monitor_llm_call
 
 # Configure root logger
 logging.basicConfig(
@@ -22,203 +20,120 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-class Monitor:
-    """Main monitoring class for Cylestio Monitor.
-    
-    This class provides monitoring capabilities for AI agents, regardless of the
-    framework or implementation they use. It automatically detects and monitors
-    available frameworks.
+def enable_monitoring(
+    logger_id: Optional[str] = None, 
+    llm_client: Any = None, 
+    llm_method_path: str = "messages.create",
+    log_file: str = "cylestio_monitoring.json",
+    debug_level: str = "INFO"
+):
     """
+    Enable monitoring by patching MCP and LLM clients.
     
-    def __init__(self):
-        """Initialize monitor."""
-        self.output_file = None
-        self.config = {}
-        self.events_listener = EventsListener()
-        self.is_running = False
-        self.patchers = []
-        self.logger = logging.getLogger("CylestioMonitor")
-        
-    def register_patcher(self, patcher: BasePatcher) -> None:
-        """Register a patcher.
-        
-        Args:
-            patcher: Patcher instance to register
-        """
-        if not isinstance(patcher, BasePatcher):
-            raise TypeError("Patcher must be an instance of BasePatcher")
-        self.patchers.append(patcher)
-        
-    def start(
-        self,
-        output_file: str = "cylestio_monitoring.json",
-        config: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Start monitoring.
-        
-        This method:
-        1. Sets up monitoring configuration
-        2. Auto-detects available frameworks
-        3. Starts monitoring components
-        
-        Args:
-            output_file: Path to JSON output file for monitoring data
-            config: Optional configuration dictionary
-        """
-        if self.is_running:
-            return
-            
-        self.output_file = Path(output_file)
-        self.config = config or {}
-        
-        # Set up logging
-        file_handler = logging.FileHandler(f"{self.output_file.stem}.log")
-        file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        )
-        self.logger.addHandler(file_handler)
-        self.logger.setLevel(logging.INFO)
-        
-        # Auto-detect frameworks if no patchers registered
-        if not self.patchers:
-            self.patchers = detect_frameworks()
-        
-        self.is_running = True
-        
-        # Log start event
-        log_event(
-            "monitoring_start",
-            {
-                "timestamp": datetime.now().isoformat(),
-                "output_file": str(self.output_file),
-                "config": self.config,
-                "detected_frameworks": [
-                    p.__class__.__name__ for p in self.patchers
-                ]
-            },
-            "SYSTEM"
-        )
-        
-        # Apply all patchers
-        for patcher in self.patchers:
-            try:
-                patcher.patch()
-            except Exception as e:
-                self.logger.error(f"Failed to apply patcher {patcher.__class__.__name__}: {e}")
-                
-        # Start components
-        events_processor.start()
-        self.events_listener.start()
-        
-    def stop(self) -> None:
-        """Stop monitoring.
-        
-        This method:
-        1. Stops collecting monitoring data
-        2. Removes all patches
-        3. Saves final monitoring data to output file
-        """
-        if not self.is_running:
-            return
-            
-        self.is_running = False
-        
-        # Remove all patches
-        for patcher in reversed(self.patchers):
-            try:
-                patcher.unpatch()
-            except Exception as e:
-                self.logger.error(f"Failed to remove patcher {patcher.__class__.__name__}: {e}")
-                
-        # Stop components
-        events_processor.stop()
-        self.events_listener.stop()
-        
-        # Save monitoring data
-        self._save_monitoring_data()
-        
-        # Log stop event
-        log_event(
-            "monitoring_stop",
-            {
-                "timestamp": datetime.now().isoformat()
-            },
-            "SYSTEM"
-        )
-        
-    def _save_monitoring_data(self) -> None:
-        """Save monitoring data to output file."""
-        if not self.output_file:
-            return
-            
-        data = {
-            "metadata": {
-                "version": "0.1.0",
-                "timestamp": datetime.now().isoformat(),
-                "config": self.config
-            },
-            "monitoring": self.get_summary()
-        }
-        
-        with open(self.output_file, 'w') as f:
-            json.dump(data, f, indent=2)
-            
-    def get_summary(self) -> Dict[str, Any]:
-        """Get monitoring summary."""
-        return {
-            "status": {
-                "running": self.is_running,
-                "output_file": str(self.output_file) if self.output_file else None,
-                "patchers": [p.__class__.__name__ for p in self.patchers]
-            },
-            "events": events_processor.get_summary()
-        }
-
-def init_monitoring(
-    output_file: str = "cylestio_monitoring.json",
-    config: Optional[Dict[str, Any]] = None,
-    patchers: Optional[List[BasePatcher]] = None
-) -> Monitor:
-    """Initialize and start monitoring.
-    
-    This is the main entry point for using Cylestio Monitor.
+    This is the main entry point for the Cylestio Monitor SDK. It automatically detects
+    and patches supported frameworks and clients.
     
     Args:
-        output_file: Path to JSON output file for monitoring data
-        config: Optional configuration dictionary
-        patchers: Optional list of patchers to register
-        
-    Returns:
-        Monitor instance
-        
-    Example:
-        ```python
-        from cylestio_monitor import init_monitoring
-        from cylestio_monitor.patchers import MCPPatcher, AnthropicPatcher
-        
-        # Initialize monitoring with specific patchers
-        monitor = init_monitoring(
-            output_file="agent_monitoring.json",
-            patchers=[
-                MCPPatcher(),
-                AnthropicPatcher(client=anthropic_client)
-            ]
-        )
-        
-        # Your agent code here...
-        
-        # Stop monitoring when done
-        monitor.stop()
-        ```
+        logger_id: Optional identifier for the logger
+        llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
+        llm_method_path: Path to the LLM client method to patch (default: "messages.create")
+        log_file: Path to the output log file
+        debug_level: Logging level for SDK's internal debug logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
-    monitor = Monitor()
+    # Set up logging configuration for the monitor
+    monitor_logger = logging.getLogger("CylestioMonitor")
     
-    # Register patchers if provided
-    if patchers:
-        for patcher in patchers:
-            monitor.register_patcher(patcher)
-            
-    # Start monitoring
-    monitor.start(output_file=output_file, config=config)
+    # Set the logging level based on the debug_level parameter
+    level = getattr(logging, debug_level.upper(), logging.INFO)
+    monitor_logger.setLevel(level)
     
-    return monitor
+    # Remove any existing handlers to avoid duplicate logs
+    for handler in monitor_logger.handlers[:]:
+        monitor_logger.removeHandler(handler)
+    
+    # Add a file handler for JSON logs
+    json_handler = logging.FileHandler(log_file)
+    json_handler.setLevel(logging.INFO)
+    
+    # Create a JSON formatter
+    class JSONFormatter(logging.Formatter):
+        def format(self, record):
+            try:
+                data = json.loads(record.msg)
+            except Exception:
+                data = {"message": record.msg}
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "level": record.levelname,
+                "channel": getattr(record, "channel", "SYSTEM"),
+            }
+            log_entry.update(data)
+            return json.dumps(log_entry)
+    
+    json_formatter = JSONFormatter()
+    json_handler.setFormatter(json_formatter)
+    monitor_logger.addHandler(json_handler)
+    
+    # Add a console handler for debug logs
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(logging.Formatter('CylestioSDK - %(levelname)s: %(message)s'))
+    monitor_logger.addHandler(console_handler)
+    
+    # Log the debug level
+    monitor_logger.debug(f"Cylestio Monitor SDK initialized with debug level: {debug_level}")
+    
+    # Patch MCP if available
+    try:
+        from mcp import ClientSession
+        
+        # Patch ClientSession.call_tool method
+        original_call_tool = ClientSession.call_tool
+        ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
+        
+        # Log the patch
+        log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
+        
+    except ImportError:
+        # MCP not available, skip patching
+        monitor_logger.debug("MCP module not available, skipping ClientSession patching")
+    
+    # If an LLM client was provided, patch it
+    llm_provider = "Unknown"
+    if llm_client:
+        # Extract the provider name if possible
+        if hasattr(llm_client, '__class__'):
+            llm_provider = f"{llm_client.__class__.__module__}/{llm_client.__class__.__name__}"
+            if hasattr(llm_client, '_client') and hasattr(llm_client._client, 'user_agent'):
+                llm_provider = llm_client._client.user_agent
+        
+        # Patch the LLM client
+        parts = llm_method_path.split(".")
+        target = llm_client
+        for part in parts[:-1]:
+            target = getattr(target, part)
+        method_name = parts[-1]
+        original_method = getattr(target, method_name)
+        
+        # Apply the appropriate monitor decorator
+        patched_method = monitor_llm_call(original_method, "LLM")
+        setattr(target, method_name, patched_method)
+        
+        # Log the patch
+        log_event("LLM_patch", {"method": llm_method_path, "provider": llm_provider}, "SYSTEM")
+    
+    # Log that monitoring is enabled
+    log_event("monitoring_enabled", {
+        "MCP_server_id": logger_id,
+        "LLM_provider": llm_provider
+    }, "SYSTEM")
+
+def disable_monitoring():
+    """Disable monitoring and clean up resources."""
+    # Flush all handlers
+    logging.shutdown()
+    
+    # Log that monitoring is disabled
+    log_event("monitoring_disabled", {
+        "timestamp": datetime.now().isoformat()
+    }, "SYSTEM")
