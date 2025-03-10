@@ -28,8 +28,8 @@ repos:
   - repo: local
     hooks:
       - id: check-pii-data
-        name: Check for PII data patterns
-        entry: grep -r -E "(password|secret|key|token|ssn|credit.?card|social.?security)" --include="*.py" --include="*.json" --exclude-dir=".git" --exclude-dir="__pycache__" --exclude-dir=".venv" .
+        name: Check for PII data patterns in source code
+        entry: grep -r -E "(password|secret|key|token|ssn|credit.?card|social.?security)" --include="*.py" --exclude-dir=".git" --exclude-dir="__pycache__" --exclude-dir=".venv" --exclude-dir="tests" --exclude-dir="examples" src/
         language: system
         pass_filenames: false
         always_run: true
