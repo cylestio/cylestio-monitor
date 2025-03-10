@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Dependency Review
-        uses: actions/dependency-review-action@v3
+        uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: low
           vulnerability-check: true
@@ -99,14 +99,14 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: python
           queries: security-extended,security-and-quality
           config-file: .github/codeql/codeql-config.yml
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:python"
           upload: true
@@ -129,9 +129,11 @@ jobs:
   security-report:
     needs: [security-checks, dependency-review, codeql, secret-scan]
     runs-on: ubuntu-latest
+    if: always()  # Run even if previous jobs fail
     steps:
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        continue-on-error: true  # Continue even if no artifacts are found
 
       - name: Generate Security Report
         run: |
@@ -141,12 +143,14 @@ jobs:
           cat reports/dependency-check-report.json >> security-report.md || echo "No dependency check results found" >> security-report.md
           echo "## Safety Check Results" >> security-report.md
           cat safety-report.json >> security-report.md || echo "No safety results found" >> security-report.md
+        continue-on-error: true  # Continue even if files are not found
 
       - name: Upload Security Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-report
           path: security-report.md
+        continue-on-error: true  # Continue even if upload fails
 
 env:
   TOKEN: ${{ secrets.MY_SECRET }}
