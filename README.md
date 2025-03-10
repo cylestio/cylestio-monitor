@@ -74,6 +74,87 @@ The `enable_monitoring` function accepts the following parameters:
 - `log_file`: Path to the output log file (default: "cylestio_monitoring.json")
 - `debug_level`: Logging level for SDK's internal debug logs (default: "INFO")
 
+## Global Configuration File
+
+Cylestio Monitor uses a global configuration file to store settings that are shared across all installations of the SDK. This ensures consistent behavior regardless of which virtual environment or project is using the SDK.
+
+### Location
+
+The configuration file is stored in an OS-specific location determined by the `platformdirs` library:
+
+- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\config.yaml`
+- **macOS**: `~/Library/Application Support/cylestio-monitor/config.yaml`
+- **Linux**: `~/.local/share/cylestio-monitor/config.yaml`
+
+### First Run Behavior
+
+On first run, the SDK copies a default configuration file to the global location if it doesn't exist. This ensures that the SDK has a valid configuration to work with, even if it's installed in multiple virtual environments.
+
+### Configuration Schema
+
+The configuration file is a YAML file with the following structure:
+
+```yaml
+# Security monitoring settings
+security:
+  # Keywords for security checks
+  suspicious_keywords:
+    - "REMOVE"
+    - "CLEAR"
+    - "HACK"
+    - "BOMB"
+  
+  dangerous_keywords:
+    - "DROP"
+    - "DELETE"
+    - "SHUTDOWN"
+    - "EXEC("
+    - "FORMAT"
+    - "RM -RF"
+    - "KILL"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  file_rotation: true
+  max_file_size_mb: 10
+  backup_count: 5
+
+# Monitoring settings
+monitoring:
+  enabled: true
+  channels:
+    - "SYSTEM"
+    - "LLM"
+    - "API"
+    - "MCP"
+  alert_levels:
+    - "none"
+    - "suspicious"
+    - "dangerous"
+```
+
+For more information about monitoring channels and what they represent, see [Monitoring Channels](docs/monitoring_channels.md).
+
+### Modifying the Configuration
+
+You can modify the configuration file directly, or use the provided API:
+
+```python
+from cylestio_monitor.config import ConfigManager
+
+# Get the configuration manager instance
+config_manager = ConfigManager()
+
+# Add a new dangerous keyword
+dangerous_keywords = config_manager.get_dangerous_keywords()
+dangerous_keywords.append("KILL")
+config_manager.set("security.dangerous_keywords", dangerous_keywords)
+```
+
+> **Important**: After modifying the configuration file, any running agents or applications using the Cylestio Monitor SDK must be restarted for the changes to take effect.
+
 ## Security Features
 
 The SDK checks for suspicious and dangerous terms in both prompts and responses:
