@@ -1,0 +1,103 @@
+/* Custom styles for Cylestio Monitor documentation */
+
+/* Basic styling */
+h1 {
+  font-weight: 700;
+  color: var(--md-primary-fg-color);
+}
+
+h2 {
+  font-weight: 600;
+}
+
+h3 {
+  font-weight: 500;
+}
+
+/* Feature cards */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  background-color: var(--md-card-bg-color, #fff);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Feature icons */
+.feature-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.feature-icon svg {
+  width: 48px;
+  height: 48px;
+  fill: none;
+  stroke: var(--md-primary-fg-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feature-content h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--md-primary-fg-color);
+}
+
+.feature-content p {
+  margin: 0;
+  color: var(--md-typeset-color);
+}
+
+/* Code blocks */
+.md-typeset pre > code {
+  border-radius: 0.5rem;
+}
+
+.md-typeset .highlight {
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Admonitions */
+.md-typeset .admonition {
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] .feature-card {
+  background-color: var(--md-card-bg-color, #2e303e);
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 76.1875em) {
+  .grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+  }
+} 
