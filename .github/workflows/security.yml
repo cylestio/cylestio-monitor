@@ -59,6 +59,11 @@ jobs:
       - name: Run detect-secrets
         run: detect-secrets scan > secrets-scan.json
 
+      # Explicitly disable Snyk
+      - name: Run Snyk
+        run: echo "Snyk has been disabled in favor of open-source security tools"
+        continue-on-error: true
+
       # Software Composition Analysis (SCA)
       - name: Run OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
