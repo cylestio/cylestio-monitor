@@ -1,1 +1,1 @@
-"""Tests for the Cylestio Monitor SDK.""" 
+"""Tests for the Cylestio Monitor SDK."""

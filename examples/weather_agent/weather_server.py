@@ -6,17 +6,18 @@ This server provides weather data through the Model Context Protocol (MCP).
 It offers tools to get weather alerts and forecasts using the National Weather Service API.
 """
 
+import logging
 from typing import Any
+
 import httpx
 from mcp.server.fastmcp import FastMCP
-import logging 
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger('Weather MCP')
+logger = logging.getLogger("Weather MCP")
 
 # Initialize FastMCP server
 mcp = FastMCP("weather")
@@ -25,12 +26,10 @@ mcp = FastMCP("weather")
 NWS_API_BASE = "https://api.weather.gov"
 USER_AGENT = "weather-app/1.0"
 
+
 async def make_nws_request(url: str) -> dict[str, Any] | None:
     """Make a request to the NWS API with proper error handling."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/geo+json"
-    }
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
     logger.info(f"Making NWS API request to: {url}")
 
     async with httpx.AsyncClient() as client:
@@ -41,6 +40,7 @@ async def make_nws_request(url: str) -> dict[str, Any] | None:
         except Exception as e:
             logger.error(f"Error making NWS request: {e}")
             return None
+
 
 def format_alert(feature: dict) -> str:
     """Format an alert feature into a readable string."""
@@ -54,6 +54,7 @@ Severity: {props.get('severity', 'Unknown')}
 Description: {props.get('description', 'No description available')}
 Instructions: {props.get('instruction', 'No specific instructions provided')}
 """
+
 
 @mcp.tool()
 async def get_alerts(state: str) -> str:
@@ -78,6 +79,7 @@ async def get_alerts(state: str) -> str:
     alerts = [format_alert(feature) for feature in data["features"]]
     logger.info(f"Found {len(alerts)} alerts for state: {state}")
     return "\n---\n".join(alerts)
+
 
 @mcp.tool()
 async def get_forecast(latitude: float, longitude: float) -> str:
@@ -120,7 +122,8 @@ Forecast: {period['detailedForecast']}
     logger.info(f"Successfully retrieved forecast with {len(forecasts)} periods")
     return "\n---\n".join(forecasts)
 
+
 if __name__ == "__main__":
     # Initialize and run the server
     logger.info("Starting Weather MCP Server")
-    mcp.run(transport='stdio') 
+    mcp.run(transport="stdio")
