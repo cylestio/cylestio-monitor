@@ -101,3 +101,94 @@ The SDK logs events in a structured JSON format:
 ## License
 
 MIT
+
+## Development Setup
+
+### Quick Setup
+
+We provide a setup script that installs all dependencies and configures pre-commit hooks for security checks:
+
+```bash
+# Make the script executable
+chmod +x setup_dev.sh
+
+# Run the setup script
+./setup_dev.sh
+```
+
+### Manual Setup
+
+1. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -e ".[dev,test,security]"
+   ```
+
+3. Install pre-commit hooks:
+   ```bash
+   pre-commit install
+   pre-commit install --hook-type pre-push
+   ```
+
+### Verifying Your Setup
+
+To verify that your local security checks are properly installed and working:
+
+```bash
+# Make the verification script executable
+chmod +x verify_hooks.sh
+
+# Run the verification script
+./verify_hooks.sh
+```
+
+This script will:
+- Check that pre-commit and pre-push hooks are installed
+- List all configured hooks
+- Run a dry-run of all pre-commit checks
+- Provide guidance on the security workflow
+
+### Security Compliance
+
+This project implements security checks to help maintain compliance with:
+- SOC2
+- GDPR
+- HIPAA
+
+The pre-commit hooks automatically check for:
+- Hardcoded credentials and secrets
+- Known security vulnerabilities in dependencies
+- Common security issues in Python code
+
+These checks run automatically before each commit. If a check fails, the commit will be blocked until the issue is resolved.
+
+### Local Security Workflow
+
+Our security workflow consists of:
+
+1. **Pre-commit hooks** (fast, run on every commit):
+   - Detect private keys and credentials
+   - Run basic security linting (Ruff, Bandit)
+   - Scan for vulnerable dependencies (Safety)
+
+2. **Pre-push hooks** (comprehensive, run before push):
+   - Run more thorough Bandit security scan
+   - Run complete dependency vulnerability checks
+   - Run security-specific tests
+
+3. **CI/CD Pipeline** (complete, runs on GitHub):
+   - Runs all security checks in a clean environment
+   - Performs additional scans not feasible locally
+   - Generates security reports
+
+### CI/CD Pipeline
+
+Our CI/CD pipeline runs additional security checks on each pull request. To avoid CI failures:
+1. Always run `pre-commit run --all-files` before pushing changes
+2. Address all security warnings and errors locally
+3. Document any false positives or accepted risks in your PR description
