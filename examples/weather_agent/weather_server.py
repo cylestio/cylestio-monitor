@@ -30,7 +30,12 @@ USER_AGENT = "weather-app/1.0"
 async def make_nws_request(url: str) -> dict[str, Any] | None:
     """Make a request to the NWS API with proper error handling."""
     headers = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
-    logger.info(f"Making NWS API request to: {url}")
+    
+    # Don't log the full URL as it may contain sensitive coordinates
+    if "points/" in url:
+        logger.info("Making NWS API request to points endpoint")
+    else:
+        logger.info("Making NWS API request")
 
     async with httpx.AsyncClient() as client:
         try:
@@ -89,14 +94,15 @@ async def get_forecast(latitude: float, longitude: float) -> str:
         latitude: Latitude of the location
         longitude: Longitude of the location
     """
-    logger.info(f"Getting forecast for location: {latitude}, {longitude}")
+    # Don't log the coordinates
+    logger.info("Getting forecast for location")
 
     # First get the forecast grid endpoint
     points_url = f"{NWS_API_BASE}/points/{latitude},{longitude}"
     points_data = await make_nws_request(points_url)
 
     if not points_data:
-        logger.warning(f"Unable to get points data for location: {latitude}, {longitude}")
+        logger.warning("Unable to get points data for location")
         return "Unable to fetch forecast data for this location."
 
     # Get the forecast URL from the points response
@@ -104,7 +110,7 @@ async def get_forecast(latitude: float, longitude: float) -> str:
     forecast_data = await make_nws_request(forecast_url)
 
     if not forecast_data:
-        logger.warning(f"Unable to get forecast data from URL: {forecast_url}")
+        logger.warning("Unable to get forecast data")
         return "Unable to fetch detailed forecast."
 
     # Format the periods into a readable forecast

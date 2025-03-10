@@ -93,7 +93,8 @@ class WeatherAIAgent:
         Returns:
             Response text with weather information
         """
-        logger.info(f"Processing query: {query}")
+        # Don't log the query as it may contain sensitive information
+        logger.info("Processing user query")
 
         # Initial message
         messages = [{"role": "user", "content": query}]
@@ -126,8 +127,10 @@ class WeatherAIAgent:
                 tool_name = content.name
                 tool_args = content.input
 
+                # Don't log tool arguments as they may contain sensitive information
+                logger.info(f"Calling tool: {tool_name}")
+                
                 # Execute tool call
-                logger.info(f"Calling tool: {tool_name} with args: {tool_args}")
                 result = await self.session.call_tool(tool_name, tool_args)
                 tool_results.append({"call": tool_name, "result": result})
                 final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
@@ -181,7 +184,8 @@ class WeatherAIAgent:
                 print("\n" + response)
 
             except Exception as e:
-                logger.error(f"Error processing query: {e}")
+                # Don't log the exception directly as it might contain sensitive data
+                logger.error(f"Error processing query: {type(e).__name__}")
                 print(f"\nError: {str(e)}")
 
     async def cleanup(self):
