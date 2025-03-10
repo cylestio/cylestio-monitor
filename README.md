@@ -164,7 +164,6 @@ The pre-commit hooks automatically check for:
 - Hardcoded credentials and secrets
 - Known security vulnerabilities in dependencies
 - Common security issues in Python code
-- Potential PII/PHI data patterns
 
 These checks run automatically before each commit. If a check fails, the commit will be blocked until the issue is resolved.
 
@@ -174,7 +173,6 @@ Our security workflow consists of:
 
 1. **Pre-commit hooks** (fast, run on every commit):
    - Detect private keys and credentials
-   - Check for PII/PHI patterns
    - Run basic security linting (Ruff, Bandit)
    - Scan for vulnerable dependencies (Safety)
 
@@ -182,7 +180,6 @@ Our security workflow consists of:
    - Run more thorough Bandit security scan
    - Run complete dependency vulnerability checks
    - Run security-specific tests
-   - Perform deeper PII/PHI scanning
 
 3. **CI/CD Pipeline** (complete, runs on GitHub):
    - Runs all security checks in a clean environment
