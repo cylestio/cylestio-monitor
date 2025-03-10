@@ -1,16 +1,12 @@
-"""Cylestio Monitor - Simple monitoring for AI agents.
+"""Cylestio Monitor - A monitoring tool for LLM API calls."""
 
-This module provides a simple, framework-agnostic way to monitor AI agents.
-It automatically detects available frameworks and sets up appropriate monitoring.
-"""
+from .monitor import enable_monitoring, disable_monitoring
+from .events_processor import log_event
 
-from .monitor import Monitor, init_monitoring
-
-# Create a global monitor instance
-monitor = Monitor()
-
-# Clean up the public API
-__all__ = ['monitor', 'init_monitoring']
-
-# Optional: package metadata
 __version__ = "0.1.0"
+
+__all__ = [
+    "enable_monitoring",
+    "disable_monitoring",
+    "log_event",
+]

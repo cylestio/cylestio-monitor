@@ -1,15 +1,7 @@
-"""Patchers for Cylestio Monitor.
+"""Patchers for monitoring various LLM clients.
 
-This module provides patchers for different frameworks and libraries.
-Each patcher is responsible for monitoring a specific framework or library.
+This module is deprecated and will be removed in a future version.
+The patching functionality is now handled directly in the monitor module.
 """
 
-from .base import BasePatcher
-from .anthropic import AnthropicPatcher
-from .mcp import MCPPatcher
-
-__all__ = [
-    'BasePatcher',
-    'AnthropicPatcher',
-    'MCPPatcher'
-]
+__all__ = []

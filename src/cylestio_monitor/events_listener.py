@@ -1,6 +1,8 @@
 import functools
 import time
 import asyncio
+from typing import Any, Dict, Callable
+
 from .events_processor import (
     pre_monitor_llm, post_monitor_llm, 
     pre_monitor_call, post_monitor_call
@@ -16,45 +18,74 @@ def monitor_call(func, channel="GENERIC"):
         async def async_wrapper(*args, **kwargs):
             start_time = time.time()
             pre_monitor_call(func, channel, args, kwargs)
-            result = await func(*args, **kwargs)
-            post_monitor_call(func, channel, start_time, result)
-            return result
+            try:
+                result = await func(*args, **kwargs)
+                post_monitor_call(func, channel, start_time, result)
+                return result
+            except Exception as e:
+                # Log the error but don't interfere with the exception
+                from .events_processor import log_event
+                log_event("call_error", {"function": func.__name__, "error": str(e)}, channel, "error")
+                raise
         return async_wrapper
     else:
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             start_time = time.time()
             pre_monitor_call(func, channel, args, kwargs)
-            result = func(*args, **kwargs)
-            post_monitor_call(func, channel, start_time, result)
-            return result
+            try:
+                result = func(*args, **kwargs)
+                post_monitor_call(func, channel, start_time, result)
+                return result
+            except Exception as e:
+                # Log the error but don't interfere with the exception
+                from .events_processor import log_event
+                log_event("call_error", {"function": func.__name__, "error": str(e)}, channel, "error")
+                raise
         return sync_wrapper
 
-def monitor_llm_call(func, channel="LLM", is_async=False):
+def monitor_llm_call(func, channel="LLM"):
     """
-    Decorator specialized for LLM calls (Anthropic, LangChain, etc.)
+    Decorator specialized for LLM calls (Anthropic, OpenAI, etc.)
     that need prompt/response checks, blocking, etc.
     """
-    if is_async:
+    if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             start_time, prompt_info, alert = pre_monitor_llm(channel, args, kwargs)
             if alert == "dangerous":
-                # raise or block
+                # Block dangerous prompts
+                from .events_processor import log_event
+                log_event("LLM_call_blocked", {"reason": "dangerous prompt", "prompt": prompt_info}, channel, "warning")
                 raise ValueError("Blocked LLM call due to dangerous terms.")
-            result = await func(*args, **kwargs)
-            post_monitor_llm(channel, start_time, result)
-            return result
+            try:
+                result = await func(*args, **kwargs)
+                post_monitor_llm(channel, start_time, result)
+                return result
+            except Exception as e:
+                # Log the error but don't interfere with the exception
+                from .events_processor import log_event
+                log_event("LLM_call_error", {"error": str(e)}, channel, "error")
+                raise
         return async_wrapper
     else:
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             start_time, prompt_info, alert = pre_monitor_llm(channel, args, kwargs)
             if alert == "dangerous":
+                # Block dangerous prompts
+                from .events_processor import log_event
+                log_event("LLM_call_blocked", {"reason": "dangerous prompt", "prompt": prompt_info}, channel, "warning")
                 raise ValueError("Blocked LLM call due to dangerous terms.")
-            result = func(*args, **kwargs)
-            post_monitor_llm(channel, start_time, result)
-            return result
+            try:
+                result = func(*args, **kwargs)
+                post_monitor_llm(channel, start_time, result)
+                return result
+            except Exception as e:
+                # Log the error but don't interfere with the exception
+                from .events_processor import log_event
+                log_event("LLM_call_error", {"error": str(e)}, channel, "error")
+                raise
         return sync_wrapper
 
 """Events listener module for Cylestio Monitor.
