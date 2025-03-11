@@ -53,9 +53,9 @@ enable_monitoring(
 )
 ```
 
-## Monitoring MCP
+## Monitoring Model Context Protocol (MCP)
 
-For Multi-Component Programs (MCP), enable monitoring before creating your session:
+For [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), enable monitoring before creating your session:
 
 ```python
 from mcp import ClientSession

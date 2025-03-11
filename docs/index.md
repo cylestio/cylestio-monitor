@@ -52,7 +52,7 @@
     </div>
     <div class="feature-content">
       <h3>Zero Configuration</h3>
-      <p>Drop-in monitoring for MCP and popular LLM clients</p>
+      <p>Drop-in monitoring for Model Context Protocol and popular LLM clients</p>
     </div>
   </div>
 </div>
@@ -61,7 +61,7 @@
 
 ### Why Cylestio Monitor?
 
-Cylestio Monitor provides essential oversight for AI agents by intercepting MCP and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
+Cylestio Monitor provides essential oversight for AI agents by intercepting [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
 
 - **Secure your AI systems** by detecting and blocking dangerous prompts
 - **Track performance metrics** with detailed call duration and response time data
@@ -73,7 +73,7 @@ All with minimal configuration and zero code changes to your existing agents.
 ### Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Automatic framework detection**: Works with MCP and popular LLM clients
+- **Automatic framework detection**: Works with [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) and popular LLM clients
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output

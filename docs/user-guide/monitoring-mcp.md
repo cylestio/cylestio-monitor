@@ -1,8 +1,15 @@
-# Monitoring MCP
+# Monitoring Model Context Protocol (MCP)
 
-## What is MCP?
+## What is Model Context Protocol (MCP)?
 
-MCP (Machine-Controlled Programs) is a framework for building AI agents that can use tools to interact with the world.
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open standard for AI agents to interact with tools, interfaces, and capabilities. It enables LLMs to use tools, call APIs, interact with the user, and access system resources in a standardized way.
+
+MCP provides a structured approach for AI agents to:
+
+- Run tools and call APIs
+- Receive and process information
+- Maintain stateful interactions
+- Interact with users and systems
 
 ## Basic Setup
 
@@ -95,5 +102,3 @@ blocked_events = db_utils.get_events_by_type("MCP_tool_call_blocked", agent_id="
 ## Tool-Specific Analysis
 
 You can analyze tool usage patterns:
-
-```

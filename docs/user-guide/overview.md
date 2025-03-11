@@ -53,7 +53,7 @@ Keep detailed records of all AI interactions:
 Cylestio Monitor can be integrated in multiple ways:
 
 1. **Direct client integration** - Patch LLM clients automatically
-2. **MCP monitoring** - Monitor Multi-Component Programs
+2. **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) monitoring** - Monitor Model Context Protocol operations
 3. **Custom integrations** - Use our API to monitor any system
 
 ## Next Steps

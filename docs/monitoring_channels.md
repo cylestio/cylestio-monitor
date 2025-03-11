@@ -17,7 +17,7 @@ Example events:
 - `monitoring_enabled`: When monitoring is first enabled
 - `monitoring_disabled`: When monitoring is disabled
 - `LLM_patch`: When an LLM client is patched
-- `MCP_patch`: When an MCP client is patched
+- `MCP_patch`: When a Model Context Protocol client is patched
 
 ### LLM (Large Language Model)
 
@@ -48,9 +48,9 @@ Example events:
 - `API_call_finish`: When an API call completes
 - `API_error`: When an API call fails
 
-### MCP (Machine-Controlled Programs)
+### MCP (Model Context Protocol)
 
-The `MCP` channel captures events related to MCP tool calls and interactions, such as:
+The `MCP` channel captures events related to [Model Context Protocol](https://modelcontextprotocol.io/introduction) tool calls and interactions, such as:
 
 - Tool registration and discovery
 - Tool call parameters and arguments

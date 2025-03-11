@@ -35,6 +35,8 @@ theme:
     - search.highlight
     - search.suggest
     - content.code.copy
+  # Remove "Made with Material for MkDocs" footer
+  generator: false
 
 extra_css:
   - stylesheets/extra.css

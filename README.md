@@ -1,6 +1,6 @@
 # Cylestio Monitor
 
-A lightweight, drop-in security and performance monitoring SDK for AI agents, Multi-Component Programs (MCPs), and LLM API calls.
+A lightweight, drop-in security and performance monitoring SDK for AI agents, [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), and LLM API calls.
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
@@ -11,7 +11,7 @@ A lightweight, drop-in security and performance monitoring SDK for AI agents, Mu
 
 ### Why Cylestio Monitor?
 
-Cylestio Monitor provides essential oversight for AI agents by intercepting MCP and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
+Cylestio Monitor provides essential oversight for AI agents by intercepting Model Context Protocol (MCP) and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
 
 - **Secure your AI systems** by detecting and blocking dangerous prompts
 - **Track performance metrics** with detailed call duration and response time data
@@ -52,7 +52,7 @@ response = client.messages.create(
 ### Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Automatic framework detection**: Works with MCP and popular LLM clients
+- **Automatic framework detection**: Works with Model Context Protocol (MCP) and popular LLM clients
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output
