@@ -19,6 +19,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build twine
+        pip install .
         
     - name: Run tests
       run: |
@@ -30,6 +31,10 @@ jobs:
         pip install bandit safety
         bandit -r src/
         safety check
+        
+    - name: Verify package metadata
+      run: |
+        python .github/scripts/verify_metadata.py
         
     - name: Build package
       run: python -m build
