@@ -1,6 +1,7 @@
 site_name: Cylestio Monitor
 site_description: Monitoring and security for AI agents
 site_author: Cylestio
+site_url: https://docs.cylestio.com
 copyright: Copyright &copy; 2024 Cylestio
 
 theme:
@@ -52,6 +53,14 @@ markdown_extensions:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+
+# Use the gh-pages branch for GitHub Pages
+use_directory_urls: true
 
 nav:
   - Home: index.md
