@@ -10,11 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] - 2024-03-11
 
 ### Changed
-- Improved documentation with clearer sections for users and contributors
-- Enhanced README with more concise and professional content
-- Restructured MkDocs documentation for better navigation
-- Added visualization dashboard references throughout documentation
-- Updated installation and quick start guides to be more user-friendly
+- Simplified repository documentation to focus on core SDK functionality
+- Moved comprehensive documentation to centralized docs site (https://docs.cylestio.com)
+- Updated documentation URLs in package metadata
+- Removed redundant documentation files
+- Enhanced README with clearer installation and usage instructions
+
+### Removed
+- Removed MkDocs configuration and related files
+- Removed redundant documentation that is now in the centralized docs
 
 ## [0.1.1] - 2024-03-11
 

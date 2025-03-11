@@ -37,7 +37,7 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/cylestio/cylestio-monitor"
 "Bug Tracker" = "https://github.com/cylestio/cylestio-monitor/issues"
-"Documentation" = "https://cylestio.github.io/cylestio-monitor/"
+"Documentation" = "https://docs.cylestio.com"
 "Changelog" = "https://github.com/cylestio/cylestio-monitor/blob/main/CHANGELOG.md"
 "Source" = "https://github.com/cylestio/cylestio-monitor"
 
