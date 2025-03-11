@@ -1,4 +1,4 @@
-# Cylestio Monitor
+# Cylestio Monitor - Comprehensive AI Agent Monitoring
 
 <div class="grid-container">
   <div class="feature-card">
