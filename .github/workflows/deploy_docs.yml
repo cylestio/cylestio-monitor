@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
       - '.github/workflows/deploy_docs.yml'
   # Allow manual trigger
   workflow_dispatch:
@@ -27,54 +26,37 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install mkdocs-material
-          pip install pymdown-extensions
-          pip install "mkdocstrings[python]"
-          pip install -e .
-      
       - name: Configure Git user
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
       
-      - name: Create .nojekyll files
+      - name: Deploy documentation to gh-pages branch
         run: |
-          touch ./docs/.nojekyll
-          touch ./.nojekyll
-          
-      - name: Ensure CNAME file exists
-        run: |
-          echo "docs.cylestio.com" > ./docs/CNAME
-      
-      - name: Clean gh-pages branch if it exists
-        run: |
+          # Create a new gh-pages branch or reset it if it exists
           if git ls-remote --heads origin gh-pages | grep gh-pages; then
-            git branch -D gh-pages || true
-            git push origin --delete gh-pages || true
-          fi
-      
-      - name: Deploy documentation directly to gh-pages branch root
-        run: |
-          # Use mkdocs gh-deploy to deploy directly to the root of gh-pages branch
-          mkdocs gh-deploy --force
-          
-      - name: Verify CNAME in gh-pages branch
-        run: |
-          git fetch origin gh-pages
-          git checkout gh-pages
-          if [ ! -f CNAME ]; then
-            echo "CNAME file not found in gh-pages branch, creating it"
-            echo "docs.cylestio.com" > CNAME
-            git add CNAME
-            git commit -m "Add CNAME file"
-            git push origin gh-pages
+            git fetch origin gh-pages
+            git checkout gh-pages
+            git reset --hard origin/main
           else
-            echo "CNAME file exists in gh-pages branch"
-            cat CNAME
+            git checkout -b gh-pages
           fi
+          
+          # Remove everything except the docs directory
+          find . -maxdepth 1 -not -path "./docs" -not -path "./.git" -not -path "." -exec rm -rf {} \;
+          
+          # Move docs content to root
+          mv docs/* .
+          rm -rf docs
+          
+          # Add and commit changes
+          git add .
+          git commit -m "Deploy documentation"
+          
+          # Push to gh-pages branch
+          git push origin gh-pages --force
+          
+          # Return to original branch
           git checkout -
           
       - name: Verify deployment
