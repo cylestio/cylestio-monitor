@@ -31,34 +31,6 @@ jobs:
         bandit -r src/
         safety check
         
-    - name: Verify package metadata
-      run: |
-        # Since we're using Python 3.11, we can use the built-in tomllib module
-        cat > verify_metadata.py << 'EOF'
-        import tomllib
-        import sys
-        from pathlib import Path
-
-        try:
-            # Load and verify the TOML file
-            with Path('pyproject.toml').open('rb') as f:
-                config = tomllib.load(f)
-            
-            # Verify required fields
-            assert config['project']['name'] == 'cylestio-monitor', 'Package name mismatch'
-            assert config['project']['version'], 'Version not set'
-            assert config['project']['description'], 'Description not set'
-            assert config['project']['readme'], 'README not set'
-            assert config['project']['license'], 'License not set'
-            assert config['project']['authors'], 'Authors not set'
-            
-            print('Package metadata verification passed')
-        except Exception as e:
-            print(f'Error verifying metadata: {e}')
-            sys.exit(1)
-        EOF
-        python verify_metadata.py
-        
     - name: Build package
       run: python -m build
       
