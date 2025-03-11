@@ -1,35 +1,32 @@
 # Cylestio Monitor
 
-A lightweight, drop-in monitoring SDK for AI agents, MCP, and LLM API calls.
+A lightweight, drop-in security and performance monitoring SDK for AI agents, Multi-Component Programs (MCPs), and LLM API calls.
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
 [![Security](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml)
 [![Documentation](https://github.com/cylestio/cylestio-monitor/actions/workflows/deploy_docs.yml/badge.svg)](https://cylestio.github.io/cylestio-monitor/)
 
-## Overview
+## For Agent Developers
 
-Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, durations, and responses as structured JSON events. Each event includes a severity flag ("alert") if suspicious or dangerous terms are detected. Dangerous prompts are blocked, while suspicious ones are flagged for review.
+### Why Cylestio Monitor?
 
-## Features
+Cylestio Monitor provides essential oversight for AI agents by intercepting MCP and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
 
-- **Zero-configuration setup**: Just import and enable monitoring
-- **Automatic framework detection**: Works with MCP and popular LLM clients
-- **Security monitoring**: Detects and blocks dangerous prompts
-- **Structured logging**: All events are logged in a structured JSON format
-- **Performance tracking**: Monitors call durations and response times
-- **Global SQLite database**: Stores all events in a shared, OS-agnostic location
-- **Compliance-ready**: Built with SOC2, GDPR, and HIPAA compliance in mind
-- **Data masking**: Configurable masking of sensitive data
-- **Extensible**: Easy to add support for additional LLM providers
+- **Secure your AI systems** by detecting and blocking dangerous prompts
+- **Track performance metrics** with detailed call duration and response time data
+- **Meet compliance requirements** with structured, audit-ready logging
+- **Debug interactions** with comprehensive event data
 
-## Installation
+All with minimal configuration and zero code changes to your existing agents.
+
+### Installation
 
 ```bash
 pip install cylestio-monitor
 ```
 
-## Quick Start
+### Quick Start
 
 ```python
 from cylestio_monitor import enable_monitoring
@@ -52,106 +49,24 @@ response = client.messages.create(
 )
 ```
 
-## Configuration
+### Key Features
 
-Cylestio Monitor uses a global configuration file stored in a platform-specific location:
+- **Zero-configuration setup**: Import and enable with just two lines of code
+- **Automatic framework detection**: Works with MCP and popular LLM clients
+- **Security monitoring**: Detects and blocks dangerous prompts
+- **Performance tracking**: Monitors call durations and response times
+- **Structured logging**: Events stored in SQLite with optional JSON output
+- **Dashboard integration**: View your monitoring data with our open source [visualization dashboard](https://github.com/cylestio/cylestio-dashboard)
 
-- **Linux**: `~/.config/cylestio-monitor/config.yaml`
-- **macOS**: `~/Library/Application Support/cylestio-monitor/config.yaml`
-- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\config.yaml`
+### Visualization Dashboard
 
-The configuration file is automatically created on first run with default settings. You can modify it to customize the behavior of the SDK:
+For an interactive visualization of your monitoring data, check out our separate [Cylestio Dashboard](https://github.com/cylestio/cylestio-dashboard) repository. This open source dashboard provides real-time metrics, alert views, and detailed event analysis.
 
-```yaml
-# Security settings
-security:
-  # Keywords that will trigger a suspicious flag
-  suspicious_keywords:
-    - "hack"
-    - "exploit"
-    # ... more keywords
-  
-  # Keywords that will block the request
-  dangerous_keywords:
-    - "sql injection"
-    - "cross-site scripting"
-    # ... more keywords
+## For Contributors
 
-# Data masking settings
-data_masking:
-  enabled: true
-  patterns:
-    - name: "credit_card"
-      regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
-      replacement: "[CREDIT_CARD]"
-    - name: "ssn"
-      regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
-      replacement: "[SSN]"
-    # ... more patterns
+We welcome contributions to the Cylestio Monitor project! Whether you're fixing bugs, improving documentation, or adding new features, your help is appreciated.
 
-# Database settings
-database:
-  retention_days: 30
-  vacuum_on_startup: true
-```
-
-## Database
-
-Cylestio Monitor stores all events in a SQLite database located in a platform-specific data directory:
-
-- **Linux**: `~/.local/share/cylestio-monitor/monitor.db`
-- **macOS**: `~/Library/Application Support/cylestio-monitor/monitor.db`
-- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\monitor.db`
-
-You can access the database path programmatically:
-
-```python
-from cylestio_monitor import get_database_path
-
-db_path = get_database_path()
-print(f"Database is stored at: {db_path}")
-```
-
-## Querying Events
-
-The SDK provides utilities for querying events from the database:
-
-```python
-from cylestio_monitor.db import utils as db_utils
-
-# Get recent events for a specific agent
-events = db_utils.get_events(agent_id="my_agent", limit=10)
-
-# Search for events containing specific text
-search_results = db_utils.search_events(query="error", agent_id="my_agent")
-
-# Get statistics for an agent
-stats = db_utils.get_agent_stats(agent_id="my_agent")
-```
-
-## Compliance & Security
-
-Cylestio Monitor is designed with compliance in mind:
-
-- **SOC2**: Comprehensive logging and monitoring
-- **GDPR**: Data masking and retention policies
-- **HIPAA**: Secure storage and access controls
-
-The SDK includes features to help you maintain compliance:
-
-- **Data masking**: Automatically mask sensitive data like PII and PHI
-- **Retention policies**: Configure how long data is stored
-- **Access controls**: Database is stored in a user-specific location
-
-## Documentation
-
-For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cylestio.github.io/cylestio-monitor/).
-
-## License
-
-MIT
-
-## Development Setup
+### Development Setup
 
 1. Ensure you have Python 3.11+ installed
 2. Clone the repository:
@@ -177,14 +92,20 @@ MIT
    pre-commit install --hook-type pre-push
    ```
 
-## Contributing
+### Contribution Guidelines
 
-Contributions are welcome! Please see [CONTRIBUTING.md](https://cylestio.github.io/cylestio-monitor/development/contributing/) for details.
+- **Code Style**: We use Black, isort, and ruff for code formatting
+- **Testing**: All new features and bug fixes must include tests
+- **Documentation**: Update relevant docs for any changes you make
+- **Security**: Follow security best practices in all code
+- **Commit Messages**: Use conventional commits format (`type(scope): message`)
 
-## Security & Compliance
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
-For compliance with SOC2, GDPR, and HIPAA requirements:
-- Never commit credentials or secrets
-- Never commit PII or PHI data
-- Address security vulnerabilities promptly
-- Run security checks before commits: `pre-commit run --all-files`
+## Documentation
+
+For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cylestio.github.io/cylestio-monitor/).
+
+## License
+
+MIT

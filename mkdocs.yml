@@ -87,9 +87,17 @@ nav:
     - Events Listener: api-reference/events-listener.md
     - Database: api-reference/database.md
   - Advanced Topics:
-    - Monitoring Channels: advanced-topics/monitoring-channels.md
+    - Monitoring Channels: monitoring_channels.md
     - Custom Integrations: advanced-topics/custom-integrations.md
     - Performance: advanced-topics/performance.md
+    - Integration Patterns: best-practices/integration-patterns.md
   - Best Practices:
     - Security: best-practices/security.md
-    - Monitoring: best-practices/monitoring.md 
+    - Monitoring: best-practices/monitoring.md
+  - Troubleshooting:
+    - Common Issues: troubleshooting/common-issues.md
+    - FAQs: troubleshooting/faqs.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Changelog: development/changelog.md
+  - Database Reference: database.md 

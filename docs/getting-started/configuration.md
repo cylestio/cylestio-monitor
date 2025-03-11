@@ -1,132 +1,169 @@
 # Configuration
 
-Cylestio Monitor provides several configuration options to customize its behavior.
+Cylestio Monitor provides flexible configuration options to customize its behavior to your specific requirements.
 
-## Global Configuration File
+## Configuration Location
 
-The configuration file is stored in an OS-specific location:
+The configuration file is automatically created on first use and stored in an OS-specific location:
 
-- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\config.yaml`
+- **Linux**: `~/.config/cylestio-monitor/config.yaml`
 - **macOS**: `~/Library/Application Support/cylestio-monitor/config.yaml`
-- **Linux**: `~/.local/share/cylestio-monitor/config.yaml`
+- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\config.yaml`
 
-## Default Configuration
+## Configuration Options
+
+Below is the complete configuration schema with default values and descriptions:
 
 ```yaml
 # Security monitoring settings
 security:
-  # Keywords for security checks
-  suspicious_keywords:
-    - "REMOVE"
-    - "CLEAR"
-    - "HACK"
-    - "BOMB"
-  
-  dangerous_keywords:
-    - "DROP"
-    - "DELETE"
-    - "SHUTDOWN"
-    - "EXEC("
-    - "FORMAT"
-    - "RM -RF"
-    - "KILL"
-
-# Logging configuration
-logging:
-  level: "INFO"
-  format: "json"
-  file_rotation: true
-  max_file_size_mb: 10
-  backup_count: 5
-
-# Monitoring settings
-monitoring:
+  # Enable or disable security monitoring
   enabled: true
-  channels:
-    - "SYSTEM"
-    - "LLM"
-    - "API"
-    - "MCP"
-  alert_levels:
-    - "none"
-    - "suspicious"
-    - "dangerous"
+  
+  # Keywords that trigger a suspicious flag (case-insensitive)
+  suspicious_keywords:
+    - "hack"
+    - "exploit"
+    - "bypass"
+    - "vulnerability"
+    - "override"
+    - "inject"
+    - "ignore previous"
+    # ... and more
+  
+  # Keywords that block the request (case-insensitive)
+  dangerous_keywords:
+    - "sql injection"
+    - "cross-site scripting"
+    - "steal credentials"
+    - "ignore all previous instructions"
+    # ... and more
+    
+  # Action to take for suspicious content: "alert" (default), "block", or "log"
+  suspicious_action: "alert"
+  
+  # Action to take for dangerous content: "block" (default), "alert", or "log"
+  dangerous_action: "block"
+
+# Data masking for PII/PHI protection
+data_masking:
+  # Enable or disable data masking
+  enabled: true
+  
+  # Patterns to mask in logs and stored data
+  patterns:
+    - name: "credit_card"
+      regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
+      replacement: "[CREDIT_CARD]"
+    - name: "ssn"
+      regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      replacement: "[SSN]"
+    - name: "email"
+      regex: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
+      replacement: "[EMAIL]"
+    - name: "phone"
+      regex: "\\b(\\+\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}\\b"
+      replacement: "[PHONE]"
+    # ... and more
+
+# Database settings
+database:
+  # Number of days to keep events before automatic cleanup
+  retention_days: 30
+  
+  # Whether to vacuum the database on startup
+  vacuum_on_startup: true
+  
+  # Maximum database size in MB (0 for unlimited)
+  max_size_mb: 1000
+
+# Logging settings
+logging:
+  # Log level for SDK operations
+  level: "INFO"
+  
+  # Whether to include timestamps in logs
+  include_timestamp: true
+  
+  # Whether to include agent_id in logs
+  include_agent_id: true
+  
+  # Format for console logs: "text" or "json"
+  console_format: "text"
 ```
 
-## Runtime Configuration
+## Modifying Configuration
+
+You can modify the configuration in three ways:
+
+### 1. Edit the Configuration File
+
+Simply edit the YAML file directly. Changes will be picked up the next time you enable monitoring.
+
+### 2. API Configuration
+
+Set specific configuration options when enabling monitoring:
 
 ```python
 from cylestio_monitor import enable_monitoring
 
-# Enable monitoring with custom settings
 enable_monitoring(
     agent_id="my_agent",
     llm_client=client,
-    log_file="/path/to/logs/monitoring.json",
-    debug_level="DEBUG"  # Override the default logging level
+    config_overrides={
+        "security": {
+            "suspicious_keywords": ["custom", "keywords", "here"],
+            "dangerous_action": "alert"  # Don't block, just alert
+        },
+        "data_masking": {
+            "enabled": False  # Disable data masking
+        }
+    }
 )
 ```
 
-## Configuration Parameters
+### 3. Environment Variables
 
-- **agent_id**: Unique identifier for your agent or project
-- **llm_client**: LLM client instance to monitor
-- **llm_method_path**: Path to the LLM client method to patch (default: "messages.create")
-- **log_file**: Path to the output log file (if None, only SQLite logging is used)
-- **debug_level**: Logging level for the SDK's internal debug logs (default: "INFO")
+Set configuration via environment variables:
 
-## Customizing Security Keywords
+```bash
+# Set retention period to 60 days
+export CYLESTIO_DATABASE_RETENTION_DAYS=60
 
-Edit the global configuration file to customize security keywords:
+# Disable security monitoring
+export CYLESTIO_SECURITY_ENABLED=false
 
-```yaml
-security:
-  suspicious_keywords:
-    - "REMOVE"
-    - "CLEAR"
-    - "HACK"
-    - "BOMB"
-    - "YOUR_CUSTOM_TERM"
-  
-  dangerous_keywords:
-    - "DROP"
-    - "DELETE"
-    - "SHUTDOWN"
-    - "EXEC("
-    - "FORMAT"
-    - "RM -RF"
-    - "KILL"
-    - "YOUR_CUSTOM_DANGEROUS_TERM"
+# Add custom dangerous keywords (comma-separated)
+export CYLESTIO_SECURITY_DANGEROUS_KEYWORDS="custom term 1,custom term 2"
 ```
 
-## Monitoring Channels
+## Configuration Priorities
 
-Cylestio Monitor categorizes events into different channels to help organize and filter monitoring data. The default channels are:
+The configuration system follows this priority order (highest to lowest):
 
-- **SYSTEM**: Events related to the SDK itself
-- **LLM**: Events related to LLM API calls
-- **API**: Events related to general API calls
-- **MCP**: Events related to MCP tool calls
+1. Runtime configuration from `enable_monitoring()`
+2. Environment variables
+3. Configuration file
+4. Default values
 
-You can customize the enabled channels in the global configuration file:
+## Testing Your Configuration
 
-```yaml
-monitoring:
-  channels:
-    - "SYSTEM"
-    - "LLM"
-    - "API"
-    - "MCP"
-    - "YOUR_CUSTOM_CHANNEL"
+To verify your configuration is working as expected:
+
+```python
+from cylestio_monitor import get_current_config
+
+# Get the full active configuration
+config = get_current_config()
+print(config)
+
+# Test a specific security setting
+if config["security"]["enabled"]:
+    print("Security monitoring is enabled")
 ```
-
-For more information about monitoring channels, see [Monitoring Channels](../advanced-topics/monitoring-channels.md).
 
 ## Next Steps
 
-Now that you understand how to configure Cylestio Monitor, you can:
-
-1. Learn more about [monitoring LLM calls](../user-guide/monitoring-llm.md)
-2. Explore [monitoring MCP](../user-guide/monitoring-mcp.md)
-3. Check out the [security features](../user-guide/security-features.md)
-4. Review [logging options](../user-guide/logging-options.md) 
+- Learn how to use [monitoring with LLM providers](../user-guide/monitoring-llm.md)
+- Explore the [security features](../user-guide/security-features.md) in depth
+- Set up the [dashboard](https://github.com/cylestio/cylestio-dashboard) for visualization 

@@ -1,11 +1,21 @@
 # Monitoring LLM Calls
 
+Cylestio Monitor provides comprehensive visibility into Large Language Model API interactions, helping you secure your AI systems, track performance, and maintain compliance.
+
 ## Supported LLM Providers
 
-- **Anthropic Claude**: Via the official `anthropic` Python client
-- **Custom LLM clients**: Via the flexible patching mechanism
+Cylestio Monitor automatically detects and monitors calls to these popular LLM clients:
+
+- **Anthropic** (Claude models)
+- **OpenAI** (GPT models)
+- **Azure OpenAI** (Hosted GPT models)
+- **Google Gemini** (Gemini models)
+- **Cohere** (Cohere models)
+- **Mistral AI** (Mistral models)
 
 ## Basic Setup
+
+Monitoring LLM calls requires just a few lines of code. Pass your LLM client to the `enable_monitoring` function:
 
 ```python
 from cylestio_monitor import enable_monitoring
@@ -16,11 +26,11 @@ client = Anthropic()
 
 # Enable monitoring
 enable_monitoring(
-    agent_id="my_agent",
+    agent_id="my_customer_service_agent",
     llm_client=client
 )
 
-# Use your client as normal
+# Use your client as normal - monitoring happens automatically
 response = client.messages.create(
     model="claude-3-sonnet-20240229",
     max_tokens=1000,
@@ -30,100 +40,95 @@ response = client.messages.create(
 
 ## What Gets Monitored
 
-### Request Data
-- Prompt content
-- Model
-- Parameters
-- Timestamp
-- Security check results
+For each LLM call, Cylestio Monitor captures:
 
-### Response Data
-- Response content
-- Duration
-- Token usage
-- Error information
+- **Request details**: Prompt text, model, parameters
+- **Response content**: The full LLM response
+- **Performance metrics**: Latency, tokens used, request duration
+- **Security alerts**: Any suspicious or dangerous content
+- **Metadata**: Timestamps, agent ID, request ID
 
-## Security Checks
+## Event Types
 
-- **Suspicious Content**: Flagged but allowed to proceed
-- **Dangerous Content**: Blocked by default
+The monitor tracks multiple event types for comprehensive visibility:
 
-## Example Events
+1. **LLM_call_start**: When an LLM request begins
+2. **LLM_call_end**: When an LLM response is received
+3. **LLM_call_error**: When an LLM request fails
+4. **security_alert**: When security issues are detected
 
-### LLM Call Start Event
+## Advanced Configuration
 
-```json
-{
-  "event": "LLM_call_start",
-  "data": {
-    "model": "claude-3-sonnet-20240229",
-    "max_tokens": 1000,
-    "messages": [
-      {
-        "role": "user",
-        "content": "Hello, Claude!"
-      }
-    ],
-    "alert": "none"
-  },
-  "timestamp": "2024-03-10T22:15:30.123456",
-  "channel": "LLM"
-}
-```
+### Monitoring Specific Methods
 
-### LLM Call Finish Event
-
-```json
-{
-  "event": "LLM_call_finish",
-  "data": {
-    "duration_ms": 1234,
-    "response": {
-      "id": "msg_01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-      "type": "message",
-      "role": "assistant",
-      "content": [
-        {
-          "type": "text",
-          "text": "Hello! I'm Claude, an AI assistant created by Anthropic. How can I help you today?"
-        }
-      ],
-      "model": "claude-3-sonnet-20240229",
-      "stop_reason": "end_turn",
-      "stop_sequence": null,
-      "usage": {
-        "input_tokens": 10,
-        "output_tokens": 25
-      }
-    }
-  },
-  "timestamp": "2024-03-10T22:15:31.456789",
-  "channel": "LLM"
-}
-```
-
-## Accessing LLM Events
+By default, the monitor patches the standard message creation method. For custom integration:
 
 ```python
-from cylestio_monitor.db import utils as db_utils
-
-# Get all LLM events for a specific agent
-llm_events = db_utils.get_events_by_channel("LLM", agent_id="my-project")
-
-# Get LLM call start events
-start_events = db_utils.get_events_by_type("LLM_call_start", agent_id="my-project")
-
-# Get LLM call finish events
-finish_events = db_utils.get_events_by_type("LLM_call_finish", agent_id="my-project")
-
-# Get blocked LLM calls
-blocked_events = db_utils.get_events_by_type("LLM_call_blocked", agent_id="my-project")
+# Monitor a different method path
+enable_monitoring(
+    agent_id="custom_integration",
+    llm_client=client,
+    llm_method_path="custom.method.path"
+)
 ```
 
-## Next Steps
+### Multiple Client Monitoring
 
-Now that you understand how to monitor LLM calls, you can:
+Monitor multiple LLM clients simultaneously:
 
-1. Learn about [monitoring MCP](monitoring-mcp.md)
-2. Explore the [security features](security-features.md) in more detail
-3. Check out the [logging options](logging-options.md) 
+```python
+from cylestio_monitor import enable_monitoring
+from anthropic import Anthropic
+from openai import OpenAI
+
+# Create clients
+anthropic_client = Anthropic()
+openai_client = OpenAI()
+
+# Enable monitoring for both
+enable_monitoring(
+    agent_id="multi_llm_agent",
+    llm_client=anthropic_client
+)
+enable_monitoring(
+    agent_id="multi_llm_agent",
+    llm_client=openai_client
+)
+```
+
+## Security Features
+
+For LLM calls, security monitoring provides:
+
+- **Prompt injection detection**: Prevent attempts to override instructions
+- **Content filtering**: Block requests with dangerous keywords
+- **Alert flagging**: Mark suspicious content for review
+- **PII/PHI protection**: Mask sensitive data in logs
+
+## Performance Tracking
+
+Measure and optimize your LLM usage:
+
+- **Response times**: Track how long calls take
+- **Token counts**: Monitor usage against quotas
+- **Error rates**: Identify problematic prompts
+- **Cost analytics**: Calculate spending by model
+
+## Visualization and Analysis
+
+Use the [Cylestio Dashboard](https://github.com/cylestio/cylestio-dashboard) to visualize your LLM interactions:
+
+- Real-time monitoring dashboard
+- Historical trend analysis
+- Security alert views
+- Performance metrics
+
+## Best Practices
+
+For effective LLM monitoring:
+
+1. Use descriptive agent IDs for easy identification
+2. Configure security keywords for your specific use case
+3. Review logs regularly to identify issues
+4. Set up alerting for critical security events
+5. Use the dashboard for trend analysis 

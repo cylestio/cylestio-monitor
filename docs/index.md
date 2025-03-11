@@ -57,26 +57,35 @@
   </div>
 </div>
 
-## Overview
+## For Agent Developers
 
-Cylestio Monitor intercepts key MCP and LLM calls and logs call parameters, durations, and responses as structured JSON events. Each event includes a severity flag ("alert") if suspicious or dangerous terms are detected. Dangerous prompts are blocked, while suspicious ones are flagged for review.
+### Why Cylestio Monitor?
 
-## Key Features
+Cylestio Monitor provides essential oversight for AI agents by intercepting MCP and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
 
-- **Zero-configuration setup**: Just import and enable monitoring
+- **Secure your AI systems** by detecting and blocking dangerous prompts
+- **Track performance metrics** with detailed call duration and response time data
+- **Meet compliance requirements** with structured, audit-ready logging
+- **Debug interactions** with comprehensive event data
+
+All with minimal configuration and zero code changes to your existing agents.
+
+### Key Features
+
+- **Zero-configuration setup**: Import and enable with just two lines of code
 - **Automatic framework detection**: Works with MCP and popular LLM clients
 - **Security monitoring**: Detects and blocks dangerous prompts
-- **Structured logging**: All events are logged in a structured JSON format
 - **Performance tracking**: Monitors call durations and response times
-- **Global SQLite database**: Stores all events in a shared, OS-agnostic location
+- **Structured logging**: Events stored in SQLite with optional JSON output
+- **Dashboard integration**: View your monitoring data with our open source dashboard
 
-## Quick Installation
+### Quick Installation
 
 ```bash
 pip install cylestio-monitor
 ```
 
-## Basic Usage
+### Basic Usage
 
 ```python
 from cylestio_monitor import enable_monitoring
@@ -98,6 +107,24 @@ response = client.messages.create(
     messages=[{"role": "user", "content": "Hello, Claude!"}]
 )
 ```
+
+### Visualization Dashboard
+
+For an interactive visualization of your monitoring data, check out our separate [Cylestio Dashboard](https://github.com/cylestio/cylestio-dashboard) repository. This open source dashboard provides real-time metrics, alert views, and detailed event analysis.
+
+## For Contributors
+
+We welcome contributions to the Cylestio Monitor project! Whether you're fixing bugs, improving documentation, or adding new features, your help is appreciated.
+
+### How You Can Help
+
+- **Bug Fixes**: Help identify and fix bugs in the codebase
+- **Documentation**: Improve our docs, tutorials, and examples
+- **Feature Development**: Add new features and integrations
+- **Testing**: Create and enhance test coverage
+- **Security**: Identify and address security concerns
+
+See our [Contribution Guidelines](development/contributing.md) for details on how to get started.
 
 ## Getting Started
 

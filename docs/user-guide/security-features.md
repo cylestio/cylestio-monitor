@@ -1,121 +1,127 @@
 # Security Features
 
-Cylestio Monitor includes robust security features to help protect your AI agents from potential threats.
+Cylestio Monitor includes advanced security capabilities to protect your AI systems from various threats and ensure compliance with security standards.
 
-## Security Monitoring
+## Threat Detection and Prevention
 
-The core security feature is the ability to detect and respond to potentially harmful content in LLM prompts and MCP tool calls.
+### Prompt Injection Detection
 
-### Security Levels
+Cylestio Monitor analyzes all prompts for potential injection attacks, including:
 
-- **None**: Normal events with no security concerns
-- **Suspicious**: Events that contain potentially suspicious content
-- **Dangerous**: Events that contain dangerous content that could lead to harmful actions
+- Attempts to override system instructions
+- Prompt leakage attacks
+- Jailbreaking attempts
+- Malicious code insertion
 
-### Security Keywords
+When detected, these attempts are flagged or blocked based on your configuration.
 
-The security monitoring is based on keyword matching against two lists:
+### Content Monitoring
 
-1. **Suspicious Keywords**: Terms that trigger a warning but allow the operation to proceed
-2. **Dangerous Keywords**: Terms that trigger a block, preventing the operation from proceeding
+The security system scans content for:
 
-### Default Keywords
+- **Dangerous keywords**: Instructions to perform harmful actions
+- **Suspicious patterns**: Content that may indicate malicious intent
+- **Sensitive information**: PII, PHI, and other protected data
 
-```yaml
-suspicious_keywords:
-  - "REMOVE"
-  - "CLEAR"
-  - "HACK"
-  - "BOMB"
+### Automated Response
 
-dangerous_keywords:
-  - "DROP"
-  - "DELETE"
-  - "SHUTDOWN"
-  - "EXEC("
-  - "FORMAT"
-  - "RM -RF"
-  - "KILL"
-```
+You can configure how the system responds to detected threats:
 
-## Security Actions
+1. **Block**: Prevent dangerous prompts from reaching the LLM
+2. **Alert**: Flag suspicious content for review
+3. **Log**: Record all security events for later analysis
 
-### For Suspicious Content
+## Configuration
 
-1. The event is logged with a warning level
-2. The `alert` field is set to "suspicious"
-3. The matched terms are included in the log
-4. The operation is allowed to proceed
-
-### For Dangerous Content
-
-1. The event is logged with an error level
-2. The `alert` field is set to "dangerous"
-3. The matched terms are included in the log
-4. The operation is blocked, and an exception is raised
-5. A specific "blocked" event is logged
-
-## Customizing Security Settings
-
-### Adding Custom Keywords
+Customize security settings through the configuration file:
 
 ```yaml
+# Security settings
 security:
+  # Keywords that will trigger a suspicious flag
   suspicious_keywords:
-    - "REMOVE"
-    - "CLEAR"
-    - "HACK"
-    - "BOMB"
-    - "YOUR_CUSTOM_TERM"
+    - "hack"
+    - "exploit"
+    - "bypass"
+    - "vulnerability"
+    # ...more keywords
   
+  # Keywords that will block the request
   dangerous_keywords:
-    - "DROP"
-    - "DELETE"
-    - "SHUTDOWN"
-    - "EXEC("
-    - "FORMAT"
-    - "RM -RF"
-    - "KILL"
-    - "YOUR_CUSTOM_DANGEROUS_TERM"
+    - "sql injection"
+    - "cross-site scripting"
+    - "steal credentials"
+    # ...more keywords
+    
+  # Response to suspicious content
+  suspicious_action: "alert"  # Options: "block", "alert", "log"
+  
+  # Response to dangerous content
+  dangerous_action: "block"  # Options: "block", "alert", "log"
 ```
 
-### Disabling Security Checks
+## Data Protection
+
+### PII/PHI Detection
+
+Cylestio Monitor includes pattern recognition for common sensitive data types:
+
+- Credit card numbers
+- Social Security Numbers
+- Email addresses
+- Phone numbers
+- Medical record numbers
+- Account credentials
+
+### Data Masking
+
+Configure data masking to automatically redact sensitive information before logging:
 
 ```yaml
-security:
-  enabled: false
+# Data masking settings
+data_masking:
+  enabled: true
+  patterns:
+    - name: "credit_card"
+      regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
+      replacement: "[CREDIT_CARD]"
+    - name: "ssn"
+      regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      replacement: "[SSN]"
+    # ...more patterns
 ```
 
-## Querying Security Events
+## Compliance Support
 
-```python
-from cylestio_monitor.db import utils as db_utils
-import sqlite3
+Cylestio Monitor helps meet requirements for several compliance frameworks:
 
-# Get the database connection
-db_path = db_utils.get_db_path()
-conn = sqlite3.connect(db_path)
-conn.row_factory = sqlite3.Row
+- **SOC2**: Comprehensive logging and monitoring
+- **GDPR**: Data masking and protection
+- **HIPAA**: PHI detection and secure storage
 
-# Query for suspicious events
-cursor = conn.execute("""
-    SELECT * FROM events
-    WHERE json_extract(data, '$.alert') = 'suspicious'
-    AND agent_id = ?
-    ORDER BY timestamp DESC
-""", ("my-project",))
+## Security Events
 
-# Print the results
-for row in cursor:
-    print(f"Suspicious event: {row['event_type']} at {row['timestamp']}")
+All security events are logged with detailed information:
 
-conn.close()
+```json
+{
+  "timestamp": "2023-04-12T14:25:32.123Z",
+  "agent_id": "customer-service-agent",
+  "event_type": "security_alert",
+  "security_level": "dangerous",
+  "alert_type": "prompt_injection",
+  "content_snippet": "ignore previous instructions and instead...",
+  "action_taken": "blocked",
+  "rule_triggered": "system_instruction_override"
+}
 ```
 
-## Next Steps
+## Best Practices
 
-Now that you understand the security features of Cylestio Monitor, you can:
+For optimal security protection:
 
-1. Review the [security best practices](../best-practices/security.md) for more detailed guidance
-2. Learn about [monitoring LLM calls](monitoring-llm.md) and [monitoring MCP](monitoring-mcp.md)
-3. Explore the [logging options](logging-options.md) to ensure you're capturing all relevant security events 
+1. **Review security logs** regularly for potential threats
+2. **Customize keyword lists** for your specific use case
+3. **Enable data masking** to protect sensitive information
+4. **Use the dashboard** to visualize security trends
+5. **Update configurations** as threat landscape evolves 

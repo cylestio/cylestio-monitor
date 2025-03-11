@@ -1,41 +1,66 @@
 # User Guide Overview
 
-Cylestio Monitor provides three main capabilities:
+## Why Monitor Your AI Agents?
 
-1. **Security Monitoring**: Detect and block dangerous prompts, flag suspicious activity
-2. **Performance Tracking**: Monitor call durations and response times
-3. **Structured Logging**: Store events in SQLite with flexible output options
+Modern AI agents are powerful tools, but they also come with inherent risks:
 
-## How It Works
+- **Security vulnerabilities** through prompt injection or data exfiltration
+- **Performance inconsistencies** that impact user experience
+- **Compliance gaps** that could result in regulatory issues
+- **Debugging challenges** with complex AI interactions
 
-The SDK uses a patching mechanism to intercept calls to LLM APIs and MCP tools. When a call is made, the SDK:
+Cylestio Monitor gives you full visibility into your AI agents' operations, providing real-time security monitoring, performance tracking, and comprehensive logging in a single package.
 
-1. Logs the call parameters and timestamp
-2. Checks for suspicious or dangerous content
-3. Allows or blocks the call based on security checks
-4. Logs the response and performance metrics
-5. Stores all events in a structured format
+## Core Capabilities
 
-## Monitoring Channels
+### 1. Security Monitoring
 
-- **SYSTEM**: Events related to the SDK itself
-- **LLM**: Events related to LLM API calls
-- **API**: Events related to general API calls
-- **MCP**: Events related to MCP tool calls
+Cylestio Monitor actively scans all incoming and outgoing messages for security threats:
 
-## Security Levels
+- **Prompt injection detection** identifies attempts to manipulate your AI
+- **Dangerous content blocking** prevents harmful instructions from being processed
+- **Suspicious activity flagging** marks potential threats for review
+- **PII/PHI detection** identifies sensitive data in prompts and responses
 
-- **None**: Normal events with no security concerns
-- **Suspicious**: Events that contain potentially suspicious content
-- **Dangerous**: Events that contain dangerous content that could lead to harmful actions
+### 2. Performance Tracking
 
-## Data Storage
+Monitor the operational health of your AI systems:
 
-All events are stored in a global SQLite database, ensuring that all instances of the SDK write to the same database regardless of the virtual environment in which they're installed.
+- **Response timing** for every LLM and tool call
+- **Token usage** tracking to manage costs
+- **Error rate** monitoring to detect issues
+- **Latency trends** to identify performance degradation
+
+### 3. Comprehensive Logging
+
+Keep detailed records of all AI interactions:
+
+- **Structured event logs** with standardized formats
+- **Request/response archiving** for auditing and analysis
+- **Security alert records** with threat classification
+- **Centralized storage** in a queryable SQLite database
+
+## Key Benefits
+
+- **Risk reduction** through proactive security monitoring
+- **Cost optimization** with performance and usage insights
+- **Debugging support** with detailed interaction history
+- **Compliance readiness** for audit and regulatory requirements
+- **Easy integration** with minimal code changes
+
+## Integration Patterns
+
+Cylestio Monitor can be integrated in multiple ways:
+
+1. **Direct client integration** - Patch LLM clients automatically
+2. **MCP monitoring** - Monitor Multi-Component Programs
+3. **Custom integrations** - Use our API to monitor any system
 
 ## Next Steps
 
-- [Monitoring LLM Calls](monitoring-llm.md): How to monitor LLM API calls
-- [Monitoring MCP](monitoring-mcp.md): How to monitor MCP tool calls
-- [Security Features](security-features.md): How to use the security features
-- [Logging Options](logging-options.md): How to configure logging 
+Continue reading to explore detailed guides on:
+
+- [Monitoring LLM](monitoring-llm.md) interactions
+- [Monitoring MCP](monitoring-mcp.md) operations
+- [Security Features](security-features.md) and configuration
+- [Logging Options](logging-options.md) for different environments 

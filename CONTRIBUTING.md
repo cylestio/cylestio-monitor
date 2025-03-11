@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Cylestio Monitor! This document p
 
 ## Code of Conduct
 
-Please be respectful and considerate of others when contributing to this project. We expect all contributors to adhere to the following guidelines:
+We expect all contributors to interact respectfully and professionally. Please:
 
 - Be respectful of differing viewpoints and experiences
 - Accept constructive criticism gracefully
@@ -39,14 +39,14 @@ Please be respectful and considerate of others when contributing to this project
 
 ### Code Style
 
-We use the following tools to enforce code style:
+We enforce consistent code style with automated tools:
 
-- **Black**: For code formatting
-- **isort**: For import sorting
-- **mypy**: For type checking
-- **ruff**: For linting
+- **Black**: Code formatting
+- **isort**: Import sorting
+- **mypy**: Type checking
+- **ruff**: Linting
 
-These tools are automatically run by pre-commit hooks when you commit changes.
+These tools run automatically via pre-commit hooks when you commit changes.
 
 ### Type Hints
 
@@ -54,7 +54,7 @@ All code must include proper type hints. We use mypy to verify type correctness.
 
 ### Docstrings
 
-All modules, classes, and functions must have docstrings following the Google style:
+All modules, classes, and functions must have Google-style docstrings:
 
 ```python
 def example_function(param1: str, param2: int) -> bool:
@@ -81,30 +81,29 @@ def example_function(param1: str, param2: int) -> bool:
 
 ### Testing
 
-All new features and bug fixes must include tests. We use pytest for testing.
+All new features and bug fixes must include tests. We use pytest for testing:
 
 - **Unit tests**: Test individual functions and classes
 - **Integration tests**: Test interactions between components
 - **Security tests**: Test security features and requirements
 
-Run tests with:
+Run the test suite with:
 ```bash
 pytest
 ```
 
 ### Security
 
-Security is a top priority for this project. All code must adhere to security best practices:
+Security is our top priority. Please adhere to these practices:
 
 - Never use `eval()`, `exec()`, or similar functions
 - Always validate and sanitize user input
 - Use parameterized queries for database operations
 - Never log sensitive information
-- Use secure defaults
 
 ### Commit Messages
 
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages:
+We follow [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 ```
 <type>(<scope>): <description>
@@ -118,25 +117,15 @@ Types include:
 - **feat**: A new feature
 - **fix**: A bug fix
 - **docs**: Documentation changes
-- **style**: Changes that do not affect the meaning of the code
+- **style**: Changes that do not affect code functionality
 - **refactor**: Code changes that neither fix a bug nor add a feature
 - **test**: Adding or modifying tests
 - **chore**: Changes to the build process or auxiliary tools
 - **security**: Security-related changes
 
-Example:
-```
-feat(db): add function to query events by date range
-
-This adds a new function to query events within a specific date range,
-which helps with implementing retention policies.
-
-Closes #123
-```
-
 ## Pull Request Process
 
-1. Update the documentation to reflect any changes
+1. Update documentation to reflect any changes
 2. Add or update tests as necessary
 3. Ensure all tests pass and code style checks pass
 4. Update the CHANGELOG.md file with details of your changes
@@ -144,45 +133,33 @@ Closes #123
 
 ## Publishing a Release
 
-To publish a new release to PyPI, follow these steps:
+For maintainers, follow these steps to publish a new release:
 
-1. Ensure all tests pass and the code is ready for release
+1. Ensure all tests pass
    ```bash
    python -m pytest
    ```
 
-2. Update the version number in two places:
-   - In `pyproject.toml` (update the `version = "x.y.z"` line)
-   - In `src/cylestio_monitor/__init__.py` (update the `__version__ = "x.y.z"` line)
+2. Update version numbers in:
+   - `pyproject.toml`
+   - `src/cylestio_monitor/__init__.py`
 
-3. Update the CHANGELOG.md with the new version and changes
+3. Update CHANGELOG.md with new version and changes
 
-4. Commit your changes and push to main
+4. Commit changes and push to main
    ```bash
    git add pyproject.toml src/cylestio_monitor/__init__.py CHANGELOG.md
    git commit -m "chore: prepare release x.y.z"
    git push origin main
    ```
 
-5. Create a new release on GitHub:
-   - Go to https://github.com/cylestio/cylestio-monitor/releases
-   - Click "Draft a new release"
+5. Create a new GitHub release:
    - Tag version: `vx.y.z` (must start with 'v')
    - Title: `Release vx.y.z`
    - Description: Copy relevant section from CHANGELOG.md
-   - Click "Publish release"
 
-6. The GitHub Actions workflow will automatically:
-   - Build the package
-   - Run tests and security checks
-   - Verify that the package version matches the tag
-   - Upload to PyPI
-
-7. Verify the release is available on PyPI:
-   - https://pypi.org/project/cylestio-monitor/
-
-If there are any issues during the release process, fix them and create a new release with an incremented patch version.
+The GitHub Actions workflow will automatically build, test, and publish to PyPI.
 
 ## Questions?
 
-If you have any questions or need help, please open an issue on GitHub or contact the maintainers directly. 
+If you have questions or need help, please open an issue on GitHub or contact the maintainers directly. 

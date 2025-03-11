@@ -1,63 +1,56 @@
 # Installation
 
-!!! info "Quick Install"
-    ```bash
-    pip install cylestio-monitor
-    ```
+Installing Cylestio Monitor is straightforward. The package is available on PyPI and can be installed with pip.
 
 ## Requirements
 
-- Python 3.11 or higher
-- SQLite 3.35.0 or higher (for JSON1 extension support)
+- Python 3.9 or higher
+- pip (Python package installer)
 
-## Installation Methods
-
-### Using pip
+## Standard Installation
 
 ```bash
 pip install cylestio-monitor
 ```
 
-### From Source
+This command installs the core monitoring package with all essential dependencies.
+
+## Development Installation
+
+If you plan to contribute to Cylestio Monitor, install the package with development dependencies:
 
 ```bash
+# Clone the repository
 git clone https://github.com/cylestio/cylestio-monitor.git
 cd cylestio-monitor
-pip install -e .
+
+# Install the package in development mode with extra dependencies
+pip install -e ".[dev,test,security]"
 ```
-
-## Dependencies
-
-!!! note "Dependencies"
-    Cylestio Monitor has the following dependencies:
-
-    - `anthropic`: For monitoring Anthropic Claude API calls
-    - `mcp`: For monitoring MCP tool calls
-    - `pydantic`: For data validation
-    - `python-dotenv`: For environment variable support
-    - `structlog`: For structured logging
-    - `platformdirs`: For OS-agnostic file paths
-    - `pyyaml`: For configuration file parsing
 
 ## Verifying Installation
 
-You can verify that Cylestio Monitor is installed correctly by running:
+You can verify your installation by importing the package:
 
 ```python
 import cylestio_monitor
 print(cylestio_monitor.__version__)
 ```
 
-!!! tip "Database Location"
-    The database file is stored in an OS-specific location:
-
-    - **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\cylestio_monitor.db`
-    - **macOS**: `~/Library/Application Support/cylestio-monitor/cylestio_monitor.db`
-    - **Linux**: `~/.local/share/cylestio-monitor/cylestio_monitor.db`
-
 ## Next Steps
 
-Now that you have installed Cylestio Monitor, you can:
+Once installed, you can:
 
-1. Check out the [Quick Start Guide](quick-start.md) to get up and running
-2. Learn about [Configuration Options](configuration.md) to customize the SDK 
+1. [Get started](quick-start.md) with basic monitoring
+2. Review the [configuration options](configuration.md)
+3. Explore [advanced use cases](../monitoring_channels.md)
+
+## Dashboard Installation
+
+For visualization of your monitoring data, we recommend installing our separate [dashboard application](https://github.com/cylestio/cylestio-dashboard).
+
+```bash
+pip install cylestio-dashboard
+```
+
+The dashboard provides a web interface for viewing events, alerts, and performance metrics collected by Cylestio Monitor. 
