@@ -51,3 +51,37 @@ For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cyle
 ## License
 
 MIT
+
+## Development Setup
+
+1. Ensure you have Python 3.11+ installed
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/cylestio/cylestio-monitor.git
+   cd cylestio-monitor
+   ```
+
+3. Create and activate virtual environment:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+4. Install dependencies:
+   ```bash
+   pip install -e ".[dev,test,security]"
+   ```
+
+5. Install pre-commit hooks:
+   ```bash
+   pre-commit install
+   pre-commit install --hook-type pre-push
+   ```
+
+## Security & Compliance
+
+For compliance with SOC2, GDPR, and HIPAA requirements:
+- Never commit credentials or secrets
+- Never commit PII or PHI data
+- Address security vulnerabilities promptly
+- Run security checks before commits: `pre-commit run --all-files`
