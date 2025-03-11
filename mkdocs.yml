@@ -1,5 +1,5 @@
 site_name: Cylestio Monitor
-site_description: Monitoring and security for AI agents
+site_description: Security and Monitoring for AI Agents
 site_author: Cylestio
 site_url: https://docs.cylestio.com
 copyright: Copyright &copy; 2024 Cylestio
@@ -9,32 +9,42 @@ copyright: Copyright &copy; 2024 Cylestio
 
 theme:
   name: material
+  custom_dir: docs/overrides
   icon:
     logo: material/shield-check
+  favicon: assets/favicon.ico
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
   features:
-    - navigation.tabs
+    - navigation.instant
+    - navigation.tracking
     - navigation.sections
+    - navigation.expand
+    - navigation.indexes
     - navigation.top
     - search.highlight
     - search.suggest
     - content.code.copy
+    - content.code.annotate
+    - content.tooltips
   # Remove "Made with Material for MkDocs" footer
   generator: false
 
@@ -44,10 +54,17 @@ extra_css:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.tabbed:
@@ -55,14 +72,27 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      title: On this page
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: material.extensions.emoji.twemoji
+      emoji_generator: material.extensions.emoji.to_svg
 
 plugins:
   - search
+  - social
+  - tags
   - mkdocstrings:
       handlers:
         python:
           options:
             show_source: true
+            docstring_style: google
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source
 
 # GitHub Pages Configuration
 use_directory_urls: true
@@ -73,25 +103,24 @@ docs_dir: docs
 nav:
   - Home: index.md
   - Getting Started:
-    - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
+    - Installation: getting-started/installation.md
     - Configuration: getting-started/configuration.md
   - User Guide:
     - Overview: user-guide/overview.md
-    - Monitoring AI Agents: user-guide/monitoring-agents.md
-    - Framework Support:
-      - Overview: user-guide/frameworks/index.md
-      - MCP Integration: user-guide/frameworks/mcp.md
+    - Monitoring Agents:
+      - Basic Monitoring: user-guide/monitoring-agents.md
+      - LLM Monitoring: user-guide/monitoring-llm.md
+      - MCP Integration: user-guide/monitoring-mcp.md
     - Security Features: user-guide/security-features.md
-    - Logging Options: user-guide/logging-options.md
+    - Dashboard Integration: user-guide/dashboard.md
   - SDK Reference:
     - Overview: sdk-reference/overview.md
     - Monitor Module: sdk-reference/monitor.md
-    - Events System: sdk-reference/events.md
-    - Database: sdk-reference/database.md
-  - Security:
-    - Compliance Reports: security/compliance-reports.md
-    - Security Best Practices: security/best-practices.md
+    - Events:
+      - Overview: sdk-reference/events-listener.md
+      - Event Processing: sdk-reference/events-processor.md
+    - Database: api-reference/database.md
   - Troubleshooting:
     - Common Issues: troubleshooting/common-issues.md
     - FAQs: troubleshooting/faqs.md
@@ -106,4 +135,13 @@ nav:
   - Development:
     - Contributing: development/contributing.md
     - Changelog: development/changelog.md
-  - Database Reference: database.md 
+  - Database Reference: database.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/cylestio/cylestio-monitor
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/cylestio-monitor/
+  version:
+    provider: mike 
