@@ -9,9 +9,9 @@ description = "A monitoring tool for LLM API calls"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-keywords = ["llm", "monitoring", "api", "sqlite", "database"]
+keywords = ["llm", "monitoring", "api", "sqlite", "database", "security", "compliance"]
 authors = [
-    { name = "Cylest.io", email = "contact@cylest.io" }
+    { name = "Cylestio.com", email = "contact@Cylestio.com" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -19,6 +19,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring",
 ]
 
 dependencies = [
@@ -34,6 +36,9 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/cylestio/cylestio-monitor"
 "Bug Tracker" = "https://github.com/cylestio/cylestio-monitor/issues"
+"Documentation" = "https://cylestio.github.io/cylestio-monitor/"
+"Changelog" = "https://github.com/cylestio/cylestio-monitor/blob/main/CHANGELOG.md"
+"Source" = "https://github.com/cylestio/cylestio-monitor"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cylestio_monitor"]
