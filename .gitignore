@@ -258,3 +258,6 @@ old_examples/
 
 # Output files
 *_monitoring.json
+
+# Custom ignores
+run_demo.sh
