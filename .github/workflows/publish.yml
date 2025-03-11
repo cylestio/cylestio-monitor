@@ -34,7 +34,43 @@ jobs:
         
     - name: Verify package metadata
       run: |
-        python .github/scripts/verify_metadata.py
+        # Explicitly install tomli first
+        python -m pip install tomli
+        
+        # Create and run a simple verification script
+        cat > verify_metadata.py << 'EOF'
+        import sys
+        from pathlib import Path
+
+        # Try to use tomllib first, then fall back to tomli
+        try:
+            import tomllib
+            print("Using tomllib")
+            toml_parser = tomllib
+        except ImportError:
+            try:
+                import tomli
+                print("Using tomli")
+                toml_parser = tomli
+            except ImportError:
+                print("Error: Neither tomllib nor tomli is available")
+                sys.exit(1)
+
+        try:
+            with Path('pyproject.toml').open('rb') as f:
+                config = toml_parser.load(f)
+            
+            # Print key info about the package
+            print(f'Package: {config["project"]["name"]}')
+            print(f'Version: {config["project"]["version"]}')
+            print(f'Description: {config["project"]["description"]}')
+            print('Metadata verification passed')
+        except Exception as e:
+            print(f'Error verifying metadata: {e}')
+            sys.exit(1)
+        EOF
+        
+        python verify_metadata.py
         
     - name: Build package
       run: python -m build
