@@ -44,6 +44,13 @@ jobs:
         run: |
           touch ./docs/.nojekyll
       
+      - name: Clean gh-pages branch if it exists
+        run: |
+          if git ls-remote --heads origin gh-pages | grep gh-pages; then
+            git branch -D gh-pages || true
+            git push origin --delete gh-pages || true
+          fi
+      
       - name: Deploy documentation
         run: |
           mkdocs gh-deploy --force
