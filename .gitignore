@@ -258,3 +258,9 @@ old_examples/
 
 # Output files
 *_monitoring.json
+
+# Demo and local development tools
+demo/
+run_demo.sh
+generate_demo_data.sh
+deploy_docs.sh

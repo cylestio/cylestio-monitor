@@ -44,21 +44,6 @@ response = client.messages.create(
 )
 ```
 
-## Tools and Utilities
-
-### Synthetic Data Generator
-
-A tool for generating synthetic monitoring data for demo and testing purposes. It creates realistic events for five different AI agents over a one-month period with varied event types, alert levels, and metrics.
-
-To use the synthetic data generator:
-
-```bash
-cd tools/synthetic_data_generator
-./run_demo.sh
-```
-
-For more details, see the [Synthetic Data Generator README](tools/synthetic_data_generator/README.md).
-
 ## Documentation
 
 For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cylestio.github.io/cylestio-monitor/).
