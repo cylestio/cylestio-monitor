@@ -1,7 +1,7 @@
 site_name: Cylestio Monitor
 site_description: Security and Monitoring for AI Agents
 site_author: Cylestio
-site_url: https://docs.cylestio.com
+site_url: https://docs.cylestio.com/
 copyright: Copyright &copy; 2024 Cylestio
 
 # Ensure GitHub Pages doesn't use Jekyll

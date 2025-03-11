@@ -44,6 +44,10 @@ jobs:
         run: |
           touch ./docs/.nojekyll
           touch ./.nojekyll
+          
+      - name: Ensure CNAME file exists
+        run: |
+          echo "docs.cylestio.com" > ./docs/CNAME
       
       - name: Clean gh-pages branch if it exists
         run: |
@@ -56,6 +60,22 @@ jobs:
         run: |
           # Use mkdocs gh-deploy to deploy directly to the root of gh-pages branch
           mkdocs gh-deploy --force
+          
+      - name: Verify CNAME in gh-pages branch
+        run: |
+          git fetch origin gh-pages
+          git checkout gh-pages
+          if [ ! -f CNAME ]; then
+            echo "CNAME file not found in gh-pages branch, creating it"
+            echo "docs.cylestio.com" > CNAME
+            git add CNAME
+            git commit -m "Add CNAME file"
+            git push origin gh-pages
+          else
+            echo "CNAME file exists in gh-pages branch"
+            cat CNAME
+          fi
+          git checkout -
           
       - name: Verify deployment
         run: |
