@@ -52,16 +52,9 @@ jobs:
             git push origin --delete gh-pages || true
           fi
       
-      - name: Build documentation
+      - name: Deploy documentation directly to gh-pages branch root
         run: |
-          mkdocs build --clean
-      
-      - name: Ensure .nojekyll in site directory
-        run: |
-          touch ./site/.nojekyll
-      
-      - name: Deploy documentation
-        run: |
+          # Use mkdocs gh-deploy to deploy directly to the root of gh-pages branch
           mkdocs gh-deploy --force
           
       - name: Verify deployment
