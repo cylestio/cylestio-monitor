@@ -4,8 +4,8 @@ site_author: Cylestio
 site_url: https://docs.cylestio.com
 copyright: Copyright &copy; 2024 Cylestio
 
-# Ensure .nojekyll file is included in the build
-include_dot_nojekyll: true
+# Ensure GitHub Pages doesn't use Jekyll
+# Note: The .nojekyll file is created in the GitHub Actions workflow
 
 theme:
   name: material

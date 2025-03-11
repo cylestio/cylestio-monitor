@@ -40,9 +40,10 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
       
-      - name: Create .nojekyll file
+      - name: Create .nojekyll files
         run: |
           touch ./docs/.nojekyll
+          touch ./.nojekyll
       
       - name: Clean gh-pages branch if it exists
         run: |
@@ -50,6 +51,14 @@ jobs:
             git branch -D gh-pages || true
             git push origin --delete gh-pages || true
           fi
+      
+      - name: Build documentation
+        run: |
+          mkdocs build --clean
+      
+      - name: Ensure .nojekyll in site directory
+        run: |
+          touch ./site/.nojekyll
       
       - name: Deploy documentation
         run: |
