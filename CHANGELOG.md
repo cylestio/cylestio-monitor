@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2024-03-11
+
+### Changed
+- Improved documentation with clearer sections for users and contributors
+- Enhanced README with more concise and professional content
+- Restructured MkDocs documentation for better navigation
+- Added visualization dashboard references throughout documentation
+- Updated installation and quick start guides to be more user-friendly
+
 ## [0.1.1] - 2024-03-11
 
 ### Fixed
