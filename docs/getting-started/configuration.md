@@ -167,3 +167,225 @@ if config["security"]["enabled"]:
 - Learn how to use [monitoring with LLM providers](../user-guide/monitoring-llm.md)
 - Explore the [security features](../user-guide/security-features.md) in depth
 - Set up the [dashboard](https://github.com/cylestio/cylestio-dashboard) for visualization 
+
+## Basic Configuration
+
+When enabling monitoring, you can provide several configuration options:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+enable_monitoring(
+    agent_id="my-agent",
+    llm_client=client,
+    block_dangerous=True,
+    security_level="high",
+    log_file="/path/to/logs/monitoring.json",
+    development_mode=False
+)
+```
+
+## Common Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `agent_id` | string | Required | Unique identifier for the agent being monitored |
+| `llm_client` | object | None | LLM client instance to monitor |
+| `block_dangerous` | boolean | False | Whether to block dangerous prompts |
+| `security_level` | string | "medium" | Security level: "low", "medium", "high" |
+| `log_file` | string | None | Path to log file or directory |
+| `development_mode` | boolean | False | Enable additional debug information |
+| `database_path` | string | System default | Custom path for the monitoring database |
+
+## Security Configuration
+
+### Security Levels
+
+Cylestio Monitor supports three security levels:
+
+- **Low**: Only blocks the most dangerous prompts (e.g., explicit attempts to hack the AI)
+- **Medium**: Blocks dangerous prompts and flags suspicious ones (default)
+- **High**: Blocks dangerous prompts, flags suspicious ones, and limits access to sensitive features
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# High security level for production
+enable_monitoring(
+    agent_id="production-agent",
+    security_level="high",
+    block_dangerous=True
+)
+
+# Low security level for development
+enable_monitoring(
+    agent_id="dev-agent",
+    security_level="low",
+    block_dangerous=False
+)
+```
+
+### Custom Security Rules
+
+You can add custom security rules:
+
+```python
+from cylestio_monitor import enable_monitoring, add_security_rule
+
+# Enable monitoring
+enable_monitoring(agent_id="my-agent")
+
+# Add custom security rules
+add_security_rule(
+    name="block-financial-data",
+    pattern=r"credit.card|ssn|bank.account",
+    action="block",
+    severity="high"
+)
+```
+
+## Logging Configuration
+
+### File Logging
+
+You can log events to a file:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# Log to a specific file
+enable_monitoring(
+    agent_id="my-agent",
+    log_file="/path/to/logs/monitoring.json"
+)
+
+# Log to a directory (a timestamped file will be created)
+enable_monitoring(
+    agent_id="my-agent",
+    log_file="/path/to/logs/"
+)
+```
+
+### Logging Format
+
+The log file format is JSON, with each event on a new line (JSON Lines format):
+
+```json
+{"event": "LLM_call_start", "data": {"model": "claude-3-sonnet-20240229", "messages": [...]}, "timestamp": "2024-06-15T14:30:22.123456", "agent_id": "my-agent", "channel": "LLM", "level": "info"}
+{"event": "LLM_call_finish", "data": {"duration_ms": 1234, "response": {...}}, "timestamp": "2024-06-15T14:30:23.456789", "agent_id": "my-agent", "channel": "LLM", "level": "info"}
+```
+
+## Database Configuration
+
+### Custom Database Path
+
+You can specify a custom database path:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# Use a custom database path
+enable_monitoring(
+    agent_id="my-agent",
+    database_path="/path/to/custom/database.db"
+)
+```
+
+### Data Retention
+
+You can configure how long data is retained:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# Set data retention to 60 days
+enable_monitoring(
+    agent_id="my-agent",
+    data_retention_days=60
+)
+```
+
+## MCP-specific Configuration {#mcp-specific-configuration}
+
+When working with Model Context Protocol (MCP), you can configure specific settings:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# Enable monitoring with MCP-specific configuration
+enable_monitoring(
+    agent_id="mcp-project",
+    mcp_config={
+        "tool_allow_list": ["weather", "calculator", "search"],
+        "block_dangerous_tools": True,
+        "monitor_tool_inputs": True,
+        "monitor_tool_outputs": True,
+        "max_tool_execution_time_ms": 5000
+    }
+)
+```
+
+### MCP Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `tool_allow_list` | list | None | List of allowed tools; if provided, other tools will be blocked |
+| `block_dangerous_tools` | boolean | True | Whether to block tools considered dangerous |
+| `monitor_tool_inputs` | boolean | True | Whether to monitor tool inputs |
+| `monitor_tool_outputs` | boolean | True | Whether to monitor tool outputs |
+| `max_tool_execution_time_ms` | int | 10000 | Maximum tool execution time in milliseconds |
+
+## Environment Variables
+
+Cylestio Monitor also supports configuration via environment variables:
+
+| Environment Variable | Description |
+|----------------------|-------------|
+| `CYLESTIO_AGENT_ID` | Default agent ID |
+| `CYLESTIO_LOG_FILE` | Path to log file |
+| `CYLESTIO_SECURITY_LEVEL` | Security level (low, medium, high) |
+| `CYLESTIO_BLOCK_DANGEROUS` | Whether to block dangerous prompts (true/false) |
+| `CYLESTIO_DATABASE_PATH` | Custom database path |
+| `CYLESTIO_DEVELOPMENT_MODE` | Enable development mode (true/false) |
+
+Example:
+
+```bash
+export CYLESTIO_AGENT_ID="my-agent"
+export CYLESTIO_SECURITY_LEVEL="high"
+export CYLESTIO_BLOCK_DANGEROUS="true"
+```
+
+Then in your code:
+
+```python
+from cylestio_monitor import enable_monitoring
+
+# Configuration will be loaded from environment variables
+enable_monitoring()
+```
+
+## Configuration File
+
+You can also use a configuration file:
+
+```python
+from cylestio_monitor import enable_monitoring_from_config
+
+# Load configuration from a file
+enable_monitoring_from_config("/path/to/config.yaml")
+```
+
+Example configuration file (`config.yaml`):
+
+```yaml
+agent_id: my-agent
+security:
+  level: high
+  block_dangerous: true
+logging:
+  log_file: /path/to/logs/monitoring.json
+database:
+  path: /path/to/custom/database.db
+  retention_days: 60
+``` 

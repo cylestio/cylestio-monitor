@@ -1,17 +1,17 @@
 # Cylestio Monitor
 
-A lightweight, drop-in security and performance monitoring SDK for AI agents, [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), and LLM API calls.
+A comprehensive security and monitoring solution for AI agents throughout their lifecycle, from development to production. Cylestio Monitor provides lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP) and popular LLM providers.
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
 [![Security](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml)
-[![Documentation](https://github.com/cylestio/cylestio-monitor/actions/workflows/deploy_docs.yml/badge.svg)](https://cylestio.github.io/cylestio-monitor/)
+[![Documentation](https://github.com/cylestio/cylestio-monitor/actions/workflows/deploy_docs.yml/badge.svg)](https://docs.cylestio.com/)
 
-## For Agent Developers
+## For AI Agent Developers
 
 ### Why Cylestio Monitor?
 
-Cylestio Monitor provides essential oversight for AI agents by intercepting Model Context Protocol (MCP) and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
+Cylestio Monitor provides comprehensive security and monitoring for AI agents throughout their lifecycle, from development to production. Our solution helps you:
 
 - **Secure your AI systems** by detecting and blocking dangerous prompts
 - **Track performance metrics** with detailed call duration and response time data
@@ -52,11 +52,21 @@ response = client.messages.create(
 ### Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Automatic framework detection**: Works with Model Context Protocol (MCP) and popular LLM clients
+- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output
 - **Dashboard integration**: View your monitoring data with our open source [visualization dashboard](https://github.com/cylestio/cylestio-dashboard)
+
+## Security and Compliance
+
+Cylestio Monitor is built with security and compliance in mind. We implement rigorous security practices and testing protocols to help you meet regulatory requirements including:
+
+- **SOC2**: Our development and release processes follow SOC2 security principles
+- **HIPAA**: Built-in safeguards help protect sensitive healthcare information
+- **GDPR**: Configurable data handling options to support privacy requirements
+
+Each version of Cylestio Monitor includes detailed security reports documenting our testing protocols and scan results.
 
 ### Visualization Dashboard
 
@@ -104,7 +114,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## Documentation
 
-For full documentation, visit [cylestio.github.io/cylestio-monitor](https://cylestio.github.io/cylestio-monitor/).
+For full documentation, visit [docs.cylestio.com](https://docs.cylestio.com/).
 
 ## License
 

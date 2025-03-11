@@ -94,14 +94,34 @@ finish_events = db_utils.get_events_by_type("MCP_tool_call_finish", agent_id="my
 blocked_events = db_utils.get_events_by_type("MCP_tool_call_blocked", agent_id="my-project")
 ```
 
-## Advanced Configuration for MCP
-
-For more advanced configuration options specific to MCP monitoring, see our [Configuration Guide](../getting-started/configuration.md#mcp-specific-configuration).
-
-## Additional Frameworks
-
-Cylestio Monitor also supports other AI frameworks and LLM providers. See our [Framework Support](frameworks/index.md) documentation for details on all available integrations.
-
 ## Tool-Specific Analysis
 
 You can analyze tool usage patterns:
+
+```python
+from cylestio_monitor.db import utils as db_utils
+
+# Get most commonly used tools
+tool_usage = db_utils.get_tool_usage_stats(agent_id="my-project")
+
+# Get average tool call duration
+tool_performance = db_utils.get_tool_performance_stats(agent_id="my-project")
+
+# Get error rates by tool
+tool_errors = db_utils.get_tool_error_stats(agent_id="my-project")
+```
+
+## Advanced Configuration for MCP
+
+For more advanced configuration options specific to MCP monitoring, see our [Configuration Guide](../../getting-started/configuration.md#mcp-specific-configuration).
+
+## MCP Security Considerations
+
+When working with MCP, consider these additional security best practices:
+
+1. **Tool validation**: Ensure tools only perform their intended functions
+2. **Input sanitization**: Validate all inputs to tools before processing
+3. **Output filtering**: Prevent sensitive data from being returned
+4. **Access control**: Limit which tools are available to which agents
+
+For more security features, see our [Security Guide](../security-features.md). 

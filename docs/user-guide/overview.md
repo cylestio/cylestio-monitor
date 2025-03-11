@@ -26,7 +26,7 @@ Cylestio Monitor actively scans all incoming and outgoing messages for security 
 
 Monitor the operational health of your AI systems:
 
-- **Response timing** for every LLM and tool call
+- **Response timing** for every interaction and tool call
 - **Token usage** tracking to manage costs
 - **Error rate** monitoring to detect issues
 - **Latency trends** to identify performance degradation
@@ -48,19 +48,34 @@ Keep detailed records of all AI interactions:
 - **Compliance readiness** for audit and regulatory requirements
 - **Easy integration** with minimal code changes
 
+## Supported Frameworks
+
+Cylestio Monitor integrates with various AI frameworks and providers:
+
+1. **LLM Providers**
+   - OpenAI (GPT models)
+   - Anthropic (Claude models)
+   - Mistral AI
+   - More being added regularly
+
+2. **AI Frameworks**
+   - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction)
+   - LangChain
+   - Custom frameworks (via our SDK)
+
 ## Integration Patterns
 
 Cylestio Monitor can be integrated in multiple ways:
 
 1. **Direct client integration** - Patch LLM clients automatically
-2. **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) monitoring** - Monitor Model Context Protocol operations
-3. **Custom integrations** - Use our API to monitor any system
+2. **Framework monitoring** - Monitor framework-specific operations
+3. **Custom integrations** - Use our SDK to monitor any AI system
 
 ## Next Steps
 
 Continue reading to explore detailed guides on:
 
-- [Monitoring LLM](monitoring-llm.md) interactions
-- [Monitoring MCP](monitoring-mcp.md) operations
+- [Monitoring AI Agents](monitoring-agents.md) in development and production
+- [Framework Support](frameworks/index.md) for different AI frameworks
 - [Security Features](security-features.md) and configuration
 - [Logging Options](logging-options.md) for different environments 

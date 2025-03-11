@@ -1,0 +1,152 @@
+# Cursor Rules for Cylestio Monitor
+# These rules enforce best practices for security, testing, and documentation
+
+[general]
+max_line_length = 100
+python_version = "3.11"
+enforce_type_hints = true
+enforce_docstrings = true
+
+[security]
+# Enforce security best practices
+require_security_tests = true
+prevent_unsafe_imports = true
+prevent_shell_injection = true
+prevent_sql_injection = true
+prevent_xss = true
+prevent_yaml_load = true
+prevent_eval = true
+prevent_pickle = true
+# Local security checks
+require_pre_commit_hooks = true
+require_pre_push_hooks = true
+require_pii_scan = true
+require_dependency_scan = true
+block_dangerous_patterns = true
+
+[testing]
+# Enforce Test-Driven Development
+require_tests = true
+min_test_coverage = 90
+require_security_tests = true
+require_integration_tests = true
+require_unit_tests = true
+enforce_test_naming = true
+test_file_pattern = "test_*.py"
+
+[documentation]
+# Documentation requirements
+require_module_docstring = true
+require_class_docstring = true
+require_function_docstring = true
+docstring_style = "google"
+require_type_hints = true
+require_readme = true
+require_api_docs = true
+
+[code_style]
+# Code style requirements
+require_consistent_returns = true
+require_explicit_returns = true
+prevent_shadowing = true
+prevent_global_variables = true
+enforce_immutable_types = true
+enforce_pure_functions = true
+
+[naming]
+# Naming conventions
+class_naming = "PascalCase"
+function_naming = "snake_case"
+variable_naming = "snake_case"
+constant_naming = "UPPER_CASE"
+min_name_length = 2
+max_name_length = 40
+
+[imports]
+# Import organization
+group_imports = true
+import_order = ["stdlib", "third_party", "first_party", "local"]
+prevent_relative_imports = true
+prevent_star_imports = true
+
+[commits]
+# Commit message rules
+require_conventional_commits = true
+max_commit_length = 72
+require_issue_reference = true
+commit_types = [
+    "feat",
+    "fix",
+    "docs",
+    "style",
+    "refactor",
+    "test",
+    "chore",
+    "security"
+]
+# Local commit hooks
+require_pre_commit_security_checks = true
+run_security_checks_before_commit = true
+prevent_credential_leaks = true
+prevent_pii_leaks = true
+
+[files]
+# File organization
+require_init = true
+require_test_file = true
+require_documentation = true
+max_file_length = 500
+enforce_module_structure = true
+
+[error_handling]
+# Error handling requirements
+require_exception_handling = true
+prevent_bare_except = true
+require_error_documentation = true
+require_error_logging = true
+
+[logging]
+# Logging requirements
+require_structured_logging = true
+prevent_print_statements = true
+require_log_levels = true
+require_error_reporting = true
+
+[dependencies]
+# Dependency management
+require_pinned_versions = true
+require_dependency_updates = true
+prevent_vulnerable_dependencies = true
+require_dependency_documentation = true
+# Security scanning
+require_safety_check = true
+require_pip_audit = true
+
+[review]
+# Code review requirements
+require_security_review = true
+require_performance_review = true
+require_documentation_review = true
+require_test_review = true
+
+[local_ci]
+# Local CI requirements before push
+run_bandit = true
+run_safety = true
+run_pii_scan = true
+run_security_tests = true
+prevent_push_on_security_failure = true
+require_local_checks_before_ci = true
+
+[releases]
+# Release process requirements
+require_updated_security_reports = true
+require_dependency_scan_report = true
+require_vulnerability_assessment = true
+require_updated_docs = true
+
+[security_reporting]
+# Security report requirements
+require_compliance_status_update = true
+update_security_scan_results = true
+report_dependency_vulnerabilities = true 

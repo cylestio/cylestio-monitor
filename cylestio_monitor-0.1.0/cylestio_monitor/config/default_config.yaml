@@ -1,0 +1,89 @@
+# Default configuration for Cylestio Monitor
+# This file will be copied to a global location on first run
+
+# Security monitoring settings
+security:
+  # Keywords for security checks
+  suspicious_keywords:
+    - "REMOVE"
+    - "CLEAR"
+    - "HACK"
+    - "BOMB"
+  
+  dangerous_keywords:
+    - "DROP"
+    - "DELETE"
+    - "SHUTDOWN"
+    - "EXEC("
+    - "FORMAT"
+    - "RM -RF"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  file_rotation: true
+  max_file_size_mb: 10
+  backup_count: 5
+
+# Monitoring settings
+monitoring:
+  enabled: true
+  channels:
+    - "SYSTEM"
+    - "LLM"
+    - "API"
+    - "MCP"
+  alert_levels:
+    - "none"
+    - "suspicious"
+    - "dangerous"
+
+# Dashboard integration
+dashboard:
+  enabled: true
+  metrics_retention_days: 30
+  sync_enabled: false
+  sync_interval_minutes: 60
+
+# Data masking settings for PII/PHI protection
+data_masking:
+  enabled: true
+  patterns:
+    - name: "credit_card"
+      regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
+      replacement: "[CREDIT_CARD]"
+    - name: "ssn"
+      regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      replacement: "[SSN]"
+    - name: "email"
+      regex: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
+      replacement: "[EMAIL]"
+    - name: "phone"
+      regex: "\\b(?:\\+\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}\\b"
+      replacement: "[PHONE]"
+    - name: "ip_address"
+      regex: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
+      replacement: "[IP_ADDRESS]"
+
+# Compliance settings
+compliance:
+  # Database retention policy (in days)
+  retention_days: 30
+  
+  # Regulatory frameworks
+  frameworks:
+    soc2:
+      enabled: true
+      audit_logging: true
+      access_control: true
+    
+    gdpr:
+      enabled: true
+      data_minimization: true
+      right_to_be_forgotten: true
+    
+    hipaa:
+      enabled: false
+      phi_protection: true
+      audit_trails: true 

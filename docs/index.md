@@ -52,16 +52,16 @@
     </div>
     <div class="feature-content">
       <h3>Zero Configuration</h3>
-      <p>Drop-in monitoring for Model Context Protocol and popular LLM clients</p>
+      <p>Drop-in monitoring for AI agents across multiple frameworks</p>
     </div>
   </div>
 </div>
 
-## For Agent Developers
+## For AI Agent Developers
 
 ### Why Cylestio Monitor?
 
-Cylestio Monitor provides essential oversight for AI agents by intercepting [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) and LLM API calls, logging critical parameters, and detecting security threats. Our monitoring solution helps you:
+Cylestio Monitor provides comprehensive security and monitoring for AI agents throughout their lifecycle, from development to production. Our solution intercepts and analyzes AI interactions, logging critical parameters and detecting security threats. Cylestio Monitor helps you:
 
 - **Secure your AI systems** by detecting and blocking dangerous prompts
 - **Track performance metrics** with detailed call duration and response time data
@@ -73,11 +73,22 @@ All with minimal configuration and zero code changes to your existing agents.
 ### Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Automatic framework detection**: Works with [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) and popular LLM clients
+- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output
 - **Dashboard integration**: View your monitoring data with our open source dashboard
+
+## Security and Compliance
+
+Cylestio Monitor is built with security and compliance in mind. We implement rigorous security practices and testing protocols to help you meet regulatory requirements including:
+
+- **SOC2**: Our development and release processes follow SOC2 security principles
+- **HIPAA**: Built-in safeguards help protect sensitive healthcare information
+- **GDPR**: Configurable data handling options to support privacy requirements
+- **Security Scanning**: Every release undergoes comprehensive security scanning
+
+Each version of Cylestio Monitor includes detailed security reports documenting our testing protocols and scan results. These reports are available in our [Security Documentation](security/compliance-reports.md).
 
 ### Quick Installation
 
@@ -128,4 +139,6 @@ See our [Contribution Guidelines](development/contributing.md) for details on ho
 
 ## Getting Started
 
-Ready to start monitoring your AI agents? Check out the [Installation Guide](getting-started/installation.md) and [Quick Start Guide](getting-started/quick-start.md) to get up and running in minutes. 
+Ready to start monitoring your AI agents? Check out the [Installation Guide](getting-started/installation.md) and [Quick Start Guide](getting-started/quick-start.md) to get up and running in minutes.
+
+For the official Cylestio Monitor documentation, visit [docs.cylestio.com](https://docs.cylestio.com/). 

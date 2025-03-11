@@ -78,16 +78,23 @@ nav:
     - Configuration: getting-started/configuration.md
   - User Guide:
     - Overview: user-guide/overview.md
-    - Monitoring LLM: user-guide/monitoring-llm.md
-    - Monitoring MCP: user-guide/monitoring-mcp.md
+    - Monitoring AI Agents: user-guide/monitoring-agents.md
+    - Framework Support:
+      - Overview: user-guide/frameworks/index.md
+      - MCP Integration: user-guide/frameworks/mcp.md
     - Security Features: user-guide/security-features.md
     - Logging Options: user-guide/logging-options.md
-  - API Reference:
-    - Overview: api-reference/overview.md
-    - Monitor Module: api-reference/monitor.md
-    - Events Processor: api-reference/events-processor.md
-    - Events Listener: api-reference/events-listener.md
-    - Database: api-reference/database.md
+  - SDK Reference:
+    - Overview: sdk-reference/overview.md
+    - Monitor Module: sdk-reference/monitor.md
+    - Events System: sdk-reference/events.md
+    - Database: sdk-reference/database.md
+  - Security:
+    - Compliance Reports: security/compliance-reports.md
+    - Security Best Practices: security/best-practices.md
+  - Troubleshooting:
+    - Common Issues: troubleshooting/common-issues.md
+    - FAQs: troubleshooting/faqs.md
   - Advanced Topics:
     - Monitoring Channels: monitoring_channels.md
     - Custom Integrations: advanced-topics/custom-integrations.md
@@ -96,9 +103,6 @@ nav:
   - Best Practices:
     - Security: best-practices/security.md
     - Monitoring: best-practices/monitoring.md
-  - Troubleshooting:
-    - Common Issues: troubleshooting/common-issues.md
-    - FAQs: troubleshooting/faqs.md
   - Development:
     - Contributing: development/contributing.md
     - Changelog: development/changelog.md
