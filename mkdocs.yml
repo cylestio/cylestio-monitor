@@ -4,6 +4,9 @@ site_author: Cylestio
 site_url: https://docs.cylestio.com
 copyright: Copyright &copy; 2024 Cylestio
 
+# Ensure .nojekyll file is included in the build
+include_dot_nojekyll: true
+
 theme:
   name: material
   icon:
