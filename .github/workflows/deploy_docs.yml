@@ -48,6 +48,7 @@ jobs:
       - name: Ensure CNAME file exists
         run: |
           echo "docs.cylestio.com" > ./docs/CNAME
+          cp ./docs/CNAME CNAME
       
       - name: Clean gh-pages branch if it exists
         run: |
@@ -63,6 +64,8 @@ jobs:
           
       - name: Verify CNAME in gh-pages branch
         run: |
+          # Stash any changes before switching branches
+          git stash
           git fetch origin gh-pages
           git checkout gh-pages
           if [ ! -f CNAME ]; then
@@ -76,6 +79,8 @@ jobs:
             cat CNAME
           fi
           git checkout -
+          # Pop the stashed changes if any
+          git stash pop || true
           
       - name: Verify deployment
         run: |
