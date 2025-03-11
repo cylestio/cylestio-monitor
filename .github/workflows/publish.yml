@@ -33,10 +33,8 @@ jobs:
         
     - name: Verify package metadata
       run: |
-        # Install tomli for compatibility
-        pip install tomli
-        # Verify package metadata
-        python -c "import tomli; config = tomli.loads(open('pyproject.toml', 'rb').read()); assert config['project']['name'] == 'cylestio-monitor', 'Package name mismatch'; assert config['project']['version'], 'Version not set'; assert config['project']['description'], 'Description not set'; assert config['project']['readme'], 'README not set'; assert config['project']['license'], 'License not set'; assert config['project']['authors'], 'Authors not set'; print('Package metadata verification passed')"
+        # Install tomli and verify metadata in a single Python script
+        python -c "import sys, subprocess; subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'tomli']); import tomli; config = tomli.loads(open('pyproject.toml', 'rb').read()); assert config['project']['name'] == 'cylestio-monitor', 'Package name mismatch'; assert config['project']['version'], 'Version not set'; assert config['project']['description'], 'Description not set'; assert config['project']['readme'], 'README not set'; assert config['project']['license'], 'License not set'; assert config['project']['authors'], 'Authors not set'; print('Package metadata verification passed')"
         
     - name: Build package
       run: python -m build
