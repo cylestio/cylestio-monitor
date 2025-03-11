@@ -1,32 +1,22 @@
 # Cylestio Monitor
 
-A comprehensive security and monitoring solution for AI agents throughout their lifecycle, from development to production. Cylestio Monitor provides lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP) and popular LLM providers.
+A comprehensive security and monitoring solution for AI agents. Cylestio Monitor provides lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP) and popular LLM providers.
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
 [![Security](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml)
-[![Documentation](https://github.com/cylestio/cylestio-monitor/actions/workflows/deploy_docs.yml/badge.svg)](https://docs.cylestio.com/)
 
-## For AI Agent Developers
+## Overview
 
-### Why Cylestio Monitor?
+Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents. While it works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced user experience and additional security and monitoring capabilities across your entire agentic workforce.
 
-Cylestio Monitor provides comprehensive security and monitoring for AI agents throughout their lifecycle, from development to production. Our solution helps you:
-
-- **Secure your AI systems** by detecting and blocking dangerous prompts
-- **Track performance metrics** with detailed call duration and response time data
-- **Meet compliance requirements** with structured, audit-ready logging
-- **Debug interactions** with comprehensive event data
-
-All with minimal configuration and zero code changes to your existing agents.
-
-### Installation
+## Installation
 
 ```bash
 pip install cylestio-monitor
 ```
 
-### Quick Start
+## Quick Start
 
 ```python
 from cylestio_monitor import enable_monitoring
@@ -49,28 +39,22 @@ response = client.messages.create(
 )
 ```
 
-### Key Features
+## Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
 - **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output
-- **Dashboard integration**: View your monitoring data with our open source [visualization dashboard](https://github.com/cylestio/cylestio-dashboard)
 
-## Security and Compliance
+## Security Features
 
-Cylestio Monitor is built with security and compliance in mind. We implement rigorous security practices and testing protocols to help you meet regulatory requirements including:
+Cylestio Monitor includes several security features:
 
-- **SOC2**: Our development and release processes follow SOC2 security principles
-- **HIPAA**: Built-in safeguards help protect sensitive healthcare information
-- **GDPR**: Configurable data handling options to support privacy requirements
-
-Each version of Cylestio Monitor includes detailed security reports documenting our testing protocols and scan results.
-
-### Visualization Dashboard
-
-For an interactive visualization of your monitoring data, check out our separate [Cylestio Dashboard](https://github.com/cylestio/cylestio-dashboard) repository. This open source dashboard provides real-time metrics, alert views, and detailed event analysis.
+- **Prompt injection detection**: Identify and block malicious prompt injection attempts
+- **PII detection**: Detect and redact personally identifiable information
+- **Content filtering**: Filter out harmful or inappropriate content
+- **Security rules**: Define custom security rules for your specific use case
 
 ## For Contributors
 
@@ -102,19 +86,11 @@ We welcome contributions to the Cylestio Monitor project! Whether you're fixing 
    pre-commit install --hook-type pre-push
    ```
 
-### Contribution Guidelines
-
-- **Code Style**: We use Black, isort, and ruff for code formatting
-- **Testing**: All new features and bug fixes must include tests
-- **Documentation**: Update relevant docs for any changes you make
-- **Security**: Follow security best practices in all code
-- **Commit Messages**: Use conventional commits format (`type(scope): message`)
-
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## Documentation
 
-For full documentation, visit [docs.cylestio.com](https://docs.cylestio.com/).
+For full documentation, see the `docs/` directory in this repository.
 
 ## License
 
