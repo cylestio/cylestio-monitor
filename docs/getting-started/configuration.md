@@ -305,22 +305,27 @@ enable_monitoring(
 )
 ```
 
-## MCP-specific Configuration {#mcp-specific-configuration}
+## MCP-Specific Configuration
 
-When working with Model Context Protocol (MCP), you can configure specific settings:
+When using Cylestio Monitor with Model Context Protocol (MCP), additional configuration options are available:
 
 ```python
 from cylestio_monitor import enable_monitoring
 
-# Enable monitoring with MCP-specific configuration
 enable_monitoring(
-    agent_id="mcp-project",
+    agent_id="mcp-agent",
     mcp_config={
-        "tool_allow_list": ["weather", "calculator", "search"],
-        "block_dangerous_tools": True,
-        "monitor_tool_inputs": True,
-        "monitor_tool_outputs": True,
-        "max_tool_execution_time_ms": 5000
+        # MCP-specific settings
+        "context_window": 4096,
+        "max_tokens": 1000,
+        "temperature": 0.7,
+        # Security settings
+        "allow_system_commands": False,
+        "allow_code_execution": False,
+        "restricted_tools": ["file_access", "network_access"],
+        # Monitoring settings
+        "log_context_windows": True,
+        "track_token_usage": True
     }
 )
 ```
@@ -329,11 +334,14 @@ enable_monitoring(
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `tool_allow_list` | list | None | List of allowed tools; if provided, other tools will be blocked |
-| `block_dangerous_tools` | boolean | True | Whether to block tools considered dangerous |
-| `monitor_tool_inputs` | boolean | True | Whether to monitor tool inputs |
-| `monitor_tool_outputs` | boolean | True | Whether to monitor tool outputs |
-| `max_tool_execution_time_ms` | int | 10000 | Maximum tool execution time in milliseconds |
+| `context_window` | integer | 4096 | Maximum context window size |
+| `max_tokens` | integer | 1000 | Maximum tokens per response |
+| `temperature` | float | 0.7 | Sampling temperature |
+| `allow_system_commands` | boolean | False | Allow system command execution |
+| `allow_code_execution` | boolean | False | Allow code execution |
+| `restricted_tools` | list | [] | List of restricted tool names |
+| `log_context_windows` | boolean | True | Log context window usage |
+| `track_token_usage` | boolean | True | Track token usage metrics |
 
 ## Environment Variables
 

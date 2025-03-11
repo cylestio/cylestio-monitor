@@ -1,95 +1,180 @@
-# Monitoring Channels in Cylestio Monitor
+# Monitoring Channels
 
-Cylestio Monitor categorizes events into different channels to help organize and filter monitoring data. Each channel represents a specific type of activity or component being monitored.
+Monitoring channels provide a way to organize and route events in Cylestio Monitor. This allows for flexible event handling and integration with various systems.
 
-## Available Channels
+## Overview
 
-### SYSTEM
+Channels act as logical groupings for events, allowing you to:
 
-The `SYSTEM` channel captures events related to the Cylestio Monitor SDK itself, such as:
+- Filter events by channel
+- Apply different processing rules to different channels
+- Route events to different destinations
+- Configure channel-specific settings
 
-- Initialization and shutdown events
-- Configuration changes
-- Patching of LLM and MCP clients
-- Internal errors and warnings
+## Built-in Channels
 
-Example events:
-- `monitoring_enabled`: When monitoring is first enabled
-- `monitoring_disabled`: When monitoring is disabled
-- `LLM_patch`: When an LLM client is patched
-- `MCP_patch`: When a Model Context Protocol client is patched
+Cylestio Monitor includes several built-in channels:
 
-### LLM (Large Language Model)
+| Channel | Description |
+|---------|-------------|
+| `SYSTEM` | System-level events (startup, shutdown, configuration changes) |
+| `LLM` | Events related to LLM API calls |
+| `SECURITY` | Security-related events (alerts, blocks, warnings) |
+| `MCP` | Events related to Model Context Protocol operations |
+| `API` | General API call events |
+| `DATABASE` | Database-related events |
+| `CUSTOM` | Default channel for custom events |
 
-The `LLM` channel captures events related to interactions with Large Language Models, such as:
+## Using Channels
 
-- LLM API calls
-- Prompt content and parameters
-- Response content and metadata
-- Security alerts related to prompts and responses
-- Performance metrics (duration, token usage)
+### Specifying Channels for Events
 
-Example events:
-- `LLM_call_start`: When an LLM API call begins
-- `LLM_call_finish`: When an LLM API call completes
-- `LLM_call_blocked`: When an LLM API call is blocked due to security concerns
+When emitting events, you can specify the channel:
 
-### API
+```python
+from cylestio_monitor import emit_event
 
-The `API` channel captures events related to general API calls that are not specifically LLM-related, such as:
+emit_event(
+    event_type="custom",
+    agent_id="my_agent",
+    data={"action": "user_login"},
+    severity="info",
+    channel="USER_ACTIVITY"  # Custom channel
+)
+```
 
-- External service API calls
-- Authentication events
-- Rate limiting events
-- API errors and warnings
+### Filtering Events by Channel
 
-Example events:
-- `API_call_start`: When an API call begins
-- `API_call_finish`: When an API call completes
-- `API_error`: When an API call fails
+You can filter events by channel when retrieving them:
 
-### MCP (Model Context Protocol)
+```python
+from cylestio_monitor import get_events
 
-The `MCP` channel captures events related to [Model Context Protocol](https://modelcontextprotocol.io/introduction) tool calls and interactions, such as:
+# Get only security events
+security_events = get_events(channel="SECURITY")
+```
 
-- Tool registration and discovery
-- Tool call parameters and arguments
-- Tool call results and errors
-- Security alerts related to tool calls
+### Channel-specific Handlers
 
-Example events:
-- `MCP_tool_call_start`: When an MCP tool call begins
-- `MCP_tool_call_finish`: When an MCP tool call completes
-- `MCP_tool_call_error`: When an MCP tool call fails
+You can register handlers for specific channels:
 
-## Extending Monitoring Channels
+```python
+from cylestio_monitor import register_channel_handler
 
-The monitoring system is designed to be extensible. You can add custom channels to monitor specific components or activities in your application:
+def security_handler(event):
+    # Process security events
+    if event.severity == "high":
+        send_alert(event)
+    return True
 
-1. Add the channel to the configuration file:
-   ```yaml
-   monitoring:
-     channels:
-       - "SYSTEM"
-       - "LLM"
-       - "API"
-       - "MCP"
-       - "MY_CUSTOM_CHANNEL"
-   ```
+register_channel_handler(
+    channel="SECURITY",
+    handler=security_handler
+)
+```
 
-2. Use the channel in your logging:
-   ```python
-   from cylestio_monitor.events_processor import log_event
-   
-   log_event("custom_event", {"key": "value"}, channel="MY_CUSTOM_CHANNEL")
-   ```
+## Custom Channels
 
-## Channel-Specific Configuration
+You can define your own custom channels for specific use cases:
 
-In future versions, Cylestio Monitor will support channel-specific configuration options, such as:
+```python
+from cylestio_monitor import register_channel
 
-- Channel-specific logging levels
-- Channel-specific security rules
-- Channel-specific output destinations
+# Register a custom channel
+register_channel(
+    name="AUDIT",
+    description="Audit-related events",
+    config={
+        "retention_days": 365,  # Keep audit events for a year
+        "encryption": True      # Encrypt audit events
+    }
+)
+```
 
-This will allow for more granular control over monitoring behavior based on the type of activity being monitored. 
+## Channel Configuration
+
+Each channel can have its own configuration:
+
+```python
+from cylestio_monitor import configure_channel
+
+# Configure the SECURITY channel
+configure_channel(
+    name="SECURITY",
+    config={
+        "alert_threshold": "medium",
+        "notify_admin": True,
+        "log_level": "debug"
+    }
+)
+```
+
+## Channel Outputs
+
+Channels can be configured to output events to different destinations:
+
+### File Output
+
+```python
+from cylestio_monitor import add_channel_output
+
+# Send security events to a dedicated log file
+add_channel_output(
+    channel="SECURITY",
+    output_type="file",
+    config={
+        "path": "/var/log/cylestio/security.log",
+        "format": "json",
+        "rotation": "daily"
+    }
+)
+```
+
+### Webhook Output
+
+```python
+from cylestio_monitor import add_channel_output
+
+# Send security events to a webhook
+add_channel_output(
+    channel="SECURITY",
+    output_type="webhook",
+    config={
+        "url": "https://security.example.com/webhook",
+        "headers": {"Authorization": "Bearer token123"},
+        "retry_count": 3
+    }
+)
+```
+
+### Database Output
+
+All events are stored in the database by default, but you can configure specific database settings per channel:
+
+```python
+from cylestio_monitor import configure_channel_database
+
+# Configure database settings for the AUDIT channel
+configure_channel_database(
+    channel="AUDIT",
+    config={
+        "table": "audit_events",
+        "retention_days": 365,
+        "encryption": True
+    }
+)
+```
+
+## Best Practices
+
+- Use channels to logically separate different types of events
+- Create custom channels for specific business domains
+- Configure appropriate retention policies for each channel
+- Use channel-specific handlers for specialized processing
+- Consider security and compliance requirements when configuring channels
+
+## Next Steps
+
+- Learn about the [Events System](sdk-reference/events.md)
+- Explore [Custom Integrations](advanced-topics/custom-integrations.md)
+- See [Security Features](user-guide/security-features.md) for security-related channels 

@@ -1,166 +1,159 @@
 # Events System
 
-The Events System is responsible for processing, logging, and storing events generated during AI agent monitoring. This includes both built-in events and custom events.
+The Cylestio Monitor Events System provides a comprehensive framework for capturing, processing, and responding to events in your AI agent ecosystem.
 
-## Core Components
+## Overview
 
 The Events System consists of two main components:
 
-1. **Events Processor**: Processes and logs monitoring events
-2. **Events Listener**: Intercepts events from AI frameworks and LLM clients
+1. **Events Listener**: Captures events from your AI agents
+2. **Events Processor**: Processes and routes events to appropriate handlers
 
-## Events Processor Functions
-
-### `log_event`
-
-Logs a monitoring event.
-
-```python
-from cylestio_monitor.events_processor import log_event
-
-# Log a custom event
-log_event(
-    event_type="custom_event",
-    data={"key": "value"},
-    channel="CUSTOM_CHANNEL",
-    level="info"
-)
-```
-
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `event_type` | string | Type of event |
-| `data` | dict | Event data |
-| `channel` | string | Event channel (SYSTEM, LLM, API, MCP, etc.) |
-| `level` | string | Event level (info, warning, error, alert) |
-
-#### Returns
-
-None
-
-### `get_event_history`
-
-Gets the history of logged events.
-
-```python
-from cylestio_monitor.events_processor import get_event_history
-
-# Get all events
-all_events = get_event_history()
-
-# Get events for a specific agent
-agent_events = get_event_history(agent_id="my-agent")
-
-# Get events of a specific type
-type_events = get_event_history(event_type="LLM_call_start")
-```
-
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `agent_id` | string | (Optional) Filter by agent ID |
-| `event_type` | string | (Optional) Filter by event type |
-| `limit` | int | (Optional) Maximum number of events to return |
-
-#### Returns
-
-list: A list of event dictionaries
+This modular design allows for flexible event handling and custom integrations.
 
 ## Event Types
 
-Cylestio Monitor produces several types of events:
+Cylestio Monitor captures several types of events:
 
-### System Events
+| Event Type | Description |
+|------------|-------------|
+| `request` | Outgoing requests to LLM providers |
+| `response` | Incoming responses from LLM providers |
+| `error` | Errors that occur during agent operation |
+| `security` | Security-related events (suspicious or dangerous content) |
+| `system` | System-level events (startup, shutdown, etc.) |
+| `custom` | Custom events defined by your application |
 
-- `monitoring_enabled`: When monitoring is enabled
-- `monitoring_disabled`: When monitoring is disabled
-- `config_updated`: When configuration is updated
+## Using the Events System
 
-### LLM Events
+### Basic Usage
 
-- `LLM_call_start`: When an LLM API call starts
-- `LLM_call_finish`: When an LLM API call completes
-- `LLM_call_error`: When an LLM API call fails
-- `LLM_call_blocked`: When an LLM API call is blocked due to security concerns
+The Events System is automatically enabled when you use the `enable_monitoring` function:
 
-### MCP Events
+```python
+from cylestio_monitor import enable_monitoring
+from anthropic import Anthropic
 
-- `MCP_tool_call_start`: When an MCP tool call starts
-- `MCP_tool_call_finish`: When an MCP tool call completes
-- `MCP_tool_call_error`: When an MCP tool call fails
-- `MCP_tool_call_blocked`: When an MCP tool call is blocked due to security concerns
+# Create your LLM client
+client = Anthropic()
 
-### Security Events
+# Enable monitoring
+enable_monitoring(
+    agent_id="my_agent",
+    llm_client=client
+)
+```
 
-- `security_alert`: When a security issue is detected
-- `security_block`: When content is blocked for security reasons
-- `security_warning`: When potentially concerning content is detected
+### Custom Event Handlers
+
+You can register custom event handlers to process specific event types:
+
+```python
+from cylestio_monitor import register_event_handler
+
+# Define a custom handler
+def my_security_handler(event):
+    if event.type == "security" and event.severity == "high":
+        # Take action (e.g., send alert)
+        send_alert(event)
+    
+    # Return True to continue processing, False to stop
+    return True
+
+# Register the handler
+register_event_handler(
+    event_type="security",
+    handler=my_security_handler,
+    priority=10  # Lower numbers run first
+)
+```
+
+### Emitting Custom Events
+
+You can emit custom events from your application:
+
+```python
+from cylestio_monitor import emit_event
+
+# Emit a custom event
+emit_event(
+    event_type="custom",
+    agent_id="my_agent",
+    data={
+        "action": "user_login",
+        "user_id": "12345",
+        "timestamp": "2024-03-11T12:34:56Z"
+    },
+    severity="info"
+)
+```
 
 ## Event Structure
 
-Events are structured as JSON objects with the following fields:
-
-```json
-{
-  "event": "LLM_call_start",
-  "data": {
-    "model": "claude-3-sonnet-20240229",
-    "messages": [...],
-    "temperature": 0.7,
-    "max_tokens": 1000
-  },
-  "timestamp": "2024-06-15T14:30:22.123456",
-  "agent_id": "my-agent",
-  "channel": "LLM",
-  "level": "info"
-}
-```
-
-## Custom Events
-
-You can define and log custom events for your specific use cases:
+Each event has the following structure:
 
 ```python
-from cylestio_monitor.events_processor import log_event
-
-# Log a custom event for user activity
-log_event(
-    event_type="user_login",
-    data={
-        "user_id": "user123",
-        "ip_address": "192.168.1.1",
-        "successful": True
+{
+    "id": "evt_123456789",           # Unique event ID
+    "type": "request",               # Event type
+    "agent_id": "my_agent",          # Agent ID
+    "timestamp": "2024-03-11T12:34:56Z", # ISO timestamp
+    "severity": "info",              # Event severity
+    "data": {                        # Event-specific data
+        # Varies by event type
     },
-    channel="USER_ACTIVITY",
-    level="info"
-)
-
-# Log a custom security event
-log_event(
-    event_type="permission_change",
-    data={
-        "user_id": "admin",
-        "resource": "database",
-        "old_permission": "read",
-        "new_permission": "write"
-    },
-    channel="SECURITY",
-    level="warning"
-)
+    "metadata": {                    # Additional metadata
+        "source": "anthropic",
+        "version": "1.0.0"
+    }
+}
 ```
 
 ## Event Channels
 
-Events are organized into channels for better organization and filtering:
+Events can be routed to different channels for processing. See the [Monitoring Channels](../monitoring_channels.md) documentation for more details.
 
-- **SYSTEM**: System-level events
-- **LLM**: LLM API call events
-- **MCP**: MCP tool call events
-- **SECURITY**: Security-related events
-- **API**: General API call events
-- **Custom channels**: You can define your own channels
+## Advanced Usage
 
-For more information on channels, see [Monitoring Channels](../monitoring_channels.md). 
+### Filtering Events
+
+You can filter events before they're processed:
+
+```python
+from cylestio_monitor import register_event_filter
+
+def my_filter(event):
+    # Only process events from specific agents
+    if event.agent_id in ["agent1", "agent2"]:
+        return True
+    return False
+
+register_event_filter(my_filter)
+```
+
+### Batch Processing
+
+For high-volume applications, you can enable batch processing:
+
+```python
+from cylestio_monitor import configure_events
+
+configure_events(
+    batch_size=100,           # Process events in batches of 100
+    batch_interval_ms=1000,   # Process at least every 1000ms
+    max_queue_size=10000      # Maximum queue size
+)
+```
+
+## Performance Considerations
+
+- Event handlers should be lightweight and non-blocking
+- For intensive processing, consider using background workers
+- Use batch processing for high-volume applications
+- Monitor queue size to prevent memory issues
+
+## Next Steps
+
+- Learn about [Event Listeners](events-listener.md) for capturing events
+- Explore [Event Processors](events-processor.md) for handling events
+- See [Monitoring Channels](../monitoring_channels.md) for routing events 

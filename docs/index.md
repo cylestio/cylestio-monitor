@@ -1,144 +1,109 @@
-# Cylestio Monitor - Comprehensive AI Agent Monitoring
+# Secure and Monitor Your AI Agents
+
+<div class="hero">
+  <h1>Comprehensive Security and Monitoring for AI Agents</h1>
+  <p>Protect your AI systems, track performance, and ensure compliance with enterprise-grade monitoring.</p>
+  <div class="cta-buttons">
+    <a href="getting-started/quick-start/" class="md-button">Get Started</a>
+    <a href="user-guide/overview/" class="md-button md-button--secondary">Learn More</a>
+  </div>
+</div>
 
 <div class="grid-container">
   <div class="feature-card">
     <div class="feature-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
+      <span class="twemoji">
+        {% include ".icons/material/shield-check.svg" %}
+      </span>
     </div>
     <div class="feature-content">
-      <h3>Security Monitoring</h3>
-      <p>Detect and block dangerous prompts, flag suspicious activity</p>
+      <h3>Security First</h3>
+      <p>Real-time threat detection and prevention for your AI systems</p>
     </div>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
+      <span class="twemoji">
+        {% include ".icons/material/chart-line.svg" %}
+      </span>
     </div>
     <div class="feature-content">
-      <h3>Performance Tracking</h3>
-      <p>Monitor call durations and response times</p>
+      <h3>Performance Insights</h3>
+      <p>Track response times, costs, and system health metrics</p>
     </div>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <rect x="2" y="3" width="20" height="18" rx="2" ry="2" />
-        <line x1="7" y1="7" x2="7" y2="7" />
-        <line x1="7" y1="11" x2="7" y2="11" />
-        <line x1="7" y1="15" x2="7" y2="15" />
-        <line x1="11" y1="7" x2="17" y2="7" />
-        <line x1="11" y1="11" x2="17" y2="11" />
-        <line x1="11" y1="15" x2="17" y2="15" />
-      </svg>
+      <span class="twemoji">
+        {% include ".icons/material/puzzle.svg" %}
+      </span>
     </div>
     <div class="feature-content">
-      <h3>Structured Logging</h3>
-      <p>Store events in SQLite with flexible output options</p>
+      <h3>Easy Integration</h3>
+      <p>Drop-in monitoring for popular LLM frameworks and MCP</p>
     </div>
   </div>
   
   <div class="feature-card">
     <div class="feature-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <polyline points="16 18 22 12 16 6" />
-        <polyline points="8 6 2 12 8 18" />
-      </svg>
+      <span class="twemoji">
+        {% include ".icons/material/chart-box.svg" %}
+      </span>
     </div>
     <div class="feature-content">
-      <h3>Zero Configuration</h3>
-      <p>Drop-in monitoring for AI agents across multiple frameworks</p>
+      <h3>Visual Analytics</h3>
+      <p>Beautiful dashboards for monitoring and analysis</p>
     </div>
   </div>
 </div>
 
-## For AI Agent Developers
-
-### Why Cylestio Monitor?
-
-Cylestio Monitor provides comprehensive security and monitoring for AI agents throughout their lifecycle, from development to production. Our solution intercepts and analyzes AI interactions, logging critical parameters and detecting security threats. Cylestio Monitor helps you:
-
-- **Secure your AI systems** by detecting and blocking dangerous prompts
-- **Track performance metrics** with detailed call duration and response time data
-- **Meet compliance requirements** with structured, audit-ready logging
-- **Debug interactions** with comprehensive event data
-
-All with minimal configuration and zero code changes to your existing agents.
-
-### Key Features
-
-- **Zero-configuration setup**: Import and enable with just two lines of code
-- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
-- **Security monitoring**: Detects and blocks dangerous prompts
-- **Performance tracking**: Monitors call durations and response times
-- **Structured logging**: Events stored in SQLite with optional JSON output
-- **Dashboard integration**: View your monitoring data with our open source dashboard
-
-## Security and Compliance
-
-Cylestio Monitor is built with security and compliance in mind. We implement rigorous security practices and testing protocols to help you meet regulatory requirements including:
-
-- **SOC2**: Our development and release processes follow SOC2 security principles
-- **HIPAA**: Built-in safeguards help protect sensitive healthcare information
-- **GDPR**: Configurable data handling options to support privacy requirements
-- **Security Scanning**: Every release undergoes comprehensive security scanning
-
-Each version of Cylestio Monitor includes detailed security reports documenting our testing protocols and scan results. These reports are available in our [Security Documentation](security/compliance-reports.md).
-
-### Quick Installation
-
-```bash
-pip install cylestio-monitor
-```
-
-### Basic Usage
+## Start Monitoring in Minutes
 
 ```python
 from cylestio_monitor import enable_monitoring
 from anthropic import Anthropic
 
-# Create your LLM client
-client = Anthropic()
+# Enable monitoring with one line
+enable_monitoring(agent_id="my_agent", llm_client=Anthropic())
 
-# Enable monitoring
-enable_monitoring(
-    agent_id="my_agent",
-    llm_client=client
-)
-
-# Use your client as normal
+# Use your client as normal - we'll handle the rest
 response = client.messages.create(
     model="claude-3-sonnet-20240229",
-    max_tokens=1000,
-    messages=[{"role": "user", "content": "Hello, Claude!"}]
+    messages=[{"role": "user", "content": "Hello!"}]
 )
 ```
 
-### Visualization Dashboard
+## Why Choose Cylestio Monitor?
 
-For an interactive visualization of your monitoring data, check out our separate [Cylestio Dashboard](https://github.com/cylestio/cylestio-dashboard) repository. This open source dashboard provides real-time metrics, alert views, and detailed event analysis.
+### Enterprise-Grade Security
 
-## For Contributors
+- **Threat Detection**: Identify and block dangerous prompts in real-time
+- **Compliance Ready**: Built-in support for SOC2, HIPAA, and GDPR requirements
+- **Access Control**: Fine-grained permissions and audit logging
 
-We welcome contributions to the Cylestio Monitor project! Whether you're fixing bugs, improving documentation, or adding new features, your help is appreciated.
+### Comprehensive Monitoring
 
-### How You Can Help
+- **Performance Metrics**: Track latency, token usage, and costs
+- **Error Tracking**: Identify and debug issues quickly
+- **Usage Analytics**: Understand how your agents are being used
 
-- **Bug Fixes**: Help identify and fix bugs in the codebase
-- **Documentation**: Improve our docs, tutorials, and examples
-- **Feature Development**: Add new features and integrations
-- **Testing**: Create and enhance test coverage
-- **Security**: Identify and address security concerns
+### Seamless Integration
 
-See our [Contribution Guidelines](development/contributing.md) for details on how to get started.
+- **Framework Support**: Works with Anthropic, OpenAI, and other major providers
+- **MCP Compatible**: Native support for Model Context Protocol
+- **Zero Config**: Get started with minimal setup required
 
-## Getting Started
+## Ready to Get Started?
 
-Ready to start monitoring your AI agents? Check out the [Installation Guide](getting-started/installation.md) and [Quick Start Guide](getting-started/quick-start.md) to get up and running in minutes.
+1. [Quick Start Guide](getting-started/quick-start.md) - Get up and running in minutes
+2. [Installation Guide](getting-started/installation.md) - Detailed setup instructions
+3. [User Guide](user-guide/overview.md) - Learn about all features
 
-For the official Cylestio Monitor documentation, visit [docs.cylestio.com](https://docs.cylestio.com/). 
+## Resources
+
+- [GitHub Repository](https://github.com/cylestio/cylestio-monitor)
+- [Dashboard Demo](https://demo.cylestio.com)
+- [API Reference](sdk-reference/overview.md)
+- [Support](troubleshooting/faqs.md) 
