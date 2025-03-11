@@ -10,6 +10,8 @@ A comprehensive security and monitoring solution for AI agents. Cylestio Monitor
 
 Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents. While it works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced user experience and additional security and monitoring capabilities across your entire agentic workforce.
 
+**For full documentation, visit [https://docs.cylestio.com](https://docs.cylestio.com)**
+
 ## Installation
 
 ```bash
@@ -49,48 +51,20 @@ response = client.messages.create(
 
 ## Security Features
 
-Cylestio Monitor includes several security features:
-
 - **Prompt injection detection**: Identify and block malicious prompt injection attempts
 - **PII detection**: Detect and redact personally identifiable information
 - **Content filtering**: Filter out harmful or inappropriate content
 - **Security rules**: Define custom security rules for your specific use case
 
-## For Contributors
+## Contributing
 
-We welcome contributions to the Cylestio Monitor project! Whether you're fixing bugs, improving documentation, or adding new features, your help is appreciated.
-
-### Development Setup
-
-1. Ensure you have Python 3.11+ installed
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/cylestio/cylestio-monitor.git
-   cd cylestio-monitor
-   ```
-
-3. Create and activate virtual environment:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-4. Install dependencies:
-   ```bash
-   pip install -e ".[dev,test,security]"
-   ```
-
-5. Install pre-commit hooks:
-   ```bash
-   pre-commit install
-   pre-commit install --hook-type pre-push
-   ```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
 
 ## Documentation
 
-For full documentation, see the `docs/` directory in this repository.
+For complete documentation, including detailed guides, API reference, and best practices, visit:
+
+**[https://docs.cylestio.com](https://docs.cylestio.com)**
 
 ## License
 
