@@ -3,6 +3,10 @@ set -e
 
 echo "Force deploying documentation..."
 
+# Save the current branch name
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD || echo "detached")
+echo "Current branch: $CURRENT_BRANCH"
+
 # Install MkDocs and required plugins if not already installed
 pip install mkdocs mkdocs-material pymdown-extensions "mkdocstrings[python]"
 
@@ -34,7 +38,7 @@ else
   git rm -rf .
 fi
 
-# Remove all files in the current directory
+# Remove all files in the current directory except .git
 find . -maxdepth 1 -not -path "./.git" -not -path "." -exec rm -rf {} \;
 
 # Copy the built site from the temporary directory
@@ -45,7 +49,7 @@ cp $TEMP_DIR/.nojekyll .
 git add -A
 
 # Commit changes
-git commit -m "Deploy documentation to GitHub Pages" --no-verify
+git commit -m "Deploy documentation to GitHub Pages" --no-verify || echo "No changes to commit"
 
 # Push to remote
 git push origin gh-pages --force --no-verify
@@ -55,7 +59,7 @@ rm -rf $TEMP_DIR
 echo "Temporary directory removed"
 
 # Switch back to the original branch
-git checkout -
+git checkout $CURRENT_BRANCH
 
 echo "Documentation force deployed to GitHub Pages"
 echo "Please check https://docs.cylestio.com/ in a few minutes" 
