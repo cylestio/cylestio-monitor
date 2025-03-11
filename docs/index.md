@@ -13,7 +13,7 @@
   <div class="feature-card">
     <div class="feature-icon">
       <span class="twemoji">
-        {% include ".icons/material/shield-check.svg" %}
+        🛡️
       </span>
     </div>
     <div class="feature-content">
@@ -25,7 +25,7 @@
   <div class="feature-card">
     <div class="feature-icon">
       <span class="twemoji">
-        {% include ".icons/material/chart-line.svg" %}
+        📈
       </span>
     </div>
     <div class="feature-content">
@@ -37,7 +37,7 @@
   <div class="feature-card">
     <div class="feature-icon">
       <span class="twemoji">
-        {% include ".icons/material/puzzle.svg" %}
+        🧩
       </span>
     </div>
     <div class="feature-content">
@@ -49,7 +49,7 @@
   <div class="feature-card">
     <div class="feature-icon">
       <span class="twemoji">
-        {% include ".icons/material/chart-box.svg" %}
+        📊
       </span>
     </div>
     <div class="feature-content">
