@@ -142,12 +142,46 @@ Closes #123
 4. Update the CHANGELOG.md file with details of your changes
 5. Submit a pull request to the `main` branch
 
-## Release Process
+## Publishing a Release
 
-1. Update the version number in `pyproject.toml` following [Semantic Versioning](https://semver.org/)
-2. Update the CHANGELOG.md file with details of the changes
-3. Create a new release on GitHub with a tag matching the version number (e.g., `v0.1.0`)
-4. The CI/CD pipeline will automatically publish the package to PyPI
+To publish a new release to PyPI, follow these steps:
+
+1. Ensure all tests pass and the code is ready for release
+   ```bash
+   python -m pytest
+   ```
+
+2. Update the version number in two places:
+   - In `pyproject.toml` (update the `version = "x.y.z"` line)
+   - In `src/cylestio_monitor/__init__.py` (update the `__version__ = "x.y.z"` line)
+
+3. Update the CHANGELOG.md with the new version and changes
+
+4. Commit your changes and push to main
+   ```bash
+   git add pyproject.toml src/cylestio_monitor/__init__.py CHANGELOG.md
+   git commit -m "chore: prepare release x.y.z"
+   git push origin main
+   ```
+
+5. Create a new release on GitHub:
+   - Go to https://github.com/cylestio/cylestio-monitor/releases
+   - Click "Draft a new release"
+   - Tag version: `vx.y.z` (must start with 'v')
+   - Title: `Release vx.y.z`
+   - Description: Copy relevant section from CHANGELOG.md
+   - Click "Publish release"
+
+6. The GitHub Actions workflow will automatically:
+   - Build the package
+   - Run tests and security checks
+   - Verify that the package version matches the tag
+   - Upload to PyPI
+
+7. Verify the release is available on PyPI:
+   - https://pypi.org/project/cylestio-monitor/
+
+If there are any issues during the release process, fix them and create a new release with an incremented patch version.
 
 ## Questions?
 

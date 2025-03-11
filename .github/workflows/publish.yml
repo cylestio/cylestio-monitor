@@ -8,7 +8,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Check out repository
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -18,50 +19,38 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine
-        pip install .
+        python -m pip install build twine
+        python -m pip install -e ".[dev,test,security]"
         
     - name: Run tests
-      run: |
-        pip install -e ".[dev,test,security]"
-        pytest
+      run: python -m pytest
         
     - name: Security check
       run: |
-        pip install bandit safety
         bandit -r src/
         safety check
-        
-    - name: Verify package metadata
-      run: |
-        # Use a temporary Python script with tomllib (built into Python 3.11)
-        cat > verify.py << 'EOF'
-        import sys
-        import tomllib
-        from pathlib import Path
-
-        try:
-            with open('pyproject.toml', 'rb') as f:
-                data = tomllib.load(f)
-                print(f"Package: {data['project']['name']}")
-                print(f"Version: {data['project']['version']}")
-                print("Metadata verification successful!")
-        except Exception as e:
-            print(f"Error: {e}")
-            sys.exit(0)  # Don't fail the build, just log the error
-        EOF
-        
-        # Run the verification script
-        python verify.py
         
     - name: Build package
       run: python -m build
       
-    - name: Check distribution
-      run: twine check dist/*
+    - name: Validate built package
+      run: |
+        # Check that version matches the tag
+        VERSION=$(echo $GITHUB_REF | cut -d / -f 3 | sed 's/^v//')
+        echo "Release version from tag: $VERSION"
+        PACKAGE_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "Package version in pyproject.toml: $PACKAGE_VERSION"
+        
+        if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+          echo "ERROR: Version mismatch! Tag version ($VERSION) does not match package version ($PACKAGE_VERSION)"
+          exit 1
+        fi
+        
+        echo "Versions match! Proceeding with package validation..."
+        twine check dist/*
       
     - name: Publish to PyPI
       env:
-        TWINE_USERNAME: __token__
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-      run: twine upload dist/* 
+      run: twine upload dist/*
