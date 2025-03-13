@@ -28,13 +28,7 @@ logger = logging.getLogger(__name__)
 def enable_monitoring(
     agent_id: str,
     llm_client: Any = None,
-    llm_method_path: str = "messages.create",
     log_file: Optional[str] = None,
-    debug_level: str = "INFO",
-    *,
-    enable_langchain: bool = True,
-    enable_langgraph: bool = True,
-    enable_mcp: bool = True,
     config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
