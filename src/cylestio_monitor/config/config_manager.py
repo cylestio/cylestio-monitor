@@ -144,4 +144,17 @@ class ConfigManager:
     
     def reload(self) -> None:
         """Reload the configuration from the global location."""
-        self._load_config() 
+        self._load_config()
+
+    def reset(self) -> None:
+        """Reset the configuration to default values."""
+        self._config = self.default_config.copy()
+        self.save_config()
+
+    def save(self) -> None:
+        """Save the current configuration to the config file."""
+        self.save_config()
+        
+    def _save_config_to_file(self) -> None:
+        """Save the configuration to the config file."""
+        self.save_config() 

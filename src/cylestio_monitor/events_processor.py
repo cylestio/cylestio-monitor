@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.db import utils as db_utils
@@ -18,6 +18,8 @@ config_manager = ConfigManager()
 # --------------------------------------
 def normalize_text(text: str) -> str:
     """Normalize text for keyword matching."""
+    if text is None:
+        return ""
     return " ".join(str(text).split()).upper()
 
 
@@ -36,18 +38,284 @@ def contains_dangerous(text: str) -> bool:
 
 
 # --------------------------------------
+# EventProcessor class for handling monitoring events
+# --------------------------------------
+class EventProcessor:
+    """Event processor for handling and routing monitoring events."""
+    
+    def __init__(self, agent_id: str, config: Optional[Dict[str, Any]] = None):
+        """Initialize the event processor.
+        
+        Args:
+            agent_id: The ID of the agent being monitored
+            config: Optional configuration dictionary
+        """
+        self.agent_id = agent_id
+        self.config = config or {}
+        
+    def process_event(self, event_type: str, data: Dict[str, Any], 
+                      channel: str = "APPLICATION", level: str = "info",
+                      direction: Optional[str] = None) -> None:
+        """Process an event by logging it to the database and performing any required actions.
+        
+        Args:
+            event_type: The type of event
+            data: Event data
+            channel: Event channel
+            level: Log level
+            direction: Message direction for chat events ("incoming" or "outgoing")
+        """
+        # Add agent_id if not present
+        if "agent_id" not in data:
+            data["agent_id"] = self.agent_id
+            
+        # Log the event
+        log_event(event_type, data, channel, level, direction)
+    
+    def process_llm_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Process an LLM request event.
+        
+        Args:
+            prompt: The prompt being sent to the LLM
+            kwargs: Additional keyword arguments
+            
+        Returns:
+            Dictionary with request metadata
+        """
+        # Check for security concerns
+        alert = "none"
+        if contains_dangerous(prompt):
+            alert = "dangerous"
+        elif contains_suspicious(prompt):
+            alert = "suspicious"
+        
+        # Prepare metadata
+        metadata = {
+            "timestamp": datetime.now().isoformat(),
+            "agent_id": self.agent_id,
+            "prompt": prompt,
+            "alert": alert,
+            **kwargs
+        }
+        
+        # Log the event
+        self.process_event("llm_request", metadata)
+        
+        return metadata
+    
+    def process_llm_response(self, prompt: str, response: str, 
+                             processing_time: float, **kwargs) -> Dict[str, Any]:
+        """Process an LLM response event.
+        
+        Args:
+            prompt: The original prompt
+            response: The LLM response
+            processing_time: Time taken to process in seconds
+            kwargs: Additional keyword arguments
+            
+        Returns:
+            Dictionary with response metadata
+        """
+        # Check for security concerns in response
+        alert = "none"
+        if contains_dangerous(response):
+            alert = "dangerous"
+        elif contains_suspicious(response):
+            alert = "suspicious"
+        
+        # Prepare metadata
+        metadata = {
+            "timestamp": datetime.now().isoformat(),
+            "agent_id": self.agent_id,
+            "prompt": prompt,
+            "response": response,
+            "processing_time": processing_time,
+            "alert": alert,
+            **kwargs
+        }
+        
+        # Log the event
+        self.process_event("llm_response", metadata)
+        
+        return metadata
+
+
+# --------------------------------------
 # Structured logging helper
 # --------------------------------------
 def log_event(
-    event_type: str, data: Dict[str, Any], channel: str = "SYSTEM", level: str = "info"
+    event_type: str, 
+    data: Dict[str, Any], 
+    channel: str = "SYSTEM", 
+    level: str = "info",
+    direction: Optional[str] = None
 ) -> None:
-    """Log a structured JSON event."""
+    """Log a structured JSON event with uniform schema.
+    
+    Args:
+        event_type: The type of event (e.g., "chat_exchange", "llm_call")
+        data: Event data dictionary
+        channel: Event channel (e.g., "SYSTEM", "LLM", "LANGCHAIN", "LANGGRAPH")
+        level: Log level (e.g., "info", "warning", "error")
+        direction: Message direction for chat events ("incoming" or "outgoing")
+    """
+    # Get agent_id and config from configuration
+    agent_id = config_manager.get("monitoring.agent_id")
+    suspicious_words = config_manager.get("monitoring.suspicious_words", [])
+    dangerous_words = config_manager.get("monitoring.dangerous_words", [])
+    
+    # Create base record with required fields
     record = {
-        "event": event_type,
-        "data": data,
         "timestamp": datetime.now().isoformat(),
-        "channel": channel,
+        "level": level.upper(),
+        "agent_id": agent_id or "unknown",
+        "event_type": event_type,
+        "channel": channel.upper(),
     }
+    
+    # Add direction for chat events if provided
+    if direction:
+        record["direction"] = direction
+        
+    # Add session/conversation ID if present in data
+    if "session_id" in data:
+        record["session_id"] = data["session_id"]
+    
+    # Capture full call stack
+    import traceback
+    import inspect
+    
+    call_stack = []
+    current_frame = inspect.currentframe()
+    
+    try:
+        while current_frame:
+            info = inspect.getframeinfo(current_frame)
+            # Skip internal cylestio_monitor frames
+            if "cylestio_monitor" not in info.filename:
+                # Get the source code context
+                try:
+                    with open(info.filename) as f:
+                        lines = f.readlines()
+                        start = max(info.lineno - 2, 0)
+                        context = ''.join(lines[start:info.lineno + 1]).strip()
+                except:
+                    context = info.code_context[0].strip() if info.code_context else "N/A"
+                
+                call_stack.append({
+                    "file": info.filename,
+                    "line": info.lineno,
+                    "function": info.function,
+                    "code_context": context
+                })
+            current_frame = current_frame.f_back
+    finally:
+        del current_frame  # Prevent reference cycles
+    
+    # Process data for security checks
+    def check_content(content: Any) -> Dict[str, Any]:
+        if not isinstance(content, (str, dict, list)):
+            return {"alert_level": "none"}
+        
+        content_str = json.dumps(content) if isinstance(content, (dict, list)) else str(content)
+        content_normalized = normalize_text(content_str)
+        
+        # Check for dangerous/suspicious content
+        found_dangerous = [word for word in dangerous_words if word in content_normalized]
+        found_suspicious = [word for word in suspicious_words if word in content_normalized]
+        
+        if found_dangerous:
+            return {
+                "alert_level": "dangerous",
+                "matched_terms": found_dangerous,
+                "reason": "dangerous_content"
+            }
+        elif found_suspicious:
+            return {
+                "alert_level": "suspicious", 
+                "matched_terms": found_suspicious,
+                "reason": "suspicious_content"
+            }
+        return {"alert_level": "none"}
+    
+    # Process all data fields for security checks
+    security_checks = {
+        key: check_content(value)
+        for key, value in data.items()
+        if isinstance(value, (str, dict, list))
+    }
+    
+    # Determine overall alert level
+    alert_levels = [check["alert_level"] for check in security_checks.values()]
+    overall_alert = (
+        "dangerous" if "dangerous" in alert_levels else
+        "suspicious" if "suspicious" in alert_levels else
+        "none"
+    )
+    
+    # Ensure performance metrics are included
+    performance_data = data.get("performance", {})
+    if not performance_data:
+        # Add basic performance data if not present
+        performance_data = {
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Add duration if available
+        if "duration" in data:
+            performance_data["duration_ms"] = data["duration"] * 1000
+        elif "duration_ms" in data:
+            performance_data["duration_ms"] = data["duration_ms"]
+            
+    # Build enhanced metadata
+    enhanced_data = {
+        # Original data
+        **data,
+        
+        # Call stack information
+        "call_stack": call_stack,
+        
+        # Security information
+        "security": {
+            "alert_level": overall_alert,
+            "field_checks": security_checks
+        },
+        
+        # Framework-specific metadata (if present)
+        "framework": {
+            "name": channel.lower(),
+            "version": data.get("framework_version"),
+            "components": data.get("components", {})
+        },
+        
+        # Performance metrics
+        "performance": performance_data
+    }
+    
+    # Add model details if present
+    if "model" in data:
+        enhanced_data["model"] = {
+            **data["model"],
+            "provider": data["model"].get("provider", channel.lower())
+        }
+    
+    # Add input/output details if present
+    if "input" in data and not isinstance(data["input"], dict):
+        enhanced_data["input"] = {
+            "content": data["input"],
+            "estimated_tokens": _estimate_tokens(data["input"])
+        }
+        
+    if "output" in data and not isinstance(data["output"], dict):
+        enhanced_data["output"] = {
+            "content": data["output"],
+            "estimated_tokens": _estimate_tokens(data["output"])
+        }
+    
+    # Update record with enhanced data
+    record["data"] = enhanced_data
+    
+    # Convert to JSON string
     msg = json.dumps(record)
     
     # Log to the standard logger
@@ -62,22 +330,45 @@ def log_event(
     
     # Log to the SQLite database
     try:
-        # Get agent ID from configuration
-        agent_id = config_manager.get("monitoring.agent_id")
-        
         # Only log to database if agent_id is set
         if agent_id:
             # Log to the database
             db_utils.log_to_db(
                 agent_id=agent_id,
                 event_type=event_type,
-                data=data,
+                data=record["data"],
                 channel=channel,
                 level=level,
                 timestamp=datetime.now()
             )
     except Exception as e:
         monitor_logger.error(f"Failed to log event to database: {e}")
+    
+    # Log to JSON file if configured
+    log_file = config_manager.get("monitoring.log_file")
+    if log_file:
+        try:
+            with open(log_file, "a") as f:
+                f.write(msg + "\n")
+        except Exception as e:
+            monitor_logger.error(f"Failed to log event to file {log_file}: {e}")
+
+
+def _estimate_tokens(text: Any) -> int:
+    """Estimate the number of tokens in a text string.
+    
+    This is a simple approximation. For production use, consider using a tokenizer.
+    
+    Args:
+        text: The text to estimate tokens for
+        
+    Returns:
+        Estimated token count
+    """
+    if text is None:
+        return 0
+    # Simple approximation: 4 characters per token on average
+    return len(str(text)) // 4
 
 
 # -------------- Helpers for LLM calls --------------
