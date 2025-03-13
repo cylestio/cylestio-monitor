@@ -45,16 +45,7 @@ class WeatherAIAgent:
         self.anthropic = Anthropic()
 
         # Enable monitoring with our SDK
-        # enable_monitoring(
-        #     agent_id="weather-agent", 
-        #     llm_client=self.anthropic, 
-        #     log_file="output/my_weather_agent_monitoring.json",
-        # )
-        enable_monitoring(
-            agent_id="weather-agent", 
-            llm_client=self.anthropic,
-            log_file="output/weather_monitoring.json"
-        )
+        enable_monitoring(agent_id="weather-agent", log_file="output/weather_agent_monitoring.json")
         logger.info("Monitoring enabled for Weather AI Agent")
 
     async def connect_to_server(self, server_script_path: str):
