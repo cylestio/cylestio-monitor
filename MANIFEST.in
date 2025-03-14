@@ -1,7 +1,0 @@
-include LICENSE
-include README.md
-include CHANGELOG.md
-include CONTRIBUTING.md
-include pyproject.toml
-recursive-include src/cylestio_monitor/config *.yaml
-recursive-include tests *.py *.yaml 
