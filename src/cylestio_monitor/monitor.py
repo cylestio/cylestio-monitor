@@ -42,19 +42,15 @@ def enable_monitoring(
             - If a file without extension is provided, ".json" will be added
         config: Optional configuration dictionary that can include:
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            - enable_mcp: Whether to enable MCP monitoring
-            - enable_langchain: Whether to enable LangChain monitoring
-            - enable_langgraph: Whether to enable LangGraph monitoring
-            - llm_method_path: Path to the LLM client method to patch (default: "messages.create")
+    
+    Note:
+        The SDK automatically detects which frameworks are installed and available to monitor.
+        No explicit configuration is needed to enable monitoring for specific frameworks.
     """
     config = config or {}
     
-    # Extract configuration values with defaults
+    # Extract debug level from config
     debug_level = config.get("debug_level", "INFO")
-    enable_mcp = config.get("enable_mcp", True)
-    enable_langchain = config.get("enable_langchain", True)
-    enable_langgraph = config.get("enable_langgraph", True)
-    llm_method_path = config.get("llm_method_path", "messages.create")
     
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
@@ -129,56 +125,53 @@ def enable_monitoring(
     
     try:
         # Step 1: Patch MCP if available and enabled
-        if enable_mcp:
-            try:
-                # Try patching using ClientSession approach first (working method from main branch)
-                from mcp import ClientSession
-                
-                # Patch ClientSession.call_tool method
-                original_call_tool = ClientSession.call_tool
-                ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
-                
-                # Log the patch
-                log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
-                
-                logger.info("MCP monitoring enabled")
-                if llm_provider == "Unknown":
-                    llm_provider = "MCP"
-            except ImportError:
-                # MCP not available, skip patching
-                logger.debug("MCP module not available, skipping ClientSession patching")
-            except Exception as e:
-                # Log the error but continue with other monitoring
-                logger.error(f"Failed to enable MCP monitoring: {e}")
+        try:
+            # Try patching using ClientSession approach first (working method from main branch)
+            from mcp import ClientSession
+            
+            # Patch ClientSession.call_tool method
+            original_call_tool = ClientSession.call_tool
+            ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
+            
+            # Log the patch
+            log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
+            
+            logger.info("MCP monitoring enabled")
+            if llm_provider == "Unknown":
+                llm_provider = "MCP"
+        except ImportError:
+            # MCP not available, skip patching
+            logger.debug("MCP module not available, skipping ClientSession patching")
+        except Exception as e:
+            # Log the error but continue with other monitoring
+            logger.error(f"Failed to enable MCP monitoring: {e}")
         
-        # Step 2: Add LangChain monitoring if enabled
-        if enable_langchain:
-            try:
-                from .patchers.langchain_patcher import patch_langchain
-                import langchain
-                
-                patch_langchain(event_processor)
-                logger.info("LangChain monitoring enabled")
-                
-                if llm_provider == "Unknown":
-                    llm_provider = "LangChain"
-            except ImportError:
-                logger.debug("LangChain not installed, skipping monitoring")
+        # Step 2: Add LangChain monitoring if available
+        try:
+            from .patchers.langchain_patcher import patch_langchain
+            import langchain
+            
+            patch_langchain(event_processor)
+            logger.info("LangChain monitoring enabled")
+            
+            if llm_provider == "Unknown":
+                llm_provider = "LangChain"
+        except ImportError:
+            logger.debug("LangChain not installed, skipping monitoring")
         
-        # Step 3: Add LangGraph monitoring if enabled
-        if enable_langgraph:
-            try:
-                from .patchers.langgraph_patcher import patch_langgraph
-                import langgraph
-                
-                patch_langgraph(event_processor)
-                logger.info("LangGraph monitoring enabled")
-                
-                if llm_provider == "Unknown":
-                    llm_provider = "LangGraph"
-            except ImportError:
-                logger.debug("LangGraph not installed, skipping monitoring")
-                
+        # Step 3: Add LangGraph monitoring if available
+        try:
+            from .patchers.langgraph_patcher import patch_langgraph
+            import langgraph
+            
+            patch_langgraph(event_processor)
+            logger.info("LangGraph monitoring enabled")
+            
+            if llm_provider == "Unknown":
+                llm_provider = "LangGraph"
+        except ImportError:
+            logger.debug("LangGraph not installed, skipping monitoring")
+            
         # Step 4: If an LLM client was provided directly, patch it (e.g., Anthropic)
         if llm_client:
             # Extract the provider name if possible
@@ -189,6 +182,9 @@ def enable_monitoring(
                     llm_provider = llm_client._client.user_agent
 
             # Patch the LLM client
+            # Default to messages.create method for most LLM clients
+            llm_method_path = "messages.create"
+            
             parts = llm_method_path.split(".")
             target = llm_client
             for part in parts[:-1]:
@@ -202,7 +198,7 @@ def enable_monitoring(
 
             # Log the patch
             log_event("LLM_patch", {"method": llm_method_path, "provider": llm_provider}, "SYSTEM")
-        
+            
         # Log monitoring enabled event
         monitoring_data = {
             "agent_id": agent_id,
