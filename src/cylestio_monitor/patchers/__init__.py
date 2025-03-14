@@ -1,7 +1,12 @@
-"""Patchers for monitoring various LLM clients.
+"""Patchers module for Cylestio Monitor.
 
-This module is deprecated and will be removed in a future version.
-The patching functionality is now handled directly in the monitor module.
+This module contains patchers for various frameworks and libraries.
 """
+
+from . import base
+from . import mcp
+from . import anthropic
+from . import langchain_patcher
+from . import langgraph_patcher
 
 __all__ = []
