@@ -37,17 +37,24 @@ def enable_monitoring(
     Args:
         agent_id: Unique identifier for the agent
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
-        llm_method_path: Path to the LLM client method to patch (default: "messages.create")
         log_file: Path to the output log file (if None, only SQLite logging is used)
             - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
             - If a file without extension is provided, ".json" will be added
-        debug_level: Logging level for SDK's internal debug logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        enable_langchain: Whether to enable LangChain monitoring
-        enable_langgraph: Whether to enable LangGraph monitoring
-        enable_mcp: Whether to enable MCP monitoring
-        config: Optional configuration dictionary
+        config: Optional configuration dictionary that can include:
+            - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            - enable_mcp: Whether to enable MCP monitoring
+            - enable_langchain: Whether to enable LangChain monitoring
+            - enable_langgraph: Whether to enable LangGraph monitoring
+            - llm_method_path: Path to the LLM client method to patch (default: "messages.create")
     """
     config = config or {}
+    
+    # Extract configuration values with defaults
+    debug_level = config.get("debug_level", "INFO")
+    enable_mcp = config.get("enable_mcp", True)
+    enable_langchain = config.get("enable_langchain", True)
+    enable_langgraph = config.get("enable_langgraph", True)
+    llm_method_path = config.get("llm_method_path", "messages.create")
     
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
