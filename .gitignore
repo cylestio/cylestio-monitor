@@ -71,6 +71,17 @@ site/
 *.sqlite
 *.db
 *.rdb
+*.sqlite3
+*chroma.sqlite3
+*chroma_db/
+
+# Output directories and files
+**/output/
+output/
+**/logs/
+*_logs.json
+*_monitoring.json
+*monitoring*.json
 
 # OS specific
 .DS_Store
