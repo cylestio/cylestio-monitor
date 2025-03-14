@@ -318,15 +318,16 @@ def log_event(
     # Convert to JSON string
     msg = json.dumps(record)
     
-    # Log to the standard logger
+    # Log to console only through the standard logger (not to file)
+    # We'll handle file logging separately
     if level.lower() == "debug":
-        monitor_logger.debug(msg, extra={"channel": channel})
+        monitor_logger.debug(f"Event: {event_type}", extra={"channel": channel})
     elif level.lower() == "warning":
-        monitor_logger.warning(msg, extra={"channel": channel})
+        monitor_logger.warning(f"Event: {event_type}", extra={"channel": channel})
     elif level.lower() == "error":
-        monitor_logger.error(msg, extra={"channel": channel})
+        monitor_logger.error(f"Event: {event_type}", extra={"channel": channel})
     else:
-        monitor_logger.info(msg, extra={"channel": channel})
+        monitor_logger.info(f"Event: {event_type}", extra={"channel": channel})
     
     # Log to the SQLite database
     try:
@@ -344,10 +345,16 @@ def log_event(
     except Exception as e:
         monitor_logger.error(f"Failed to log event to database: {e}")
     
-    # Log to JSON file if configured
+    # Log to JSON file if configured (direct file write instead of using logger)
     log_file = config_manager.get("monitoring.log_file")
     if log_file:
         try:
+            import os
+            # Ensure directory exists
+            log_dir = os.path.dirname(os.path.abspath(log_file))
+            if log_dir and not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+                
             with open(log_file, "a") as f:
                 f.write(msg + "\n")
         except Exception as e:
