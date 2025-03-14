@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Enhanced response tracking for all supported frameworks
+- Improved error handling in Anthropic SDK patcher
+- Added debugging capabilities for LLM response tracking
+- Event type consistency across all frameworks (LLM_call_start, LLM_call_finish)
+
+### Fixed
+- Fixed issue with Anthropic callback handling for response events
+- Fixed model type handling in events_processor.py for Anthropic
+- Added fallback mechanism for LangChain run_id tracking
+- Improved robustness of LangChain callback response capture
+- Better error handling in multi-framework examples
+
+### Changed
+- Updated documentation to reflect enhanced response tracking capabilities
+- Improved example code with better error handling
+- Standardized event naming across frameworks
+- Enhanced framework compatibility matrix with response tracking information
+
 ## [0.1.2] - 2024-03-11
 
 ### Changed

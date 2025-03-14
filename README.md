@@ -45,6 +45,7 @@ response = client.messages.create(
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
 - **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
+- **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses 
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
 - **Structured logging**: Events stored in SQLite with optional JSON output
@@ -55,6 +56,17 @@ response = client.messages.create(
 - **PII detection**: Detect and redact personally identifiable information
 - **Content filtering**: Filter out harmful or inappropriate content
 - **Security rules**: Define custom security rules for your specific use case
+
+## Framework Support
+
+Cylestio Monitor supports:
+
+- **Direct API calls**: Anthropic, Claude models (all versions)
+- **LangChain**: Chains, agents, and callbacks
+- **LangGraph**: Graph-based agents and workflows 
+- **MCP (Model Context Protocol)**: Tool calls and responses
+
+See [docs/compatibility.md](docs/compatibility.md) for the full compatibility matrix.
 
 ## Repository Structure
 
@@ -80,8 +92,6 @@ cylestio-monitor/
     ├── advanced-topics/       # Advanced usage documentation
     └── sdk-reference/         # API reference documentation
 ```
-
-For framework compatibility information, see [docs/compatibility.md](docs/compatibility.md).
 
 ## Contributing
 
