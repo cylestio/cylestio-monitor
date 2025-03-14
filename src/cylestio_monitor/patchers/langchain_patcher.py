@@ -770,36 +770,136 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                     original_chain_call = Chain.__call__
                     
                     def patched_chain_call(self, inputs, callbacks=None, *args, **kwargs):
-                        # Add our monitor to callbacks
-                        if callbacks is None:
-                            callbacks = []
-                        if monitor not in callbacks:
-                            callbacks.append(monitor)
+                        """Patched Chain __call__ method to monitor execution."""
+                        # Store the start time
+                        run_id = str(time.time())
+                        self._start_times[run_id] = time.time()
+                        self._chain_types[run_id] = self.__class__.__name__
+                        
+                        # Log start event
+                        self._create_event(
+                            "chain_start",
+                            {
+                                "chain_id": run_id,
+                                "chain_type": self._chain_types[run_id],
+                                "input": inputs,
+                                "metadata": getattr(self, "metadata", {}),
+                                "run_id": run_id
+                            },
+                            direction="outgoing"
+                        )
                         
                         # Call the original method
-                        return original_chain_call(self, inputs, callbacks=callbacks, *args, **kwargs)
+                        try:
+                            result = original_chain_call(self, inputs, callbacks=callbacks, *args, **kwargs)
+                            
+                            # Log end event
+                            self._create_event(
+                                "chain_end",
+                                {
+                                    "chain_id": run_id,
+                                    "chain_type": self._chain_types[run_id],
+                                    "output": result,
+                                    "performance": {
+                                        "duration_ms": (time.time() - self._start_times[run_id]) * 1000
+                                    },
+                                    "run_id": run_id
+                                },
+                                direction="incoming"
+                            )
+                            
+                            return result
+                        except Exception as e:
+                            # Log error event
+                            self._create_event(
+                                "chain_error",
+                                {
+                                    "chain_id": run_id,
+                                    "chain_type": self._chain_types[run_id],
+                                    "error": str(e),
+                                    "error_type": type(e).__name__,
+                                    "performance": {
+                                        "duration_ms": (time.time() - self._start_times[run_id]) * 1000
+                                    },
+                                    "run_id": run_id
+                                },
+                                level="error"
+                            )
+                            raise
                     
                     Chain.__call__ = patched_chain_call
                 except ImportError:
                     # Try newer imports
                     try:
+                        # For newer LangChain versions (Core)
                         from langchain_core.chains import Chain
                         
                         original_chain_call = Chain.__call__
                         
                         def patched_chain_call(self, inputs, callbacks=None, *args, **kwargs):
-                            # Add our monitor to callbacks
-                            if callbacks is None:
-                                callbacks = []
-                            if monitor not in callbacks:
-                                callbacks.append(monitor)
+                            """Patched Chain __call__ method to monitor execution."""
+                            # Store the start time
+                            run_id = str(time.time())
+                            self._start_times[run_id] = time.time()
+                            self._chain_types[run_id] = self.__class__.__name__
+                            
+                            # Log start event
+                            self._create_event(
+                                "chain_start",
+                                {
+                                    "chain_id": run_id,
+                                    "chain_type": self._chain_types[run_id],
+                                    "input": inputs,
+                                    "metadata": getattr(self, "metadata", {}),
+                                    "run_id": run_id
+                                },
+                                direction="outgoing"
+                            )
                             
                             # Call the original method
-                            return original_chain_call(self, inputs, callbacks=callbacks, *args, **kwargs)
+                            try:
+                                result = original_chain_call(self, inputs, callbacks=callbacks, *args, **kwargs)
+                                
+                                # Log end event
+                                self._create_event(
+                                    "chain_end",
+                                    {
+                                        "chain_id": run_id,
+                                        "chain_type": self._chain_types[run_id],
+                                        "output": result,
+                                        "performance": {
+                                            "duration_ms": (time.time() - self._start_times[run_id]) * 1000
+                                        },
+                                        "run_id": run_id
+                                    },
+                                    direction="incoming"
+                                )
+                                
+                                return result
+                            except Exception as e:
+                                # Log error event
+                                self._create_event(
+                                    "chain_error",
+                                    {
+                                        "chain_id": run_id,
+                                        "chain_type": self._chain_types[run_id],
+                                        "error": str(e),
+                                        "error_type": type(e).__name__,
+                                        "performance": {
+                                            "duration_ms": (time.time() - self._start_times[run_id]) * 1000
+                                        },
+                                        "run_id": run_id
+                                    },
+                                    level="error"
+                                )
+                                raise
                         
                         Chain.__call__ = patched_chain_call
-                    except ImportError:
-                        pass
+                    except (ImportError, AttributeError) as e:
+                        # Log warning about Chain patch failure
+                        self.logger.warning(f"Failed to patch Chain.__call__: {str(e)}")
+                        self.logger.warning("Chain monitoring will be limited")
+                        # Continue with other patches
                 
                 # Try to patch LLM classes
                 try:

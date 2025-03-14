@@ -7,6 +7,7 @@ including graph node executions, data source interactions, and state transitions
 import time
 from typing import Any, Dict, List, Optional, Union, Callable
 from datetime import datetime
+import traceback
 
 from langgraph.graph import END, StateGraph
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -332,6 +333,7 @@ def patch_langgraph(event_processor: EventProcessor) -> None:
     try:
         # Try to register with LangGraph callbacks
         try:
+            # For newer LangGraph versions
             from langgraph.callbacks import set_global_handlers
             set_global_handlers([monitor])
             
@@ -341,53 +343,25 @@ def patch_langgraph(event_processor: EventProcessor) -> None:
                 data={
                     "framework": "langgraph",
                     "version": monitor._get_langgraph_version(),
-                    "patch_time": datetime.now().isoformat(),
-                    "method": "set_global_handlers"
+                    "patch_type": "global_handlers",
+                    "methods": ["set_global_handlers"]
                 },
-                channel="LANGGRAPH",
-                level="info"
+                channel="FRAMEWORK"
             )
-            return
-        except ImportError:
-            pass
-        
-        # Try alternative approach for newer versions
-        try:
-            import langgraph
-            
-            # Check if we can monkey patch the StateGraph class
-            if hasattr(langgraph, "graph") and hasattr(langgraph.graph, "StateGraph"):
-                # Log that we're using monkey patching instead
-                event_processor.process_event(
-                    event_type="framework_patch",
-                    data={
-                        "framework": "langgraph",
-                        "version": monitor._get_langgraph_version(),
-                        "patch_time": datetime.now().isoformat(),
-                        "method": "monkey_patch",
-                        "note": "Using monkey patching as callbacks module is not available"
-                    },
-                    channel="LANGGRAPH",
-                    level="info"
-                )
-                return
-        except ImportError:
-            pass
-        
-        # If we get here, we couldn't patch LangGraph
-        raise ImportError("Could not find a compatible way to register callbacks with LangGraph")
-        
+        except (ImportError, AttributeError) as e:
+            # Newer LangGraph versions may have different callback mechanism
+            logger.warning(f"Could not set global handlers for LangGraph: {e}")
+            # Attempt to use an alternative method - the current LangGraph API might have changed
+            try:
+                # Try to find another way to register callbacks - this is future-proofing
+                import langgraph
+                logger.info(f"Detected LangGraph version: {monitor._get_langgraph_version()}")
+                logger.info("Using state graph patching for monitoring instead of global handlers")
+                
+                # We'll rely on StateGraph patching instead
+                pass
+            except Exception as e2:
+                logger.warning(f"Could not find alternative LangGraph callback method: {e2}")
     except Exception as e:
-        # Log patch failure
-        event_processor.process_event(
-            event_type="framework_patch_error",
-            data={
-                "framework": "langgraph",
-                "error": str(e),
-                "error_type": type(e).__name__
-            },
-            channel="LANGGRAPH",
-            level="error"
-        )
-        # Don't raise the exception, just log it and continue
-        # This allows the application to run even if LangGraph monitoring fails 
+        logger.error(f"Failed to patch LangGraph: {e}")
+        logger.error(f"LangGraph monitoring may be limited: {traceback.format_exc()}") 
