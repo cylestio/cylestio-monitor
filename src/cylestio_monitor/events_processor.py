@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.db import utils as db_utils
+from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
 
 monitor_logger = logging.getLogger("CylestioMonitor")
 
@@ -315,50 +316,15 @@ def log_event(
     # Update record with enhanced data
     record["data"] = enhanced_data
     
-    # Convert to JSON string
-    msg = json.dumps(record)
-    
-    # Log to console only through the standard logger (not to file)
-    # We'll handle file logging separately
-    if level.lower() == "debug":
-        monitor_logger.debug(f"Event: {event_type}", extra={"channel": channel})
-    elif level.lower() == "warning":
-        monitor_logger.warning(f"Event: {event_type}", extra={"channel": channel})
-    elif level.lower() == "error":
-        monitor_logger.error(f"Event: {event_type}", extra={"channel": channel})
-    else:
-        monitor_logger.info(f"Event: {event_type}", extra={"channel": channel})
-    
-    # Log to the SQLite database
-    try:
-        # Only log to database if agent_id is set
-        if agent_id:
-            # Log to the database
-            db_utils.log_to_db(
-                agent_id=agent_id,
-                event_type=event_type,
-                data=record["data"],
-                channel=channel,
-                level=level,
-                timestamp=datetime.now()
-            )
-    except Exception as e:
-        monitor_logger.error(f"Failed to log event to database: {e}")
-    
-    # Log to JSON file if configured (direct file write instead of using logger)
-    log_file = config_manager.get("monitoring.log_file")
-    if log_file:
-        try:
-            import os
-            # Ensure directory exists
-            log_dir = os.path.dirname(os.path.abspath(log_file))
-            if log_dir and not os.path.exists(log_dir):
-                os.makedirs(log_dir, exist_ok=True)
-                
-            with open(log_file, "a") as f:
-                f.write(msg + "\n")
-        except Exception as e:
-            monitor_logger.error(f"Failed to log event to file {log_file}: {e}")
+    # Use the new event_logger module to handle all logging
+    process_and_log_event(
+        agent_id=agent_id or "unknown",
+        event_type=event_type,
+        data=enhanced_data,
+        channel=channel,
+        level=level,
+        record=record
+    )
 
 
 def _estimate_tokens(text: Any) -> int:

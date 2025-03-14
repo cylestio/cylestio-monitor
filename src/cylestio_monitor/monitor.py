@@ -14,6 +14,7 @@ import platformdirs
 
 from .config import ConfigManager
 from .db import utils as db_utils
+from .event_logger import log_console_message, process_and_log_event
 from .events_listener import monitor_call, monitor_llm_call
 from .events_processor import log_event, EventProcessor
 
@@ -183,7 +184,7 @@ def enable_monitoring(
             "database_path": db_path
         }
         
-        # Log to both database and JSON file through a single consolidated function
+        # Log to both database and JSON file through the log_event function
         log_event("monitoring_enabled", monitoring_data, "SYSTEM", "info")
         
         logger.info(f"Monitoring enabled for agent {agent_id}")
@@ -203,7 +204,7 @@ def disable_monitoring() -> None:
         # Log monitoring disabled event
         monitoring_data = {"agent_id": agent_id, "timestamp": datetime.now().isoformat()}
         
-        # Log to database and file through a single consolidated function
+        # Log to database and file through the log_event function
         log_event("monitoring_disabled", monitoring_data, "SYSTEM", "info")
     
     logger.info("Monitoring disabled")
@@ -270,7 +271,7 @@ def log_to_file_and_db(
     if log_file:
         config_manager.set("monitoring.log_file", log_file)
     
-    # Log to database and file through a single consolidated function
+    # Log to database and file through the log_event function
     try:
         log_event(event_type, data, channel, level, direction)
     except Exception as e:
@@ -280,4 +281,4 @@ def log_to_file_and_db(
     if log_file and log_file != config_manager.get("monitoring.log_file", None):
         config_manager.set("monitoring.log_file", config_manager.get("monitoring.log_file"))
 
-__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_db"]
+__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_db", "get_database_path", "cleanup_old_events"]
