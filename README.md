@@ -56,6 +56,33 @@ response = client.messages.create(
 - **Content filtering**: Filter out harmful or inappropriate content
 - **Security rules**: Define custom security rules for your specific use case
 
+## Repository Structure
+
+The Cylestio Monitor repository is organized as follows:
+
+```
+cylestio-monitor/
+├── src/                       # Source code for the Cylestio Monitor package
+│   └── cylestio_monitor/      # Main package
+│       ├── patchers/          # Framework-specific patchers (Anthropic, MCP, etc.)
+│       ├── db/                # Database management and schema
+│       ├── events/            # Event definitions and processing
+│       ├── config/            # Configuration management
+│       └── utils/             # Utility functions
+├── examples/                  # Example implementations
+│   └── agents/                # Various agent examples demonstrating integration
+├── tests/                     # Test suite
+│   ├── integration/           # Integration tests
+│   └── fixtures/              # Test fixtures
+└── docs/                      # Documentation
+    ├── compatibility.md       # Framework compatibility information
+    ├── getting-started/       # Getting started guides
+    ├── advanced-topics/       # Advanced usage documentation
+    └── sdk-reference/         # API reference documentation
+```
+
+For framework compatibility information, see [docs/compatibility.md](docs/compatibility.md).
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
