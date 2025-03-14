@@ -258,6 +258,18 @@ old_examples/
 
 # Output files
 *_monitoring.json
+*_monitoring*.json
+output/
+examples/output/
+examples/*/output/
+examples/*/*/output/
+
+# Database files
+*.sqlite3
+*chroma.sqlite3
+*chroma_db/
+examples/*/data/
+examples/*/*/data/
 
 # Demo and local development tools
 demo/
