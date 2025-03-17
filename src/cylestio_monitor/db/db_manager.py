@@ -1,6 +1,6 @@
 """Database manager for Cylestio Monitor.
 
-This module provides a SQLite-based database manager for storing monitoring events.
+This module provides a SQLAlchemy-based database manager for storing monitoring events.
 """
 
 import json
@@ -8,18 +8,29 @@ import logging
 import os
 import sqlite3
 import threading
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import platformdirs
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
+
+from cylestio_monitor.db.models import (
+    Agent, Base, Conversation, Event, EventChannel, EventLevel, EventSecurity,
+    EventType, LLMCall, PerformanceMetric, SecurityAlert, Session as SessionModel,
+    ToolCall, AlertLevel, AlertSeverity
+)
 
 logger = logging.getLogger("CylestioMonitor")
 
 
 class DBManager:
     """
-    Manages the SQLite database for Cylestio Monitor.
+    Manages the SQLAlchemy database for Cylestio Monitor.
     
     This class handles database operations for storing and retrieving monitoring events.
     It uses a global SQLite database stored in a shared location determined by platformdirs,
@@ -31,7 +42,11 @@ class DBManager:
     _lock = threading.Lock()
     
     def __new__(cls) -> "DBManager":
-        """Implement the singleton pattern."""
+        """Implement the singleton pattern.
+        
+        Returns:
+            DBManager: The singleton instance.
+        """
         if cls._instance is None:
             cls._instance = super(DBManager, cls).__new__(cls)
             cls._instance._initialize()
@@ -49,11 +64,27 @@ class DBManager:
                 appauthor="cylestio"
             )
         self._db_path = Path(self._data_dir) / "cylestio_monitor.db"
+        
+        # Create the directory if it doesn't exist
+        os.makedirs(self._data_dir, exist_ok=True)
+        
+        # Create SQLAlchemy engine with connection pooling
+        sqlite_url = f"sqlite:///{self._db_path}"
+        self._engine = create_engine(
+            sqlite_url,
+            poolclass=QueuePool,
+            pool_size=5,
+            max_overflow=10,
+            pool_timeout=30,
+            connect_args={"check_same_thread": False}
+        )
+        
+        # Create session factory
+        self._Session = sessionmaker(bind=self._engine)
+        
+        # Initialize the database if it doesn't exist
         self._ensure_db_exists()
         
-        # Connection is thread-local
-        self._local = threading.local()
-    
     def _ensure_db_exists(self) -> None:
         """
         Ensure that the global database file exists.
@@ -63,93 +94,35 @@ class DBManager:
         if not self._db_path.exists():
             logger.info(f"Creating global database at {self._db_path}")
             
-            # Create the directory if it doesn't exist
-            os.makedirs(self._data_dir, exist_ok=True)
-            
-            # Create the database and initialize the schema
             try:
-                conn = sqlite3.connect(self._db_path)
-                self._create_schema(conn)
-                conn.close()
+                # Create all tables
+                Base.metadata.create_all(self._engine)
                 logger.info("Database schema created successfully")
             except Exception as e:
                 logger.error(f"Failed to create database schema: {e}")
                 raise
     
-    def _create_schema(self, conn: sqlite3.Connection) -> None:
+    @contextmanager
+    def _get_session(self) -> Session:
         """
-        Create the database schema.
+        Get a session for database operations and handle cleanup.
         
-        Args:
-            conn: SQLite connection
+        Yields:
+            Session: SQLAlchemy session
         """
-        cursor = conn.cursor()
-        
-        # Create the agents table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS agents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            agent_id TEXT UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
-        
-        # Create the events table
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            agent_id INTEGER NOT NULL,
-            event_type TEXT NOT NULL,
-            channel TEXT NOT NULL,
-            level TEXT NOT NULL,
-            timestamp TIMESTAMP NOT NULL,
-            data JSON NOT NULL,
-            FOREIGN KEY (agent_id) REFERENCES agents (id)
-        )
-        """)
-        
-        # Create indexes for better query performance
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_agent_id ON events (agent_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events (timestamp)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_channel ON events (channel)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_level ON events (level)")
-        
-        conn.commit()
-    
-    def _get_connection(self) -> sqlite3.Connection:
-        """
-        Get a thread-local database connection.
-        
-        Returns:
-            SQLite connection
-        """
-        if not hasattr(self._local, "connection") or self._local.connection is None:
-            self._local.connection = sqlite3.connect(
-                self._db_path,
-                detect_types=sqlite3.PARSE_DECLTYPES
-            )
-            # Enable foreign keys
-            self._local.connection.execute("PRAGMA foreign_keys = ON")
-            # Enable JSON1 extension
-            self._local.connection.enable_load_extension(True)
-            try:
-                self._local.connection.load_extension("json1")
-            except sqlite3.OperationalError:
-                # JSON1 extension is built-in in newer SQLite versions
-                pass
-            self._local.connection.enable_load_extension(False)
-            # Set row factory to return dictionaries
-            self._local.connection.row_factory = sqlite3.Row
-        
-        return self._local.connection
+        session = self._Session()
+        try:
+            yield session
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
     
     def close(self) -> None:
-        """Close the database connection."""
-        if hasattr(self._local, "connection") and self._local.connection is not None:
-            self._local.connection.close()
-            self._local.connection = None
+        """Close all database connections in the pool."""
+        if hasattr(self, '_engine'):
+            self._engine.dispose()
     
     def get_or_create_agent(self, agent_id: str) -> int:
         """
@@ -161,34 +134,15 @@ class DBManager:
         Returns:
             The agent's database ID
         """
-        with self._lock:
-            conn = self._get_connection()
-            cursor = conn.cursor()
+        with self._lock, self._get_session() as session:
+            agent = Agent.get_or_create(session, agent_id)
+            session.commit()
             
-            # Try to get the agent
-            cursor.execute(
-                "SELECT id FROM agents WHERE agent_id = ?",
-                (agent_id,)
-            )
-            result = cursor.fetchone()
+            # Update last_seen timestamp
+            agent.update_last_seen()
+            session.commit()
             
-            if result:
-                # Update last_seen timestamp
-                agent_db_id = result[0]
-                cursor.execute(
-                    "UPDATE agents SET last_seen = ? WHERE id = ?",
-                    (datetime.now(), agent_db_id)
-                )
-            else:
-                # Create a new agent
-                cursor.execute(
-                    "INSERT INTO agents (agent_id, created_at, last_seen) VALUES (?, ?, ?)",
-                    (agent_id, datetime.now(), datetime.now())
-                )
-                agent_db_id = cursor.lastrowid
-            
-            conn.commit()
-            return agent_db_id
+            return agent.id
     
     def log_event(
         self,
@@ -213,24 +167,223 @@ class DBManager:
         Returns:
             The event ID
         """
-        if timestamp is None:
-            timestamp = datetime.now()
+        timestamp = timestamp or datetime.now()
         
-        agent_db_id = self.get_or_create_agent(agent_id)
+        with self._get_session() as session:
+            # Get or create the agent and get its ID
+            agent_db_obj = Agent.get_or_create(session, agent_id)
+            session.flush()  # Flush to ensure agent has an ID
+            
+            # Create the event
+            event = Event.create_event(
+                session=session,
+                agent_id=agent_db_obj.id,
+                event_type=event_type,
+                channel=channel,
+                level=level.lower(),
+                data=data,
+                timestamp=timestamp
+            )
+            
+            # Commit the transaction
+            session.commit()
+            
+            return event.id
+    
+    def log_llm_call(
+        self,
+        agent_id: str,
+        model: str,
+        prompt: str,
+        response: str,
+        tokens_in: Optional[int] = None,
+        tokens_out: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        is_stream: bool = False,
+        temperature: Optional[float] = None,
+        cost: Optional[float] = None,
+        timestamp: Optional[datetime] = None,
+        level: str = "info"
+    ) -> int:
+        """
+        Log an LLM call to the database.
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        Args:
+            agent_id: The ID of the agent
+            model: The LLM model name
+            prompt: The prompt text
+            response: The LLM response text
+            tokens_in: Number of input tokens
+            tokens_out: Number of output tokens
+            duration_ms: Duration in milliseconds
+            is_stream: Whether the response was streamed
+            temperature: LLM temperature setting
+            cost: Cost of the LLM call
+            timestamp: The event timestamp (defaults to now)
+            level: The event level (defaults to info)
+            
+        Returns:
+            The event ID
+        """
+        timestamp = timestamp or datetime.now()
         
-        cursor.execute(
-            """
-            INSERT INTO events (agent_id, event_type, channel, level, timestamp, data)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (agent_db_id, event_type, channel, level.lower(), timestamp, json.dumps(data))
-        )
+        with self._get_session() as session:
+            # Get or create the agent and get its ID
+            agent_db_obj = Agent.get_or_create(session, agent_id)
+            session.flush()
+            
+            # Create the base event first
+            event = Event.create_event(
+                session=session,
+                agent_id=agent_db_obj.id,
+                event_type=EventType.LLM_REQUEST,
+                channel=EventChannel.LLM,
+                level=level.lower(),
+                timestamp=timestamp,
+                data={"model": model}
+            )
+            session.flush()
+            
+            # Create the LLM call record
+            llm_call = LLMCall.create_llm_call(
+                session=session,
+                event_id=event.id,
+                model=model,
+                prompt=prompt,
+                response=response,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                duration_ms=duration_ms,
+                is_stream=is_stream,
+                temperature=temperature,
+                cost=cost
+            )
+            
+            # Commit the transaction
+            session.commit()
+            
+            return event.id
+    
+    def log_tool_call(
+        self,
+        agent_id: str,
+        tool_name: str,
+        input_params: Dict[str, Any],
+        output: Optional[Dict[str, Any]] = None,
+        success: bool = True,
+        duration_ms: Optional[int] = None,
+        timestamp: Optional[datetime] = None,
+        level: str = "info"
+    ) -> int:
+        """
+        Log a tool call to the database.
         
-        conn.commit()
-        return cursor.lastrowid
+        Args:
+            agent_id: The ID of the agent
+            tool_name: The name of the tool
+            input_params: The input parameters
+            output: The tool output
+            success: Whether the tool call succeeded
+            duration_ms: Duration in milliseconds
+            timestamp: The event timestamp (defaults to now)
+            level: The event level (defaults to info)
+            
+        Returns:
+            The event ID
+        """
+        timestamp = timestamp or datetime.now()
+        
+        with self._get_session() as session:
+            # Get or create the agent and get its ID
+            agent_db_obj = Agent.get_or_create(session, agent_id)
+            session.flush()
+            
+            # Create the base event first
+            event = Event.create_event(
+                session=session,
+                agent_id=agent_db_obj.id,
+                event_type=EventType.TOOL_CALL,
+                channel=EventChannel.TOOL,
+                level=level.lower(),
+                timestamp=timestamp,
+                data={"tool_name": tool_name}
+            )
+            session.flush()
+            
+            # Create the tool call record
+            tool_call = ToolCall.create_tool_call(
+                session=session,
+                event_id=event.id,
+                tool_name=tool_name,
+                input_params=input_params,
+                output=output or {},
+                success=success,
+                duration_ms=duration_ms
+            )
+            
+            # Commit the transaction
+            session.commit()
+            
+            return event.id
+    
+    def log_security_event(
+        self,
+        agent_id: str,
+        alert_type: str,
+        description: str,
+        severity: str = "medium",
+        related_data: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[datetime] = None,
+        level: str = "warning"
+    ) -> int:
+        """
+        Log a security event to the database.
+        
+        Args:
+            agent_id: The ID of the agent
+            alert_type: The type of security alert
+            description: Description of the security alert
+            severity: The severity of the alert
+            related_data: Additional data related to the alert
+            timestamp: The event timestamp (defaults to now)
+            level: The event level (defaults to warning)
+            
+        Returns:
+            The event ID
+        """
+        timestamp = timestamp or datetime.now()
+        
+        with self._get_session() as session:
+            # Get or create the agent and get its ID
+            agent_db_obj = Agent.get_or_create(session, agent_id)
+            session.flush()
+            
+            # Create the base event first
+            event = Event.create_event(
+                session=session,
+                agent_id=agent_db_obj.id,
+                event_type=EventType.SECURITY_ALERT,
+                channel=EventChannel.SYSTEM,
+                level=level.lower(),
+                timestamp=timestamp,
+                data={"alert_type": alert_type}
+            )
+            session.flush()
+            
+            # Create the security alert record
+            security_alert = SecurityAlert.create_security_alert(
+                session=session,
+                event_id=event.id,
+                alert_type=alert_type,
+                description=description,
+                severity=severity,
+                related_data=related_data or {}
+            )
+            
+            # Commit the transaction
+            session.commit()
+            
+            return event.id
     
     def get_events(
         self,
@@ -259,58 +412,211 @@ class DBManager:
         Returns:
             List of events
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        query = """
-        SELECT e.id, a.agent_id, e.event_type, e.channel, e.level, 
-               e.timestamp, e.data
-        FROM events e
-        JOIN agents a ON e.agent_id = a.id
-        WHERE 1=1
+        with self._get_session() as session:
+            # Start with a query that joins Event and Agent
+            query = select(Event).join(Agent)
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if event_type:
+                query = query.where(Event.event_type == event_type)
+            
+            if channel:
+                query = query.where(Event.channel == channel)
+            
+            if level:
+                query = query.where(Event.level == level.lower())
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply sorting and pagination
+            query = query.order_by(Event.timestamp.desc())
+            query = query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(query).scalars().all()
+            
+            # Convert to dictionaries
+            events = []
+            for event in result:
+                # Get the agent_id from the agent relationship
+                agent_id_value = event.agent.agent_id
+                
+                # Convert to dictionary
+                event_dict = {
+                    "id": event.id,
+                    "agent_id": agent_id_value,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "data": event.data or {}
+                }
+                events.append(event_dict)
+            
+            return events
+    
+    def get_llm_calls(
+        self,
+        agent_id: Optional[str] = None,
+        model: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
         """
-        params = []
+        Get LLM calls from the database.
         
-        if agent_id:
-            query += " AND a.agent_id = ?"
-            params.append(agent_id)
+        Args:
+            agent_id: Filter by agent ID
+            model: Filter by LLM model
+            start_time: Filter by start time
+            end_time: Filter by end time
+            limit: Maximum number of events to return
+            offset: Offset for pagination
+            
+        Returns:
+            List of LLM call events
+        """
+        with self._get_session() as session:
+            # Start with a query that joins LLMCall, Event, and Agent
+            query = (
+                select(LLMCall, Event, Agent)
+                .join(Event, LLMCall.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if model:
+                query = query.where(LLMCall.model == model)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply sorting and pagination
+            query = query.order_by(Event.timestamp.desc())
+            query = query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to dictionaries
+            llm_calls = []
+            for llm_call, event, agent in result:
+                llm_call_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "model": llm_call.model,
+                    "prompt": llm_call.prompt,
+                    "response": llm_call.response,
+                    "tokens_in": llm_call.tokens_in,
+                    "tokens_out": llm_call.tokens_out,
+                    "duration_ms": llm_call.duration_ms,
+                    "is_stream": llm_call.is_stream,
+                    "temperature": llm_call.temperature,
+                    "cost": llm_call.cost,
+                    "data": event.data or {}
+                }
+                llm_calls.append(llm_call_dict)
+            
+            return llm_calls
+    
+    def get_security_alerts(
+        self,
+        agent_id: Optional[str] = None,
+        severity: Optional[str] = None,
+        alert_type: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get security alerts from the database.
         
-        if event_type:
-            query += " AND e.event_type = ?"
-            params.append(event_type)
-        
-        if channel:
-            query += " AND e.channel = ?"
-            params.append(channel)
-        
-        if level:
-            query += " AND e.level = ?"
-            params.append(level.lower())
-        
-        if start_time:
-            query += " AND e.timestamp >= ?"
-            params.append(start_time)
-        
-        if end_time:
-            query += " AND e.timestamp <= ?"
-            params.append(end_time)
-        
-        query += " ORDER BY e.timestamp DESC LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-        
-        cursor.execute(query, params)
-        
-        events = []
-        for row in cursor.fetchall():
-            event = dict(row)
-            event["data"] = json.loads(event["data"])
-            events.append(event)
-        
-        return events
+        Args:
+            agent_id: Filter by agent ID
+            severity: Filter by alert severity
+            alert_type: Filter by alert type
+            start_time: Filter by start time
+            end_time: Filter by end time
+            limit: Maximum number of alerts to return
+            offset: Offset for pagination
+            
+        Returns:
+            List of security alert events
+        """
+        with self._get_session() as session:
+            # Start with a query that joins SecurityAlert, Event, and Agent
+            query = (
+                select(SecurityAlert, Event, Agent)
+                .join(Event, SecurityAlert.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if severity:
+                query = query.where(SecurityAlert.severity == severity)
+            
+            if alert_type:
+                query = query.where(SecurityAlert.alert_type == alert_type)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply sorting and pagination
+            query = query.order_by(Event.timestamp.desc())
+            query = query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to dictionaries
+            alerts = []
+            for alert, event, agent in result:
+                alert_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "alert_type": alert.alert_type,
+                    "description": alert.description,
+                    "severity": alert.severity,
+                    "related_data": alert.related_data or {},
+                    "data": event.data or {}
+                }
+                alerts.append(alert_dict)
+            
+            return alerts
     
     def get_agent_stats(self, agent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Get statistics for agents.
+        Get agent statistics from the database.
         
         Args:
             agent_id: Filter by agent ID
@@ -318,34 +624,58 @@ class DBManager:
         Returns:
             List of agent statistics
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        query = """
-        SELECT a.agent_id, 
-               COUNT(e.id) as event_count,
-               MIN(e.timestamp) as first_event,
-               MAX(e.timestamp) as last_event,
-               a.created_at,
-               a.last_seen
-        FROM agents a
-        LEFT JOIN events e ON a.id = e.agent_id
-        """
-        
-        params = []
-        if agent_id:
-            query += " WHERE a.agent_id = ?"
-            params.append(agent_id)
-        
-        query += " GROUP BY a.id ORDER BY a.agent_id"
-        
-        cursor.execute(query, params)
-        
-        stats = []
-        for row in cursor.fetchall():
-            stats.append(dict(row))
-        
-        return stats
+        with self._get_session() as session:
+            # Start with a query that selects from Agent
+            query = select(Agent)
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            # Execute query
+            result = session.execute(query).scalars().all()
+            
+            # Convert to dictionaries with event counts
+            stats = []
+            for agent in result:
+                # Count events for this agent
+                events_count = session.execute(
+                    select(func.count(Event.id)).where(Event.agent_id == agent.id)
+                ).scalar_one()
+                
+                # Count LLM calls for this agent
+                llm_calls_count = session.execute(
+                    select(func.count(LLMCall.id))
+                    .join(Event, LLMCall.event_id == Event.id)
+                    .where(Event.agent_id == agent.id)
+                ).scalar_one()
+                
+                # Get first and last event timestamp
+                first_event = session.execute(
+                    select(Event.timestamp)
+                    .where(Event.agent_id == agent.id)
+                    .order_by(Event.timestamp.asc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                
+                last_event = session.execute(
+                    select(Event.timestamp)
+                    .where(Event.agent_id == agent.id)
+                    .order_by(Event.timestamp.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                
+                stats.append({
+                    "agent_id": agent.agent_id,
+                    "created_at": agent.created_at,
+                    "last_seen": agent.last_seen,
+                    "events_count": events_count,
+                    "llm_calls_count": llm_calls_count,
+                    "first_event": first_event,
+                    "last_event": last_event
+                })
+            
+            return stats
     
     def get_event_types(self, agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
         """
@@ -357,25 +687,28 @@ class DBManager:
         Returns:
             List of tuples (event_type, count)
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        query = """
-        SELECT e.event_type, COUNT(e.id) as count
-        FROM events e
-        JOIN agents a ON e.agent_id = a.id
-        """
-        
-        params = []
-        if agent_id:
-            query += " WHERE a.agent_id = ?"
-            params.append(agent_id)
-        
-        query += " GROUP BY e.event_type ORDER BY count DESC"
-        
-        cursor.execute(query, params)
-        
-        return [(row["event_type"], row["count"]) for row in cursor.fetchall()]
+        with self._get_session() as session:
+            # Build the query
+            if agent_id:
+                query = (
+                    select(Event.event_type, func.count(Event.id).label("count"))
+                    .join(Agent, Event.agent_id == Agent.id)
+                    .where(Agent.agent_id == agent_id)
+                    .group_by(Event.event_type)
+                    .order_by(text("count DESC"))
+                )
+            else:
+                query = (
+                    select(Event.event_type, func.count(Event.id).label("count"))
+                    .group_by(Event.event_type)
+                    .order_by(text("count DESC"))
+                )
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of tuples
+            return [(event_type, count) for event_type, count in result]
     
     def get_channels(self, agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
         """
@@ -387,25 +720,28 @@ class DBManager:
         Returns:
             List of tuples (channel, count)
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        query = """
-        SELECT e.channel, COUNT(e.id) as count
-        FROM events e
-        JOIN agents a ON e.agent_id = a.id
-        """
-        
-        params = []
-        if agent_id:
-            query += " WHERE a.agent_id = ?"
-            params.append(agent_id)
-        
-        query += " GROUP BY e.channel ORDER BY count DESC"
-        
-        cursor.execute(query, params)
-        
-        return [(row["channel"], row["count"]) for row in cursor.fetchall()]
+        with self._get_session() as session:
+            # Build the query
+            if agent_id:
+                query = (
+                    select(Event.channel, func.count(Event.id).label("count"))
+                    .join(Agent, Event.agent_id == Agent.id)
+                    .where(Agent.agent_id == agent_id)
+                    .group_by(Event.channel)
+                    .order_by(text("count DESC"))
+                )
+            else:
+                query = (
+                    select(Event.channel, func.count(Event.id).label("count"))
+                    .group_by(Event.channel)
+                    .order_by(text("count DESC"))
+                )
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of tuples
+            return [(channel, count) for channel, count in result]
     
     def get_levels(self, agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
         """
@@ -417,98 +753,116 @@ class DBManager:
         Returns:
             List of tuples (level, count)
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        query = """
-        SELECT e.level, COUNT(e.id) as count
-        FROM events e
-        JOIN agents a ON e.agent_id = a.id
-        """
-        
-        params = []
-        if agent_id:
-            query += " WHERE a.agent_id = ?"
-            params.append(agent_id)
-        
-        query += " GROUP BY e.level ORDER BY count DESC"
-        
-        cursor.execute(query, params)
-        
-        return [(row["level"], row["count"]) for row in cursor.fetchall()]
+        with self._get_session() as session:
+            # Build the query
+            if agent_id:
+                query = (
+                    select(Event.level, func.count(Event.id).label("count"))
+                    .join(Agent, Event.agent_id == Agent.id)
+                    .where(Agent.agent_id == agent_id)
+                    .group_by(Event.level)
+                    .order_by(text("count DESC"))
+                )
+            else:
+                query = (
+                    select(Event.level, func.count(Event.id).label("count"))
+                    .group_by(Event.level)
+                    .order_by(text("count DESC"))
+                )
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of tuples
+            return [(level, count) for level, count in result]
     
     def search_events(self, query: str, agent_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """
-        Search for events containing the query string in their data.
+        Search events by full-text search.
         
         Args:
-            query: The string to search for
-            agent_id: Optional agent ID to filter by
+            query: The search query
+            agent_id: Filter by agent ID
             limit: Maximum number of events to return
             
         Returns:
             List of matching events
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        sql_query = """
-        SELECT e.id, a.agent_id, e.event_type, e.channel, e.level, 
-               e.timestamp, e.data
-        FROM events e
-        JOIN agents a ON e.agent_id = a.id
-        WHERE (json_extract(e.data, '$.message') LIKE ?
-           OR json_extract(e.data, '$.result') LIKE ?
-           OR e.data LIKE ?)
-        """
-        
-        params = [f"%{query}%", f"%{query}%", f"%{query}%"]
-        
-        if agent_id:
-            sql_query += " AND a.agent_id = ?"
-            params.append(agent_id)
-        
-        sql_query += " ORDER BY e.timestamp DESC LIMIT ?"
-        params.append(limit)
-        
-        cursor.execute(sql_query, params)
-        
-        events = []
-        for row in cursor.fetchall():
-            event = dict(row)
-            event["data"] = json.loads(event["data"])
-            events.append(event)
-        
-        return events
+        with self._get_session() as session:
+            # Convert query string to SQLite FTS pattern
+            search_pattern = f"%{query}%"
+            
+            # Build the base query
+            stmt = (
+                select(Event)
+                .join(Agent)
+            )
+            
+            # Apply agent filter if provided
+            if agent_id:
+                stmt = stmt.where(Agent.agent_id == agent_id)
+            
+            # Apply search filter using JSON functions for data
+            stmt = stmt.where(
+                (Event.event_type.like(search_pattern)) |
+                (Event.channel.like(search_pattern)) |
+                (Event.level.like(search_pattern)) |
+                (cast(Event.data.as_string(), type_=String).like(search_pattern))
+            )
+            
+            # Apply limit
+            stmt = stmt.limit(limit)
+            
+            # Execute query and convert to dictionaries
+            events = []
+            for event in session.execute(stmt).scalars().all():
+                # Get the agent_id from the agent relationship
+                agent_id_value = event.agent.agent_id
+                
+                event_dict = {
+                    "id": event.id,
+                    "agent_id": agent_id_value,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "data": event.data or {}
+                }
+                events.append(event_dict)
+            
+            return events
     
     def delete_events_before(self, timestamp: datetime) -> int:
         """
-        Delete events before a specific timestamp.
+        Delete events before the given timestamp.
         
         Args:
-            timestamp: The cutoff timestamp
+            timestamp: Delete events before this timestamp
             
         Returns:
             Number of deleted events
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "DELETE FROM events WHERE timestamp < ?",
-            (timestamp,)
-        )
-        
-        deleted_count = cursor.rowcount
-        conn.commit()
-        
-        return deleted_count
+        with self._get_session() as session:
+            # Query to count events before timestamp
+            count_query = select(func.count(Event.id)).where(Event.timestamp < timestamp)
+            count = session.execute(count_query).scalar_one()
+            
+            # Delete events before timestamp
+            delete_query = select(Event).where(Event.timestamp < timestamp)
+            events_to_delete = session.execute(delete_query).scalars().all()
+            
+            for event in events_to_delete:
+                session.delete(event)
+            
+            session.commit()
+            
+            return count
     
     def vacuum(self) -> None:
         """Vacuum the database to reclaim space."""
-        conn = self._get_connection()
-        conn.execute("VACUUM")
-        conn.commit()
+        # SQLAlchemy doesn't have a direct method for VACUUM
+        # so we use the raw connection
+        self._engine.execute(text("VACUUM"))
     
     def get_db_path(self) -> Path:
         """
