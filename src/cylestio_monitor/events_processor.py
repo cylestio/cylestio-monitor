@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.db import utils as db_utils
+from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
 
 monitor_logger = logging.getLogger("CylestioMonitor")
 
@@ -294,10 +295,17 @@ def log_event(
     
     # Add model details if present
     if "model" in data:
-        enhanced_data["model"] = {
-            **data["model"],
-            "provider": data["model"].get("provider", channel.lower())
-        }
+        if isinstance(data["model"], dict):
+            enhanced_data["model"] = {
+                **data["model"],
+                "provider": data["model"].get("provider", channel.lower())
+            }
+        else:
+            # Handle case where model is a string
+            enhanced_data["model"] = {
+                "name": str(data["model"]),
+                "provider": channel.lower()
+            }
     
     # Add input/output details if present
     if "input" in data and not isinstance(data["input"], dict):
@@ -315,43 +323,15 @@ def log_event(
     # Update record with enhanced data
     record["data"] = enhanced_data
     
-    # Convert to JSON string
-    msg = json.dumps(record)
-    
-    # Log to the standard logger
-    if level.lower() == "debug":
-        monitor_logger.debug(msg, extra={"channel": channel})
-    elif level.lower() == "warning":
-        monitor_logger.warning(msg, extra={"channel": channel})
-    elif level.lower() == "error":
-        monitor_logger.error(msg, extra={"channel": channel})
-    else:
-        monitor_logger.info(msg, extra={"channel": channel})
-    
-    # Log to the SQLite database
-    try:
-        # Only log to database if agent_id is set
-        if agent_id:
-            # Log to the database
-            db_utils.log_to_db(
-                agent_id=agent_id,
-                event_type=event_type,
-                data=record["data"],
-                channel=channel,
-                level=level,
-                timestamp=datetime.now()
-            )
-    except Exception as e:
-        monitor_logger.error(f"Failed to log event to database: {e}")
-    
-    # Log to JSON file if configured
-    log_file = config_manager.get("monitoring.log_file")
-    if log_file:
-        try:
-            with open(log_file, "a") as f:
-                f.write(msg + "\n")
-        except Exception as e:
-            monitor_logger.error(f"Failed to log event to file {log_file}: {e}")
+    # Use the new event_logger module to handle all logging
+    process_and_log_event(
+        agent_id=agent_id or "unknown",
+        event_type=event_type,
+        data=enhanced_data,
+        channel=channel,
+        level=level,
+        record=record
+    )
 
 
 def _estimate_tokens(text: Any) -> int:
@@ -373,30 +353,122 @@ def _estimate_tokens(text: Any) -> int:
 
 # -------------- Helpers for LLM calls --------------
 def _extract_prompt(args: tuple, kwargs: Dict[str, Any]) -> str:
-    """Extract prompt from function arguments."""
-    if "messages" in kwargs:
-        try:
+    """Extract prompt from function arguments.
+    
+    This function handles multiple input formats:
+    - Direct Anthropic/OpenAI messages format
+    - LangChain inputs
+    - String prompts
+    - Various dictionary formats
+    """
+    try:
+        # Case 1: Handle messages parameter (common in newer LLM APIs)
+        if "messages" in kwargs:
             return json.dumps(kwargs["messages"])
-        except:
-            return str(kwargs["messages"])
-    elif args:
-        try:
-            return json.dumps(args[0])
-        except:
-            return str(args[0])
-    return ""
+            
+        # Case 2: Handle LangChain input format
+        elif "input" in kwargs and isinstance(kwargs["input"], dict):
+            # Extract the actual input value
+            for key in ["input", "query", "question", "prompt", "text"]:
+                if key in kwargs["input"]:
+                    return str(kwargs["input"][key])
+            # If no specific key found, return the whole input
+            return json.dumps(kwargs["input"])
+            
+        # Case 3: Handle direct input formats
+        elif "input" in kwargs:
+            return str(kwargs["input"])
+        elif "prompt" in kwargs:
+            return str(kwargs["prompt"])
+        elif "query" in kwargs:
+            return str(kwargs["query"])
+            
+        # Case 4: Handle positional arguments
+        elif args:
+            # First positional arg is often the prompt
+            if isinstance(args[0], (str, list, dict)):
+                try:
+                    return json.dumps(args[0])
+                except:
+                    return str(args[0])
+                    
+        # Case 5: Look for LangGraph specific formats
+        for key in kwargs:
+            if isinstance(kwargs[key], dict) and "content" in kwargs[key]:
+                return str(kwargs[key]["content"])
+                
+        # Fallback: Try to extract something useful from kwargs
+        if kwargs:
+            try:
+                return json.dumps(kwargs)
+            except:
+                return str(kwargs)
+                
+        return ""
+    except Exception as e:
+        # Last resort with error note
+        return f"[Error extracting prompt: {str(e)}] Args: {str(args)[:100]}, Kwargs: {str(kwargs)[:100]}"
 
 
 def _extract_response(result: Any) -> str:
-    """Extract response text from LLM result."""
+    """Extract response text from LLM result.
+    
+    This function handles multiple formats:
+    - Direct Anthropic/OpenAI API responses
+    - LangChain Chain outputs
+    - LangGraph outputs
+    - Message objects
+    - Dictionary objects with common response fields
+    """
     try:
+        # Case 1: Handle direct Anthropic responses (Claude API)
         if hasattr(result, "content"):
-            texts = [item.text if hasattr(item, "text") else str(item) for item in result.content]
-            return "\n".join(texts)
-        else:
+            if isinstance(result.content, list):
+                texts = [item.text if hasattr(item, "text") else str(item) for item in result.content]
+                return "\n".join(texts)
+            else:
+                return str(result.content)
+                
+        # Case 2: Handle LangChain Chain outputs
+        elif isinstance(result, dict):
+            # Common LangChain output format
+            if "response" in result:
+                return str(result["response"])
+            # Alternative output keys
+            elif "output" in result:
+                return str(result["output"])
+            elif "result" in result:
+                return str(result["result"])
+            elif "content" in result:
+                return str(result["content"])
+            # LangGraph sometimes uses "outputs" with nested structure
+            elif "outputs" in result:
+                outputs = result["outputs"]
+                if isinstance(outputs, dict) and "output" in outputs:
+                    return str(outputs["output"])
+                return str(outputs)
+                
+        # Case 3: Handle message objects (common in newer LLM libraries)
+        elif hasattr(result, "message") and hasattr(result.message, "content"):
+            return str(result.message.content)
+            
+        # Case 4: Handle OpenAI API responses
+        elif hasattr(result, "choices") and len(getattr(result, "choices", [])) > 0:
+            choices = result.choices
+            if hasattr(choices[0], "message") and hasattr(choices[0].message, "content"):
+                return choices[0].message.content
+            elif hasattr(choices[0], "text"):
+                return choices[0].text
+                
+        # Fallback: Convert to JSON if possible
+        try:
             return json.dumps(result)
-    except:
-        return str(result)
+        except:
+            return str(result)
+            
+    except Exception as e:
+        # Last resort: stringification with error note
+        return f"[Error extracting response: {str(e)}] {str(result)}"
 
 
 def pre_monitor_llm(channel: str, args: tuple, kwargs: Dict[str, Any]) -> tuple:
@@ -418,15 +490,34 @@ def post_monitor_llm(channel: str, start_time: float, result: Any) -> None:
     """Post-monitoring hook for LLM calls."""
     duration = time.time() - start_time
     response = _extract_response(result)
+    
+    # Expand response data with more detailed extraction
+    response_data = {
+        "duration": duration,
+        "response": response,
+        "alert": "none"
+    }
+    
+    # Add additional metadata if available
+    if hasattr(result, "model") and result.model:
+        response_data["model"] = result.model
+    
+    # Add usage information if available
+    if hasattr(result, "usage"):
+        response_data["usage"] = {
+            "prompt_tokens": getattr(result.usage, "prompt_tokens", None),
+            "completion_tokens": getattr(result.usage, "completion_tokens", None),
+            "total_tokens": getattr(result.usage, "total_tokens", None)
+        }
+    
+    # Perform security check
     if contains_dangerous(response):
-        alert = "dangerous"
+        response_data["alert"] = "dangerous"
     elif contains_suspicious(response):
-        alert = "suspicious"
-    else:
-        alert = "none"
-    log_event(
-        "LLM_call_finish", {"duration": duration, "response": response, "alert": alert}, channel
-    )
+        response_data["alert"] = "suspicious"
+    
+    # Log the event with all gathered information
+    log_event("LLM_call_finish", response_data, channel)
 
 
 # --------------------------------------

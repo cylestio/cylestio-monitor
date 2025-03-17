@@ -113,63 +113,107 @@ class WeatherAIAgent:
             for tool in response.tools
         ]
 
-        # Initial Claude API call
-        response = self.anthropic.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
-            messages=messages,
-            tools=available_tools,
-        )
+        try:
+            # Initial Claude API call
+            logger.info("Calling Claude API")
+            response = self.anthropic.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1000,
+                messages=messages,
+                tools=available_tools,
+            )
+            
+            # Debug the response type
+            logger.info(f"Claude API response type: {type(response)}")
+            
+            # Process response and handle tool calls
+            tool_results = []
+            final_text = []
 
-        # Process response and handle tool calls
-        tool_results = []
-        final_text = []
-
-        assistant_message_content = []
-        for content in response.content:
-            if content.type == "text":
-                final_text.append(content.text)
-                assistant_message_content.append(content)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
-
-                # Don't log tool arguments as they may contain sensitive information
-                logger.info(f"Calling tool: {tool_name}")
+            # Check if response has content attribute
+            if not hasattr(response, "content"):
+                # Handle the case where the response might be a dict or string
+                logger.warning(f"Unexpected response type: {type(response)}")
+                if isinstance(response, dict) and "content" in response:
+                    assistant_message_content = response["content"]
+                    if isinstance(assistant_message_content, list):
+                        for content in assistant_message_content:
+                            if isinstance(content, dict) and content.get("type") == "text":
+                                final_text.append(content.get("text", ""))
+                    else:
+                        # Treat content as text if it's not a list
+                        final_text.append(str(assistant_message_content))
+                else:
+                    # Fallback to string representation
+                    final_text.append(str(response))
+                return "\n".join(final_text)
                 
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                tool_results.append({"call": tool_name, "result": result})
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
+            # Process content items from the Anthropic response
+            assistant_message_content = []
+            for content in response.content:
+                # Debug each content item
+                logger.info(f"Processing content item type: {getattr(content, 'type', 'unknown')}")
+                
+                if hasattr(content, "type") and content.type == "text":
+                    final_text.append(content.text)
+                    assistant_message_content.append(content)
+                elif hasattr(content, "type") and content.type == "tool_use":
+                    tool_name = content.name
+                    tool_args = content.input
 
-                # Add the tool call and result to the conversation
-                assistant_message_content.append(content)
-                messages.append({"role": "assistant", "content": assistant_message_content})
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": content.id,
-                                "content": result.content,
-                            }
-                        ],
-                    }
-                )
+                    # Don't log tool arguments as they may contain sensitive information
+                    logger.info(f"Calling tool: {tool_name}")
+                    
+                    # Execute tool call
+                    result = await self.session.call_tool(tool_name, tool_args)
+                    tool_results.append({"call": tool_name, "result": result})
+                    final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
 
-                # Get next response from Claude
-                response = self.anthropic.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=1000,
-                    messages=messages,
-                    tools=available_tools,
-                )
+                    # Add the tool call and result to the conversation
+                    assistant_message_content.append(content)
+                    messages.append({"role": "assistant", "content": assistant_message_content})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": content.id,
+                                    "content": result.content,
+                                }
+                            ],
+                        }
+                    )
 
-                final_text.append(response.content[0].text)
+                    # Get next response from Claude
+                    response = self.anthropic.messages.create(
+                        model="claude-3-haiku-20240307",
+                        max_tokens=1000,
+                        messages=messages,
+                        tools=available_tools,
+                    )
 
-        logger.info("Query processing completed")
-        return "\n".join(final_text)
+                    final_text.append(response.content[0].text)
+                else:
+                    # Handle unknown content type
+                    logger.warning(f"Unknown content type: {getattr(content, 'type', 'unknown')}")
+                    if isinstance(content, dict):
+                        # Try to extract text from dict
+                        if "text" in content:
+                            final_text.append(content["text"])
+                    else:
+                        # Fallback to string representation
+                        final_text.append(str(content))
+
+            logger.info("Query processing completed")
+            return "\n".join(final_text)
+            
+        except Exception as e:
+            # Log the error details (safely)
+            logger.error(f"Error in process_query: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            raise
 
     async def chat_loop(self):
         """Run an interactive chat loop for weather queries."""

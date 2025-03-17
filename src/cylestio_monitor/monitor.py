@@ -14,6 +14,7 @@ import platformdirs
 
 from .config import ConfigManager
 from .db import utils as db_utils
+from .event_logger import log_console_message, process_and_log_event
 from .events_listener import monitor_call, monitor_llm_call
 from .events_processor import log_event, EventProcessor
 
@@ -37,17 +38,20 @@ def enable_monitoring(
     Args:
         agent_id: Unique identifier for the agent
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
-        llm_method_path: Path to the LLM client method to patch (default: "messages.create")
         log_file: Path to the output log file (if None, only SQLite logging is used)
             - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
             - If a file without extension is provided, ".json" will be added
-        debug_level: Logging level for SDK's internal debug logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        enable_langchain: Whether to enable LangChain monitoring
-        enable_langgraph: Whether to enable LangGraph monitoring
-        enable_mcp: Whether to enable MCP monitoring
-        config: Optional configuration dictionary
+        config: Optional configuration dictionary that can include:
+            - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    
+    Note:
+        The SDK automatically detects which frameworks are installed and available to monitor.
+        No explicit configuration is needed to enable monitoring for specific frameworks.
     """
     config = config or {}
+    
+    # Extract debug level from config
+    debug_level = config.get("debug_level", "INFO")
     
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
@@ -60,13 +64,7 @@ def enable_monitoring(
     for handler in monitor_logger.handlers[:]:
         monitor_logger.removeHandler(handler)
 
-    # Store the agent ID and log file in the configuration
-    config_manager = ConfigManager()
-    config_manager.set("monitoring.agent_id", agent_id)
-    config_manager.set("monitoring.log_file", log_file)
-    config_manager.save()
-    
-    # Create JSON log file directory if needed
+    # Process log_file path if provided
     if log_file:
         # If log_file is a directory, create a file with the agent_id in the name
         if os.path.isdir(log_file):
@@ -81,35 +79,18 @@ def enable_monitoring(
         log_dir = os.path.dirname(log_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
-            
-        json_handler = logging.FileHandler(log_file)
-        json_handler.setLevel(logging.INFO)
 
-        # Create a JSON formatter
-        class JSONFormatter(logging.Formatter):
-            def format(self, record):
-                try:
-                    data = json.loads(record.msg)
-                except Exception:
-                    data = {"message": record.msg}
-                log_entry = {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": record.levelname,
-                    "channel": getattr(record, "channel", "SYSTEM"),
-                    "agent_id": agent_id,
-                }
-                log_entry.update(data)
-                return json.dumps(log_entry)
-
-        json_formatter = JSONFormatter()
-        json_handler.setFormatter(json_formatter)
-        monitor_logger.addHandler(json_handler)
-
-    # Add a console handler for debug logs
+    # Add a console handler for debug logs only
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
     console_handler.setFormatter(logging.Formatter("CylestioSDK - %(levelname)s: %(message)s"))
     monitor_logger.addHandler(console_handler)
+    
+    # Store the agent ID and log file in the configuration
+    config_manager = ConfigManager()
+    config_manager.set("monitoring.agent_id", agent_id)
+    config_manager.set("monitoring.log_file", log_file)
+    config_manager.save()
     
     # Initialize the event processor
     event_processor = EventProcessor(agent_id=agent_id, config=config)
@@ -122,56 +103,53 @@ def enable_monitoring(
     
     try:
         # Step 1: Patch MCP if available and enabled
-        if enable_mcp:
-            try:
-                # Try patching using ClientSession approach first (working method from main branch)
-                from mcp import ClientSession
-                
-                # Patch ClientSession.call_tool method
-                original_call_tool = ClientSession.call_tool
-                ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
-                
-                # Log the patch
-                log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
-                
-                logger.info("MCP monitoring enabled")
-                if llm_provider == "Unknown":
-                    llm_provider = "MCP"
-            except ImportError:
-                # MCP not available, skip patching
-                logger.debug("MCP module not available, skipping ClientSession patching")
-            except Exception as e:
-                # Log the error but continue with other monitoring
-                logger.error(f"Failed to enable MCP monitoring: {e}")
+        try:
+            # Try patching using ClientSession approach first (working method from main branch)
+            from mcp import ClientSession
+            
+            # Patch ClientSession.call_tool method
+            original_call_tool = ClientSession.call_tool
+            ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
+            
+            # Log the patch
+            log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
+            
+            logger.info("MCP monitoring enabled")
+            if llm_provider == "Unknown":
+                llm_provider = "MCP"
+        except ImportError:
+            # MCP not available, skip patching
+            logger.debug("MCP module not available, skipping ClientSession patching")
+        except Exception as e:
+            # Log the error but continue with other monitoring
+            logger.error(f"Failed to enable MCP monitoring: {e}")
         
-        # Step 2: Add LangChain monitoring if enabled
-        if enable_langchain:
-            try:
-                from .patchers.langchain_patcher import patch_langchain
-                import langchain
-                
-                patch_langchain(event_processor)
-                logger.info("LangChain monitoring enabled")
-                
-                if llm_provider == "Unknown":
-                    llm_provider = "LangChain"
-            except ImportError:
-                logger.debug("LangChain not installed, skipping monitoring")
+        # Step 2: Add LangChain monitoring if available
+        try:
+            from .patchers.langchain_patcher import patch_langchain
+            import langchain
+            
+            patch_langchain(event_processor)
+            logger.info("LangChain monitoring enabled")
+            
+            if llm_provider == "Unknown":
+                llm_provider = "LangChain"
+        except ImportError:
+            logger.debug("LangChain not installed, skipping monitoring")
         
-        # Step 3: Add LangGraph monitoring if enabled
-        if enable_langgraph:
-            try:
-                from .patchers.langgraph_patcher import patch_langgraph
-                import langgraph
-                
-                patch_langgraph(event_processor)
-                logger.info("LangGraph monitoring enabled")
-                
-                if llm_provider == "Unknown":
-                    llm_provider = "LangGraph"
-            except ImportError:
-                logger.debug("LangGraph not installed, skipping monitoring")
-                
+        # Step 3: Add LangGraph monitoring if available
+        try:
+            from .patchers.langgraph_patcher import patch_langgraph
+            import langgraph
+            
+            patch_langgraph(event_processor)
+            logger.info("LangGraph monitoring enabled")
+            
+            if llm_provider == "Unknown":
+                llm_provider = "LangGraph"
+        except ImportError:
+            logger.debug("LangGraph not installed, skipping monitoring")
+            
         # Step 4: If an LLM client was provided directly, patch it (e.g., Anthropic)
         if llm_client:
             # Extract the provider name if possible
@@ -182,6 +160,9 @@ def enable_monitoring(
                     llm_provider = llm_client._client.user_agent
 
             # Patch the LLM client
+            # Default to messages.create method for most LLM clients
+            llm_method_path = "messages.create"
+            
             parts = llm_method_path.split(".")
             target = llm_client
             for part in parts[:-1]:
@@ -195,7 +176,7 @@ def enable_monitoring(
 
             # Log the patch
             log_event("LLM_patch", {"method": llm_method_path, "provider": llm_provider}, "SYSTEM")
-        
+            
         # Log monitoring enabled event
         monitoring_data = {
             "agent_id": agent_id,
@@ -203,21 +184,8 @@ def enable_monitoring(
             "database_path": db_path
         }
         
-        # Log to both database and JSON file
+        # Log to both database and JSON file through the log_event function
         log_event("monitoring_enabled", monitoring_data, "SYSTEM", "info")
-        
-        # Also log to JSON file if specified
-        if log_file:
-            with open(log_file, "a") as f:
-                log_entry = {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "INFO",
-                    "channel": "SYSTEM",
-                    "agent_id": agent_id,
-                    "event_type": "monitoring_enabled",
-                    "data": monitoring_data
-                }
-                f.write(json.dumps(log_entry) + "\n")
         
         logger.info(f"Monitoring enabled for agent {agent_id}")
         
@@ -231,27 +199,13 @@ def disable_monitoring() -> None:
     # Get agent_id from configuration
     config_manager = ConfigManager()
     agent_id = config_manager.get("monitoring.agent_id")
-    log_file = config_manager.get("monitoring.log_file")
     
     if agent_id:
         # Log monitoring disabled event
         monitoring_data = {"agent_id": agent_id, "timestamp": datetime.now().isoformat()}
         
-        # Log to database
+        # Log to database and file through the log_event function
         log_event("monitoring_disabled", monitoring_data, "SYSTEM", "info")
-        
-        # Also log to JSON file if specified
-        if log_file:
-            with open(log_file, "a") as f:
-                log_entry = {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "INFO",
-                    "channel": "SYSTEM",
-                    "agent_id": agent_id,
-                    "event_type": "monitoring_disabled", 
-                    "data": monitoring_data
-                }
-                f.write(json.dumps(log_entry) + "\n")
     
     logger.info("Monitoring disabled")
 
@@ -313,37 +267,18 @@ def log_to_file_and_db(
     if "agent_id" not in data:
         data["agent_id"] = agent_id
     
-    # Log to database
+    # Set log_file in config temporarily if provided
+    if log_file:
+        config_manager.set("monitoring.log_file", log_file)
+    
+    # Log to database and file through the log_event function
     try:
-        # Log to the database using the events_processor
         log_event(event_type, data, channel, level, direction)
     except Exception as e:
-        logger.error(f"Failed to log event to database: {e}")
+        logger.error(f"Failed to log event: {e}")
     
-    # Log to JSON file if specified
-    if log_file:
-        try:
-            # Ensure output directory exists
-            os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
-            
-            # Create base record with required fields
-            log_entry = {
-                "timestamp": datetime.now().isoformat(),
-                "level": level.upper(),
-                "agent_id": agent_id,
-                "event_type": event_type,
-                "channel": channel.upper(),
-                "data": data
-            }
-            
-            # Add direction if provided
-            if direction:
-                log_entry["direction"] = direction
-                
-            # Write to JSON file
-            with open(log_file, "a") as f:
-                f.write(json.dumps(log_entry) + "\n")
-        except Exception as e:
-            logger.error(f"Failed to log event to file {log_file}: {e}")
+    # Reset to original log_file if we temporarily changed it
+    if log_file and log_file != config_manager.get("monitoring.log_file", None):
+        config_manager.set("monitoring.log_file", config_manager.get("monitoring.log_file"))
 
-__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_db"]
+__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_db", "get_database_path", "cleanup_old_events"]

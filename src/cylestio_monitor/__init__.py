@@ -5,6 +5,7 @@ from .monitor import cleanup_old_events, disable_monitoring, enable_monitoring, 
 
 # Import the db module to make it available
 from . import db
+from . import event_logger
 
 __version__ = "0.1.2"
 
@@ -16,4 +17,5 @@ __all__ = [
     "cleanup_old_events",
     "log_to_file_and_db",
     "db",
+    "event_logger",
 ]

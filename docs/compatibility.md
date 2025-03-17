@@ -10,19 +10,30 @@ Cylestio Monitor is designed to work with the following frameworks and versions:
 
 | Framework | Supported Versions | Notes |
 |-----------|-------------------|-------|
-| Anthropic | ≥ 0.18.0 | Fully compatible with Claude 3 models (Opus, Sonnet, Haiku) |
+| Anthropic | ≥ 0.18.0 | Full support for Claude 3 models (Opus, Sonnet, Haiku) with complete request and response tracking |
 | OpenAI | Coming soon | Support for OpenAI's SDK is planned for a future release |
 
 ### Agent Frameworks
 
 | Framework | Supported Versions | Notes |
 |-----------|-------------------|-------|
-| MCP (Model Context Protocol) | ≥ 1.3.0 | Full support for tool calls and responses |
-| LangChain | ≥ 0.1.0 | Compatible with the latest LangChain architecture |
-| LangChain Core | ≥ 0.1.33 | Core components of LangChain are supported |
-| LangChain Community | ≥ 0.0.16 | Community components are supported |
-| LangChain Anthropic | ≥ 0.1.5 | Anthropic integration with LangChain is supported |
-| LangGraph | ≥ 0.0.19 | Support for graph-based agent workflows |
+| MCP (Model Context Protocol) | ≥ 1.3.0 | Full support for tool calls and responses with bidirectional tracking |
+| LangChain | ≥ 0.1.0 | Complete request-response tracking for the latest LangChain architecture |
+| LangChain Core | ≥ 0.1.33 | Core components of LangChain supported with enhanced response tracking |
+| LangChain Community | ≥ 0.0.16 | Community components supported with response tracking |
+| LangChain Anthropic | ≥ 0.1.5 | Anthropic integration with LangChain fully supported with bidirectional monitoring |
+| LangGraph | ≥ 0.0.19 | Full support for graph-based agent workflows including response tracking |
+
+## Event Tracking Capabilities
+
+Cylestio Monitor captures the following event types for each framework:
+
+| Framework | Request Events | Response Events | Error Events | Performance Metrics |
+|-----------|---------------|----------------|--------------|-------------------|
+| Anthropic | ✅ | ✅ | ✅ | ✅ |
+| LangChain | ✅ | ✅ | ✅ | ✅ |
+| LangGraph | ✅ | ✅ | ✅ | ✅ |
+| MCP | ✅ | ✅ | ✅ | ✅ |
 
 ## Dependencies
 

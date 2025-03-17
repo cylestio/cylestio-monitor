@@ -143,31 +143,121 @@ class LangChainMonitor(BaseCallbackHandler):
         self, outputs: Dict[str, Any], **kwargs: Any
     ) -> None:
         """Handle chain end event."""
+        # First, log that this method was called for debugging
+        print(f"DEBUG: on_chain_end called with outputs: {outputs}")
+        
         run_id = kwargs.get("run_id", None)
+        
+        # Fix for missing or inconsistent run_id
+        if run_id is None or run_id not in self._start_times:
+            # If no matching run_id, use the most recent start time as fallback
+            if self._start_times:
+                # Use the most recent start time (highest timestamp) as our best guess
+                possible_run_ids = sorted(self._start_times.keys(), 
+                                         key=lambda k: self._start_times[k], 
+                                         reverse=True)
+                run_id = possible_run_ids[0]
+                print(f"DEBUG: Using most recent run_id {run_id} as fallback for chain_end")
+        
+        # Process the event if we have a matching run_id
         if run_id in self._start_times:
             duration = time.time() - self._start_times.pop(run_id)
             chain_type = self._chain_types.pop(run_id, "unknown")
             
             # Format outputs for better readability
             formatted_outputs = {}
-            for key, value in outputs.items():
-                if isinstance(value, (list, dict)):
-                    formatted_outputs[key] = value
-                else:
-                    formatted_outputs[key] = str(value)
             
-            self._create_event(
-                "chain_finish",
-                {
-                    "chain_id": run_id,
-                    "chain_type": chain_type,
-                    "output": formatted_outputs,
-                    "performance": {
-                        "duration_ms": duration * 1000,
-                        "chains_per_second": 1.0 / duration if duration > 0 else None
-                    },
-                    "run_id": run_id
+            # First, check for common keys
+            for key in ["response", "output", "result", "answer", "text"]:
+                if key in outputs:
+                    formatted_outputs["text"] = str(outputs[key])
+                    break
+            
+            # If no standardized key was found, include all output
+            if not formatted_outputs:
+                for key, value in outputs.items():
+                    if isinstance(value, (list, dict)):
+                        formatted_outputs[key] = value
+                    else:
+                        formatted_outputs[key] = str(value)
+            
+            # Look for conversation/message history
+            if "chat_history" in outputs:
+                try:
+                    history = outputs["chat_history"]
+                    if hasattr(history, "messages"):
+                        messages = []
+                        for msg in history.messages:
+                            msg_type = msg.__class__.__name__
+                            content = msg.content if hasattr(msg, "content") else str(msg)
+                            messages.append({"type": msg_type, "content": content})
+                        formatted_outputs["chat_history"] = messages
+                except Exception as e:
+                    formatted_outputs["chat_history_error"] = str(e)
+            
+            # Create the event
+            event_data = {
+                "chain_id": run_id,
+                "chain_type": chain_type,
+                "output": formatted_outputs,
+                "performance": {
+                    "duration_ms": duration * 1000,
+                    "chains_per_second": 1.0 / duration if duration > 0 else None
                 },
+                "run_id": run_id
+            }
+            
+            # Add the chain response as a top-level field for easier access
+            if "text" in formatted_outputs:
+                event_data["response"] = formatted_outputs["text"]
+            
+            # Log the event
+            print(f"DEBUG: Creating chain_response event with data: {event_data}")
+            self._create_event(
+                "chain_response",  # Renamed for clarity
+                event_data,
+                direction="outgoing"
+            )
+        else:
+            # Fallback if we still can't find a matching start time - log without duration
+            print(f"DEBUG: No matching run_id found for chain response. Creating event without duration.")
+            
+            # Format outputs for better readability
+            formatted_outputs = {}
+            
+            # Extract outputs without timing information
+            for key in ["response", "output", "result", "answer", "text"]:
+                if key in outputs:
+                    formatted_outputs["text"] = str(outputs[key])
+                    break
+            
+            # If no standardized key was found, include all output
+            if not formatted_outputs:
+                for key, value in outputs.items():
+                    if isinstance(value, (list, dict)):
+                        formatted_outputs[key] = value
+                    else:
+                        formatted_outputs[key] = str(value)
+            
+            # Create a basic event without timing data
+            event_data = {
+                "output": formatted_outputs,
+                "fallback_logging": True
+            }
+            
+            # Add the chain response as a top-level field for easier access
+            if "text" in formatted_outputs:
+                event_data["response"] = formatted_outputs["text"]
+                
+            # Add run ID if available
+            if run_id:
+                event_data["run_id"] = run_id
+                event_data["chain_id"] = run_id
+                
+            # Log the event as a fallback
+            self._create_event(
+                "chain_response",
+                event_data,
                 direction="outgoing"
             )
     
@@ -203,10 +293,19 @@ class LangChainMonitor(BaseCallbackHandler):
         run_id = kwargs.get("run_id", str(time.time()))
         self._start_times[run_id] = time.time()
         
+        # Get model information
+        model_info = {
+            "name": serialized.get("name", "unknown"),
+            "type": "completion",
+            "provider": serialized.get("name", "").split(".")[0] if "." in serialized.get("name", "") else None,
+            "metadata": serialized.get("metadata", {})
+        }
+        
         self._create_event(
-            "llm_start",
+            "model_request",  # Using a consistent name
             {
-                "llm_type": serialized.get("name", "unknown"),
+                "llm_type": model_info["name"],
+                "model": model_info,
                 "prompts": prompts,
                 "metadata": serialized.get("metadata", {}),
                 "run_id": run_id
@@ -226,16 +325,40 @@ class LangChainMonitor(BaseCallbackHandler):
         for message_list in messages:
             formatted_list = []
             for message in message_list:
+                # Extract content safely
+                if hasattr(message, "content"):
+                    content = message.content
+                    # If content is a list (e.g., for multi-modal content), convert it properly
+                    if isinstance(content, list):
+                        content_list = []
+                        for item in content:
+                            if hasattr(item, "to_dict"):
+                                content_list.append(item.to_dict())
+                            else:
+                                content_list.append(str(item))
+                        content = content_list
+                else:
+                    content = str(message)
+                
                 formatted_list.append({
                     "type": message.__class__.__name__,
-                    "content": str(message.content)
+                    "content": content
                 })
             formatted_messages.append(formatted_list)
         
+        # Get model information
+        model_info = {
+            "name": serialized.get("name", "unknown"),
+            "type": "chat",
+            "provider": serialized.get("name", "").split(".")[0] if "." in serialized.get("name", "") else None,
+            "metadata": serialized.get("metadata", {})
+        }
+        
         self._create_event(
-            "chat_model_start",
+            "model_request",  # Using a consistent name for both regular LLM and chat model
             {
-                "llm_type": serialized.get("name", "unknown"),
+                "llm_type": model_info["name"],
+                "model": model_info,
                 "messages": formatted_messages,
                 "metadata": serialized.get("metadata", {}),
                 "run_id": run_id
@@ -247,27 +370,136 @@ class LangChainMonitor(BaseCallbackHandler):
         self, response: LLMResult, **kwargs: Any
     ) -> None:
         """Handle LLM end event."""
+        # First, log that this method was called for debugging
+        print("DEBUG: on_llm_end called with response:", type(response))
+        
         run_id = kwargs.get("run_id", None)
+        
+        # Fix for missing or inconsistent run_id
+        if run_id is None or run_id not in self._start_times:
+            # If no matching run_id, use the most recent start time as fallback
+            if self._start_times:
+                # Use the most recent start time (highest timestamp) as our best guess
+                possible_run_ids = sorted(self._start_times.keys(), 
+                                         key=lambda k: self._start_times[k], 
+                                         reverse=True)
+                run_id = possible_run_ids[0]
+                print(f"DEBUG: Using most recent run_id {run_id} as fallback")
+        
         if run_id in self._start_times:
             duration = time.time() - self._start_times.pop(run_id)
             
             # Format response for better readability
-            formatted_response = {
-                "generations": [[str(gen) for gen in gens] for gens in response.generations]
-            }
+            formatted_response = {}
+            
+            # Extract generations
+            if hasattr(response, "generations") and response.generations:
+                try:
+                    # Try to extract the actual text content
+                    if response.generations:
+                        # For each set of generations
+                        formatted_texts = []
+                        for gen_list in response.generations:
+                            for gen in gen_list:
+                                # Extract the text/content
+                                if hasattr(gen, "text"):
+                                    formatted_texts.append(gen.text)
+                                elif hasattr(gen, "message") and hasattr(gen.message, "content"):
+                                    formatted_texts.append(gen.message.content)
+                                else:
+                                    formatted_texts.append(str(gen))
+                        
+                        # Join all texts
+                        if formatted_texts:
+                            formatted_response["text"] = "\n".join(formatted_texts)
+                except Exception as e:
+                    # Fallback if extraction fails
+                    formatted_response["generations"] = str(response.generations)
+                    formatted_response["extraction_error"] = str(e)
+            
+            # Add LLM output for metrics
             if hasattr(response, "llm_output") and response.llm_output:
                 formatted_response["llm_output"] = response.llm_output
+                
+                # Extract token usage if available
+                if isinstance(response.llm_output, dict) and "token_usage" in response.llm_output:
+                    formatted_response["token_usage"] = response.llm_output["token_usage"]
             
+            # Get model info if available
+            if hasattr(response, "model_name") or hasattr(response, "model"):
+                formatted_response["model"] = getattr(response, "model_name", None) or getattr(response, "model", None)
+            
+            # Create final event data
+            event_data = {
+                "response": formatted_response,
+                "performance": {
+                    "duration_ms": duration * 1000,
+                }
+            }
+            
+            # Add token metrics if available
+            if "token_usage" in formatted_response and "completion_tokens" in formatted_response["token_usage"]:
+                completion_tokens = formatted_response["token_usage"]["completion_tokens"]
+                if completion_tokens and duration > 0:
+                    event_data["performance"]["tokens_per_second"] = completion_tokens / duration
+            
+            # Add run ID
+            if run_id:
+                event_data["run_id"] = run_id
+            
+            # Log the event
+            print(f"DEBUG: Creating model_response event with data: {event_data}")
             self._create_event(
-                "llm_finish",
-                {
-                    "response": formatted_response,
-                    "performance": {
-                        "duration_ms": duration * 1000,
-                        "tokens_per_second": None  # Would need token count
-                    },
-                    "run_id": run_id
-                },
+                "model_response",  # Using a consistent name for all responses
+                event_data,
+                direction="incoming"
+            )
+        else:
+            # Fallback if we still can't find a matching start time - log without duration
+            print(f"DEBUG: No matching run_id found for response. Creating event without duration.")
+            
+            # Format response for better readability
+            formatted_response = {}
+            
+            # Extract generations without timing information
+            if hasattr(response, "generations") and response.generations:
+                try:
+                    # Try to extract the actual text content
+                    if response.generations:
+                        # For each set of generations
+                        formatted_texts = []
+                        for gen_list in response.generations:
+                            for gen in gen_list:
+                                # Extract the text/content
+                                if hasattr(gen, "text"):
+                                    formatted_texts.append(gen.text)
+                                elif hasattr(gen, "message") and hasattr(gen.message, "content"):
+                                    formatted_texts.append(gen.message.content)
+                                else:
+                                    formatted_texts.append(str(gen))
+                        
+                        # Join all texts
+                        if formatted_texts:
+                            formatted_response["text"] = "\n".join(formatted_texts)
+                except Exception as e:
+                    # Fallback if extraction fails
+                    formatted_response["generations"] = str(response.generations)
+                    formatted_response["extraction_error"] = str(e)
+            
+            # Create a basic event without timing data
+            event_data = {
+                "response": formatted_response,
+                "fallback_logging": True
+            }
+            
+            # Add run ID if available
+            if run_id:
+                event_data["run_id"] = run_id
+                
+            # Log the event as a fallback
+            self._create_event(
+                "model_response",
+                event_data,
                 direction="incoming"
             )
     
@@ -280,7 +512,7 @@ class LangChainMonitor(BaseCallbackHandler):
             duration = time.time() - self._start_times.pop(run_id)
             
             self._create_event(
-                "llm_error",
+                "model_error",  # Using consistent naming
                 {
                     "error": str(error),
                     "error_type": type(error).__name__,
