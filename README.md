@@ -18,6 +18,23 @@ Cylestio Monitor is a Python SDK that provides security and monitoring capabilit
 pip install cylestio-monitor
 ```
 
+### Installation for Example Projects
+
+If you're using one of the example projects in a subdirectory with its own virtual environment:
+
+```bash
+# Navigate to the example directory 
+cd examples/agents/your_agent_dir
+
+# Activate your virtual environment
+source venv/bin/activate  # (or venv\Scripts\activate on Windows)
+
+# Install the Cylestio Monitor from the parent directory in development mode
+pip install -e ../../..
+```
+
+This ensures that all required dependencies (including SQLAlchemy for database operations) are properly installed.
+
 ## Quick Start
 
 ```python
