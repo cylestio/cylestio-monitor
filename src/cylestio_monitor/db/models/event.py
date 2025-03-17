@@ -280,7 +280,8 @@ class Event(Base):
                      data: Optional[Dict[str, Any]] = None,
                      session_id: Optional[int] = None,
                      conversation_id: Optional[int] = None,
-                     direction: Optional[Union[str, EventDirection]] = None) -> "Event":
+                     direction: Optional[Union[str, EventDirection]] = None,
+                     timestamp: Optional[datetime.datetime] = None) -> "Event":
         """Create a new event.
         
         Args:
@@ -293,6 +294,7 @@ class Event(Base):
             session_id (Optional[int], optional): The ID of the session this event is part of.
             conversation_id (Optional[int], optional): The ID of the conversation this event is part of.
             direction (Optional[Union[str, EventDirection]], optional): The direction of the event.
+            timestamp (Optional[datetime.datetime], optional): The timestamp for the event.
             
         Returns:
             Event: The newly created event.
@@ -305,7 +307,8 @@ class Event(Base):
             channel=channel,
             level=level,
             direction=direction,
-            data=data or {}
+            data=data or {},
+            timestamp=timestamp
         )
         session.add(event)
         return event
