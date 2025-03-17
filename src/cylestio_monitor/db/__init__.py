@@ -1,9 +1,14 @@
-"""Database module for Cylestio Monitor.
+"""Database management module for Cylestio Monitor.
 
-This module provides database functionality for storing and retrieving monitoring events.
+This package provides database functionality for storing and retrieving monitoring data.
 """
 
 from .db_manager import DBManager
 from .database_manager import DatabaseManager
+from .models import *
 
-__all__ = ["DBManager", "DatabaseManager"] 
+__all__ = [
+    "DBManager",
+    "DatabaseManager",
+    "models"
+] 

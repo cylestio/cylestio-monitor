@@ -4,6 +4,7 @@ import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, Optional
+import os
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.db import utils as db_utils
@@ -181,157 +182,127 @@ def log_event(
     # Add session/conversation ID if present in data
     if "session_id" in data:
         record["session_id"] = data["session_id"]
+    if "conversation_id" in data:
+        record["conversation_id"] = data["conversation_id"]
     
-    # Capture full call stack
+    # Capture call stack for debugging
     import traceback
     import inspect
     
     call_stack = []
     current_frame = inspect.currentframe()
     
-    try:
-        while current_frame:
-            info = inspect.getframeinfo(current_frame)
-            # Skip internal cylestio_monitor frames
-            if "cylestio_monitor" not in info.filename:
-                # Get the source code context
-                try:
-                    with open(info.filename) as f:
-                        lines = f.readlines()
-                        start = max(info.lineno - 2, 0)
-                        context = ''.join(lines[start:info.lineno + 1]).strip()
-                except:
-                    context = info.code_context[0].strip() if info.code_context else "N/A"
-                
-                call_stack.append({
-                    "file": info.filename,
-                    "line": info.lineno,
-                    "function": info.function,
-                    "code_context": context
-                })
-            current_frame = current_frame.f_back
-    finally:
-        del current_frame  # Prevent reference cycles
-    
-    # Process data for security checks
-    def check_content(content: Any) -> Dict[str, Any]:
-        if not isinstance(content, (str, dict, list)):
-            return {"alert_level": "none"}
-        
-        content_str = json.dumps(content) if isinstance(content, (dict, list)) else str(content)
-        content_normalized = normalize_text(content_str)
-        
-        # Check for dangerous/suspicious content
-        found_dangerous = [word for word in dangerous_words if word in content_normalized]
-        found_suspicious = [word for word in suspicious_words if word in content_normalized]
-        
-        if found_dangerous:
-            return {
-                "alert_level": "dangerous",
-                "matched_terms": found_dangerous,
-                "reason": "dangerous_content"
-            }
-        elif found_suspicious:
-            return {
-                "alert_level": "suspicious", 
-                "matched_terms": found_suspicious,
-                "reason": "suspicious_content"
-            }
-        return {"alert_level": "none"}
-    
-    # Process all data fields for security checks
-    security_checks = {
-        key: check_content(value)
-        for key, value in data.items()
-        if isinstance(value, (str, dict, list))
-    }
-    
-    # Determine overall alert level
-    alert_levels = [check["alert_level"] for check in security_checks.values()]
-    overall_alert = (
-        "dangerous" if "dangerous" in alert_levels else
-        "suspicious" if "suspicious" in alert_levels else
-        "none"
-    )
-    
-    # Ensure performance metrics are included
-    performance_data = data.get("performance", {})
-    if not performance_data:
-        # Add basic performance data if not present
-        performance_data = {
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        # Add duration if available
-        if "duration" in data:
-            performance_data["duration_ms"] = data["duration"] * 1000
-        elif "duration_ms" in data:
-            performance_data["duration_ms"] = data["duration_ms"]
+    if current_frame:
+        # Skip this function and go up 2 levels to find the caller
+        frame = current_frame.f_back
+        if frame and frame.f_back:
+            frame = frame.f_back
             
-    # Build enhanced metadata
-    enhanced_data = {
-        # Original data
-        **data,
-        
-        # Call stack information
-        "call_stack": call_stack,
-        
-        # Security information
-        "security": {
-            "alert_level": overall_alert,
-            "field_checks": security_checks
-        },
-        
-        # Framework-specific metadata (if present)
-        "framework": {
-            "name": channel.lower(),
-            "version": data.get("framework_version"),
-            "components": data.get("components", {})
-        },
-        
-        # Performance metrics
-        "performance": performance_data
-    }
-    
-    # Add model details if present
-    if "model" in data:
-        if isinstance(data["model"], dict):
-            enhanced_data["model"] = {
-                **data["model"],
-                "provider": data["model"].get("provider", channel.lower())
+        # Extract caller info
+        if frame:
+            caller_info = inspect.getframeinfo(frame)
+            caller = {
+                "file": os.path.basename(caller_info.filename),
+                "line": caller_info.lineno,
+                "function": caller_info.function
             }
-        else:
-            # Handle case where model is a string
-            enhanced_data["model"] = {
-                "name": str(data["model"]),
-                "provider": channel.lower()
-            }
+            record["caller"] = caller
     
-    # Add input/output details if present
-    if "input" in data and not isinstance(data["input"], dict):
-        enhanced_data["input"] = {
-            "content": data["input"],
-            "estimated_tokens": _estimate_tokens(data["input"])
+    # Add full data to record
+    record["data"] = data
+    
+    # Perform security checks if words to watch for are configured
+    if suspicious_words or dangerous_words:
+        import json
+        
+        # Convert to string for easy pattern matching
+        event_str = json.dumps(record).lower()
+        
+        suspicious_matches = [word for word in suspicious_words if word.lower() in event_str]
+        dangerous_matches = [word for word in dangerous_words if word.lower() in event_str]
+        
+        if suspicious_matches:
+            record["security"] = {
+                "suspicious_matches": suspicious_matches,
+                "severity": "warning"
+            }
+            
+        if dangerous_matches:
+            # If record doesn't have a security field yet, add it
+            if "security" not in record:
+                record["security"] = {}
+                
+            record["security"]["dangerous_matches"] = dangerous_matches
+            record["security"]["severity"] = "critical"
+    
+    # Log to file using log_to_file function
+    log_file = config_manager.get("monitoring.log_file")
+    if log_file:
+        try:
+            log_to_file(record, log_file)
+        except Exception as e:
+            monitor_logger.error(f"Failed to write to log file: {e}")
+    
+    # Store event in database with proper relations
+    if agent_id:
+        try:
+            from cylestio_monitor.event_logger import log_to_db
+            
+            # Add direction to data if it was provided separately
+            if direction and "direction" not in data:
+                data["direction"] = direction
+                
+            # Log to database using the relational schema
+            log_to_db(
+                agent_id=agent_id,
+                event_type=event_type,
+                data=data,
+                channel=channel,
+                level=level,
+                timestamp=datetime.fromisoformat(record["timestamp"])
+            )
+        except Exception as e:
+            monitor_logger.error(f"Failed to log event to database: {e}")
+    
+    # Log security alerts as separate events
+    if "security" in record and record["security"].get("severity") == "critical":
+        security_data = {
+            "severity": "critical",
+            "matches": record["security"].get("dangerous_matches", []),
+            "original_event": {
+                "event_type": event_type,
+                "channel": channel
+            }
         }
         
-    if "output" in data and not isinstance(data["output"], dict):
-        enhanced_data["output"] = {
-            "content": data["output"],
-            "estimated_tokens": _estimate_tokens(data["output"])
-        }
-    
-    # Update record with enhanced data
-    record["data"] = enhanced_data
-    
-    # Use the new event_logger module to handle all logging
-    process_and_log_event(
-        agent_id=agent_id or "unknown",
-        event_type=event_type,
-        data=enhanced_data,
-        channel=channel,
-        level=level,
-        record=record
-    )
+        # Log directly to file to ensure it's captured even if database logging fails
+        if log_file:
+            try:
+                security_record = {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "CRITICAL",
+                    "agent_id": agent_id or "unknown",
+                    "event_type": "security_alert",
+                    "channel": "SECURITY",
+                    "data": security_data
+                }
+                
+                log_to_file(security_record, log_file)
+            except Exception as e:
+                monitor_logger.error(f"Failed to write security alert to log file: {e}")
+        
+        # Log to database through the specialized handler
+        if agent_id:
+            try:
+                log_to_db(
+                    agent_id=agent_id,
+                    event_type="security_alert",
+                    data=security_data,
+                    channel="SECURITY",
+                    level="critical"
+                )
+            except Exception as e:
+                monitor_logger.error(f"Failed to log security alert to database: {e}")
 
 
 def _estimate_tokens(text: Any) -> int:

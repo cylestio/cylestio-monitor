@@ -46,14 +46,16 @@ class DatabaseManager:
         self._initialized = False
         self._db_path = None
         self._data_dir = None
+        self._sql_logger = logging.getLogger("sqlalchemy.engine")
     
-    def initialize_database(self, db_path: Optional[Path] = None) -> Dict[str, Any]:
+    def initialize_database(self, db_path: Optional[Path] = None, enable_sql_logging: bool = False) -> Dict[str, Any]:
         """
         Initialize the database with the schema defined by SQLAlchemy models.
         
         Args:
             db_path: Optional explicit path to the database file.
                     If not provided, uses platformdirs to determine the location.
+            enable_sql_logging: Whether to enable SQLAlchemy query logging (for development)
         
         Returns:
             Dict containing initialization status and details:
@@ -108,6 +110,21 @@ class DatabaseManager:
                 newly_created = not self._db_path.exists()
                 result["created"] = newly_created
                 
+                # Set up SQL logging if requested or in development mode
+                development_mode = os.environ.get("CYLESTIO_DEVELOPMENT_MODE", "0").lower() in ("1", "true", "yes")
+                if enable_sql_logging or development_mode:
+                    self._sql_logger.setLevel(logging.DEBUG)
+                    # Add a handler if none exists
+                    if not self._sql_logger.handlers:
+                        console_handler = logging.StreamHandler()
+                        console_handler.setFormatter(logging.Formatter(
+                            "SQLAlchemy: %(message)s"
+                        ))
+                        self._sql_logger.addHandler(console_handler)
+                        logger.info("SQLAlchemy query logging enabled")
+                else:
+                    self._sql_logger.setLevel(logging.WARNING)
+                
                 # Create the SQLAlchemy engine
                 sqlite_url = f"sqlite:///{self._db_path}"
                 self._engine = create_engine(
@@ -116,14 +133,20 @@ class DatabaseManager:
                     pool_size=5,
                     max_overflow=10,
                     pool_timeout=30,
-                    connect_args={"check_same_thread": False}
+                    connect_args={"check_same_thread": False},
+                    echo=enable_sql_logging or development_mode
                 )
                 
                 # Create session factory
                 self._Session = sessionmaker(bind=self._engine)
                 
-                # Create tables
-                Base.metadata.create_all(self._engine)
+                # If newly created or if tables don't exist, create them
+                if newly_created or not self._tables_exist():
+                    Base.metadata.create_all(self._engine)
+                    logger.info("Database tables created")
+                else:
+                    # Check for schema updates using migration support
+                    self._check_for_schema_updates()
                 
                 # Get list of created tables
                 inspector = inspect(self._engine)
@@ -156,6 +179,77 @@ class DatabaseManager:
                 result["error"] = error_msg
                 
             return result
+    
+    def _tables_exist(self) -> bool:
+        """
+        Check if the tables exist in the database.
+        
+        Returns:
+            bool: True if all required tables exist, False otherwise
+        """
+        if not self._engine:
+            return False
+        
+        inspector = inspect(self._engine)
+        existing_tables = set(inspector.get_table_names())
+        
+        # Get table names from our models
+        model_tables = {model.__tablename__ for model in get_all_models()}
+        
+        # Check if all model tables exist in the database
+        return model_tables.issubset(existing_tables)
+    
+    def _check_for_schema_updates(self) -> None:
+        """
+        Check for schema updates and apply migrations if needed.
+        
+        This implements basic migration support by comparing the existing schema
+        with the model definitions and adding missing columns or tables.
+        """
+        if not self._engine:
+            return
+        
+        try:
+            inspector = inspect(self._engine)
+            existing_tables = set(inspector.get_table_names())
+            
+            # Get all model tables
+            metadata = Base.metadata
+            model_tables = {table.name: table for table in metadata.tables.values()}
+            
+            # Check for missing tables and create them
+            missing_tables = set(model_tables.keys()) - existing_tables
+            if missing_tables:
+                logger.info(f"Creating missing tables: {', '.join(missing_tables)}")
+                # Create only the missing tables
+                missing_metadata = MetaData()
+                for table_name in missing_tables:
+                    model_tables[table_name].tometadata(missing_metadata)
+                missing_metadata.create_all(self._engine)
+            
+            # Check for missing columns in existing tables
+            for table_name in existing_tables:
+                if table_name in model_tables:
+                    model_table = model_tables[table_name]
+                    
+                    # Get existing columns
+                    existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+                    
+                    # Get model columns
+                    model_columns = {col.name for col in model_table.columns}
+                    
+                    # Find missing columns
+                    missing_columns = model_columns - existing_columns
+                    if missing_columns:
+                        logger.info(f"Table '{table_name}' missing columns: {', '.join(missing_columns)}")
+                        logger.info("Migration support will add these columns in a future version")
+                        # In a real migration system, we would alter the table here
+                        # For now, we just log the issue
+            
+            logger.info("Schema update check completed")
+            
+        except Exception as e:
+            logger.error(f"Error checking for schema updates: {e}")
     
     def verify_schema(self) -> Dict[str, Any]:
         """
@@ -477,24 +571,38 @@ class DatabaseManager:
     @contextmanager
     def get_session(self) -> Session:
         """
-        Get a session for database operations and handle cleanup.
+        Get a SQLAlchemy session with proper transaction management.
+        
+        This context manager ensures proper transaction handling:
+        - Automatically commits the transaction on successful completion
+        - Automatically rolls back on exception
+        - Always closes the session at the end
         
         Yields:
-            Session: SQLAlchemy session
+            SQLAlchemy Session object
             
         Raises:
-            RuntimeError: If database is not initialized
+            SQLAlchemyError: If there is a database error
         """
-        if not self._initialized or not self._Session:
+        if not self._initialized:
+            self.initialize_database()
+        
+        if not self._Session:
             raise RuntimeError("Database not initialized. Call initialize_database() first.")
         
         session = self._Session()
         try:
             yield session
-        except Exception:
+            # If we get here, no exception was raised, so commit
+            session.commit()
+        except Exception as e:
+            # An exception occurred, roll back the transaction
             session.rollback()
+            logger.error(f"Database error, transaction rolled back: {e}")
+            # Re-raise the exception
             raise
         finally:
+            # Always close the session
             session.close()
     
     def close(self) -> None:

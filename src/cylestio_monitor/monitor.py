@@ -9,11 +9,12 @@ import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, Optional, Union
+from pathlib import Path
 
 import platformdirs
 
 from .config import ConfigManager
-from .db import utils as db_utils
+from .db import utils as db_utils, DatabaseManager
 from .event_logger import log_console_message, process_and_log_event
 from .events_listener import monitor_call, monitor_llm_call
 from .events_processor import log_event, EventProcessor
@@ -29,7 +30,6 @@ logger = logging.getLogger(__name__)
 def enable_monitoring(
     agent_id: str,
     llm_client: Any = None,
-    log_file: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
@@ -38,11 +38,14 @@ def enable_monitoring(
     Args:
         agent_id: Unique identifier for the agent
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
-        log_file: Path to the output log file (if None, only SQLite logging is used)
-            - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
-            - If a file without extension is provided, ".json" will be added
         config: Optional configuration dictionary that can include:
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            - db_path: Path to the SQLite database file (if None, uses default location in user data directory)
+            - log_file: Path to the output log file (if None, only SQLite logging is used)
+                - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
+                - If a file without extension is provided, ".json" will be added
+            - sql_debug: Enable SQLAlchemy query logging (useful for development)
+            - development_mode: Enable additional development features like detailed logging
     
     Note:
         The SDK automatically detects which frameworks are installed and available to monitor.
@@ -52,6 +55,18 @@ def enable_monitoring(
     
     # Extract debug level from config
     debug_level = config.get("debug_level", "INFO")
+    
+    # Extract log file path from config
+    log_file = config.get("log_file")
+    
+    # Check if development mode is enabled
+    development_mode = config.get("development_mode", False)
+    if development_mode:
+        # Set environment variable for other components
+        os.environ["CYLESTIO_DEVELOPMENT_MODE"] = "1"
+        # Use debug level if not explicitly set
+        if "debug_level" not in config:
+            debug_level = "DEBUG"
     
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
@@ -92,14 +107,36 @@ def enable_monitoring(
     config_manager.set("monitoring.log_file", log_file)
     config_manager.save()
     
+    # Initialize the database using DatabaseManager
+    try:
+        db_manager = DatabaseManager()
+        db_path = config.get("db_path")
+        db_path_obj = Path(db_path) if db_path else None
+        
+        # Pass SQL debug option to database manager
+        sql_debug = config.get("sql_debug", development_mode)
+        db_result = db_manager.initialize_database(
+            db_path=db_path_obj,
+            enable_sql_logging=sql_debug
+        )
+        
+        if not db_result["success"]:
+            logger.error(f"Failed to initialize database: {db_result['error']}")
+            # Continue execution even if DB initialization fails, as we'll fall back to file logging
+        
+        # Log database initialization status
+        logger.info(f"Database initialized at {db_result.get('db_path', 'unknown location')}")
+        db_path = db_result.get('db_path', 'unknown')
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        db_path = "unknown"
+    
     # Initialize the event processor
     event_processor = EventProcessor(agent_id=agent_id, config=config)
     
     # Get LLM provider info (will be updated by patchers when detected)
     llm_provider = "Unknown"
-    
-    # Get database path
-    db_path = db_utils.get_db_path()
     
     try:
         # Step 1: Patch MCP if available and enabled

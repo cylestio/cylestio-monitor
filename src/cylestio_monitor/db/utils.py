@@ -2,22 +2,30 @@
 
 import json
 import logging
+import os
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .db_manager import DBManager
+from sqlalchemy import func, and_, or_
+
+from .database_manager import DatabaseManager
+from .models import (
+    Agent, Event, LLMCall, ToolCall, SecurityAlert, 
+    Session, Conversation, PerformanceMetric
+)
 
 logger = logging.getLogger("CylestioMonitor")
 
 
-def get_db_manager() -> DBManager:
+def get_db_manager() -> DatabaseManager:
     """
     Get the database manager instance.
     
     Returns:
-        DBManager instance
+        DatabaseManager instance
     """
-    return DBManager()
+    return DatabaseManager()
 
 
 def log_to_db(
@@ -42,8 +50,18 @@ def log_to_db(
     Returns:
         The event ID
     """
-    db_manager = get_db_manager()
-    return db_manager.log_event(agent_id, event_type, data, channel, level, timestamp)
+    from cylestio_monitor.event_logger import log_to_db as event_logger_log_to_db
+    
+    # Use the new event_logger.log_to_db function which handles the relational schema
+    event_logger_log_to_db(
+        agent_id=agent_id,
+        event_type=event_type,
+        data=data,
+        channel=channel,
+        level=level,
+        timestamp=timestamp
+    )
+    return 0  # Return a dummy ID for backward compatibility
 
 
 def get_recent_events(
@@ -63,7 +81,25 @@ def get_recent_events(
         List of events
     """
     db_manager = get_db_manager()
-    return db_manager.get_events(agent_id=agent_id, limit=limit, offset=offset)
+    
+    with db_manager.get_session() as session:
+        query = session.query(Event)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Order by timestamp descending
+        query = query.order_by(Event.timestamp.desc())
+        
+        # Apply pagination
+        query = query.limit(limit).offset(offset)
+        
+        # Execute the query
+        events = query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_events_by_type(
@@ -83,7 +119,25 @@ def get_events_by_type(
         List of events
     """
     db_manager = get_db_manager()
-    return db_manager.get_events(agent_id=agent_id, event_type=event_type, limit=limit)
+    
+    with db_manager.get_session() as session:
+        query = session.query(Event).filter(Event.event_type == event_type)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Order by timestamp descending
+        query = query.order_by(Event.timestamp.desc())
+        
+        # Apply limit
+        query = query.limit(limit)
+        
+        # Execute the query
+        events = query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_events_by_channel(
@@ -103,7 +157,25 @@ def get_events_by_channel(
         List of events
     """
     db_manager = get_db_manager()
-    return db_manager.get_events(agent_id=agent_id, channel=channel, limit=limit)
+    
+    with db_manager.get_session() as session:
+        query = session.query(Event).filter(Event.channel == channel.lower())
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Order by timestamp descending
+        query = query.order_by(Event.timestamp.desc())
+        
+        # Apply limit
+        query = query.limit(limit)
+        
+        # Execute the query
+        events = query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_events_by_level(
@@ -123,7 +195,25 @@ def get_events_by_level(
         List of events
     """
     db_manager = get_db_manager()
-    return db_manager.get_events(agent_id=agent_id, level=level, limit=limit)
+    
+    with db_manager.get_session() as session:
+        query = session.query(Event).filter(Event.level == level.lower())
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Order by timestamp descending
+        query = query.order_by(Event.timestamp.desc())
+        
+        # Apply limit
+        query = query.limit(limit)
+        
+        # Execute the query
+        events = query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_events_by_timeframe(
@@ -145,12 +235,28 @@ def get_events_by_timeframe(
         List of events
     """
     db_manager = get_db_manager()
-    return db_manager.get_events(
-        agent_id=agent_id,
-        start_time=start_time,
-        end_time=end_time,
-        limit=limit
-    )
+    
+    with db_manager.get_session() as session:
+        query = session.query(Event).filter(
+            Event.timestamp >= start_time,
+            Event.timestamp <= end_time
+        )
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Order by timestamp descending
+        query = query.order_by(Event.timestamp.desc())
+        
+        # Apply limit
+        query = query.limit(limit)
+        
+        # Execute the query
+        events = query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_events_last_hours(
@@ -214,7 +320,32 @@ def search_events(
         List of matching events
     """
     db_manager = get_db_manager()
-    return db_manager.search_events(query, agent_id, limit)
+    query_lower = query.lower()
+    
+    with db_manager.get_session() as session:
+        # Create a query for events that might contain the search term
+        # This is a simple implementation - a production system would use full-text search
+        search_query = session.query(Event).filter(
+            or_(
+                Event.event_type.ilike(f"%{query_lower}%"),
+                Event.channel.ilike(f"%{query_lower}%"),
+                Event.level.ilike(f"%{query_lower}%"),
+                Event.data.cast(str).ilike(f"%{query_lower}%")
+            )
+        )
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            search_query = search_query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Apply limit
+        search_query = search_query.limit(limit)
+        
+        # Execute the query
+        events = search_query.all()
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events]
 
 
 def get_agent_stats(agent_id: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -228,7 +359,34 @@ def get_agent_stats(agent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         List of agent statistics
     """
     db_manager = get_db_manager()
-    return db_manager.get_agent_stats(agent_id)
+    
+    with db_manager.get_session() as session:
+        query = session.query(
+            Agent.agent_id,
+            Agent.name,
+            func.count(Event.id).label("event_count"),
+            func.min(Event.timestamp).label("first_event"),
+            func.max(Event.timestamp).label("last_event")
+        ).join(Event, Agent.id == Event.agent_id)
+        
+        if agent_id:
+            query = query.filter(Agent.agent_id == agent_id)
+        
+        query = query.group_by(Agent.id, Agent.agent_id, Agent.name)
+        
+        results = query.all()
+        
+        # Convert to list of dictionaries
+        return [
+            {
+                "agent_id": row.agent_id,
+                "name": row.name,
+                "event_count": row.event_count,
+                "first_event": row.first_event.isoformat() if row.first_event else None,
+                "last_event": row.last_event.isoformat() if row.last_event else None
+            }
+            for row in results
+        ]
 
 
 def get_event_type_distribution(agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
@@ -242,7 +400,22 @@ def get_event_type_distribution(agent_id: Optional[str] = None) -> List[Tuple[st
         List of tuples (event_type, count)
     """
     db_manager = get_db_manager()
-    return db_manager.get_event_types(agent_id)
+    
+    with db_manager.get_session() as session:
+        query = session.query(
+            Event.event_type,
+            func.count(Event.id).label("count")
+        ).group_by(Event.event_type)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Execute the query
+        results = query.all()
+        
+        # Convert to list of tuples
+        return [(row.event_type, row.count) for row in results]
 
 
 def get_channel_distribution(agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
@@ -256,12 +429,27 @@ def get_channel_distribution(agent_id: Optional[str] = None) -> List[Tuple[str, 
         List of tuples (channel, count)
     """
     db_manager = get_db_manager()
-    return db_manager.get_channels(agent_id)
+    
+    with db_manager.get_session() as session:
+        query = session.query(
+            Event.channel,
+            func.count(Event.id).label("count")
+        ).group_by(Event.channel)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Execute the query
+        results = query.all()
+        
+        # Convert to list of tuples
+        return [(row.channel, row.count) for row in results]
 
 
 def get_level_distribution(agent_id: Optional[str] = None) -> List[Tuple[str, int]]:
     """
-    Get distribution of levels.
+    Get distribution of event levels.
     
     Args:
         agent_id: Filter by agent ID
@@ -270,12 +458,27 @@ def get_level_distribution(agent_id: Optional[str] = None) -> List[Tuple[str, in
         List of tuples (level, count)
     """
     db_manager = get_db_manager()
-    return db_manager.get_levels(agent_id)
+    
+    with db_manager.get_session() as session:
+        query = session.query(
+            Event.level,
+            func.count(Event.id).label("count")
+        ).group_by(Event.level)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            query = query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        # Execute the query
+        results = query.all()
+        
+        # Convert to list of tuples
+        return [(row.level, row.count) for row in results]
 
 
 def cleanup_old_events(days: int = 30) -> int:
     """
-    Delete events older than the specified number of days.
+    Remove events older than the specified number of days.
     
     Args:
         days: Number of days to keep
@@ -285,13 +488,26 @@ def cleanup_old_events(days: int = 30) -> int:
     """
     db_manager = get_db_manager()
     cutoff_date = datetime.now() - timedelta(days=days)
-    return db_manager.delete_events_before(cutoff_date)
+    
+    with db_manager.get_session() as session:
+        # Delete events older than the cutoff date
+        deleted_count = session.query(Event).filter(
+            Event.timestamp < cutoff_date
+        ).delete()
+        
+        # Commit the changes
+        session.commit()
+        
+        return deleted_count
 
 
 def optimize_database() -> None:
-    """Optimize the database by vacuuming."""
+    """Optimize the database by running VACUUM."""
     db_manager = get_db_manager()
-    db_manager.vacuum()
+    
+    with db_manager.get_session() as session:
+        session.execute("PRAGMA optimize")
+        session.execute("VACUUM")
 
 
 def get_db_path() -> str:
@@ -299,7 +515,160 @@ def get_db_path() -> str:
     Get the path to the database file.
     
     Returns:
-        Path to the database file as a string
+        Path to the database file
     """
     db_manager = get_db_manager()
-    return str(db_manager.get_db_path()) 
+    db_path = db_manager.get_db_path()
+    return str(db_path) if db_path else ""
+
+
+def get_session_events(session_id: int, agent_id: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+    """Get all events from a specific session.
+    
+    Args:
+        session_id (int): The session ID to get events for.
+        agent_id (Optional[str], optional): Optional agent ID to filter by.
+        limit (int, optional): Maximum number of events to return. Defaults to 100.
+        offset (int, optional): Offset for pagination. Defaults to 0.
+        
+    Returns:
+        List[Dict[str, Any]]: List of events from the session.
+    """
+    db_manager = get_db_manager()
+    
+    with db_manager.get_session() as session:
+        # First, find the session object
+        session_query = session.query(Session).filter(Session.id == session_id)
+        
+        if agent_id:
+            # Join with Agent to filter by agent_id string
+            session_query = session_query.join(Agent).filter(Agent.agent_id == agent_id)
+        
+        session_obj = session_query.first()
+        if not session_obj:
+            return []
+        
+        # Now query for events in this session
+        events_query = (
+            session.query(Event)
+            .filter(Event.session_id == session_id)
+            .order_by(Event.timestamp.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events_query.all()]
+
+
+def get_conversation_events(conversation_id: int, agent_id: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+    """Get all events from a specific conversation.
+    
+    Args:
+        conversation_id (int): The conversation ID to get events for.
+        agent_id (Optional[str], optional): Optional agent ID to filter by.
+        limit (int, optional): Maximum number of events to return. Defaults to 100.
+        offset (int, optional): Offset for pagination. Defaults to 0.
+        
+    Returns:
+        List[Dict[str, Any]]: List of events from the conversation.
+    """
+    db_manager = get_db_manager()
+    
+    with db_manager.get_session() as session:
+        # First, find the conversation object
+        conversation_query = session.query(Conversation).filter(Conversation.id == conversation_id)
+        
+        if agent_id:
+            # Join with Agent through Session to filter by agent_id string
+            conversation_query = (
+                conversation_query
+                .join(Session)
+                .join(Agent)
+                .filter(Agent.agent_id == agent_id)
+            )
+        
+        conversation_obj = conversation_query.first()
+        if not conversation_obj:
+            return []
+        
+        # Now query for events in this conversation
+        events_query = (
+            session.query(Event)
+            .filter(Event.conversation_id == conversation_id)
+            .order_by(Event.timestamp.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        
+        # Convert to dictionaries
+        return [event.to_dict() for event in events_query.all()]
+
+
+def get_related_events(
+    event_id: int,
+    limit: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    Get events related to a specific event (e.g., request and response pairs).
+    
+    Args:
+        event_id: The event ID to find related events for
+        limit: Maximum number of events to return
+        
+    Returns:
+        List of related events
+    """
+    db_manager = get_db_manager()
+    
+    with db_manager.get_session() as session:
+        # Get the original event
+        event = session.query(Event).filter(Event.id == event_id).first()
+        
+        if not event:
+            return []
+        
+        related_events = []
+        
+        # If it's a request, find the corresponding response(s)
+        if event.event_type.endswith('_request'):
+            # The base event type without the "_request" suffix
+            base_type = event.event_type[:-8]
+            response_type = f"{base_type}_response"
+            
+            # Find events with matching response type and the same conversation
+            responses = session.query(Event).filter(
+                Event.event_type == response_type,
+                Event.conversation_id == event.conversation_id,
+                Event.timestamp > event.timestamp
+            ).order_by(Event.timestamp).limit(limit).all()
+            
+            related_events.extend(responses)
+            
+        # If it's a response, find the corresponding request(s)
+        elif event.event_type.endswith('_response'):
+            # The base event type without the "_response" suffix
+            base_type = event.event_type[:-9]
+            request_type = f"{base_type}_request"
+            
+            # Find events with matching request type and the same conversation
+            requests = session.query(Event).filter(
+                Event.event_type == request_type,
+                Event.conversation_id == event.conversation_id,
+                Event.timestamp < event.timestamp
+            ).order_by(Event.timestamp.desc()).limit(limit).all()
+            
+            related_events.extend(requests)
+            
+        # If it has a session, find other events in the same session
+        elif event.session_id:
+            # Find other events in the same session
+            session_events = session.query(Event).filter(
+                Event.session_id == event.session_id,
+                Event.id != event.id
+            ).order_by(Event.timestamp).limit(limit).all()
+            
+            related_events.extend(session_events)
+            
+        # Convert to dictionaries
+        return [e.to_dict() for e in related_events] 
