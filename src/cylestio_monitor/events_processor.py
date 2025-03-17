@@ -20,7 +20,7 @@ config_manager = ConfigManager()
 def normalize_text(text: str) -> str:
     """Normalize text for keyword matching."""
     if text is None:
-        return ""
+        return "NONE"
     return " ".join(str(text).split()).upper()
 
 

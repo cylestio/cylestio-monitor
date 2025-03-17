@@ -56,7 +56,7 @@ def test_sqlite_logging():
         enable_monitoring(
             agent_id="test_agent",
             log_file=log_file,
-            debug_level="INFO"
+            config={"debug_level": "INFO"}
         )
         
         # Get the database path

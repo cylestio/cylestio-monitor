@@ -24,6 +24,7 @@ from cylestio_monitor.db.models import (
     EventType, LLMCall, PerformanceMetric, SecurityAlert, Session as SessionModel,
     ToolCall, AlertLevel, AlertSeverity
 )
+from ..exceptions import DatabaseError
 
 logger = logging.getLogger("CylestioMonitor")
 
@@ -54,49 +55,46 @@ class DBManager:
     
     def _initialize(self) -> None:
         """Initialize the database manager."""
-        # Check if we're in test mode
-        test_db_dir = os.environ.get("CYLESTIO_TEST_DB_DIR")
-        if test_db_dir:
-            self._data_dir = test_db_dir
-        else:
-            self._data_dir = platformdirs.user_data_dir(
-                appname="cylestio-monitor",
-                appauthor="cylestio"
-            )
-        self._db_path = Path(self._data_dir) / "cylestio_monitor.db"
-        
-        # Create the directory if it doesn't exist
-        os.makedirs(self._data_dir, exist_ok=True)
-        
-        # Create SQLAlchemy engine with connection pooling
-        sqlite_url = f"sqlite:///{self._db_path}"
-        self._engine = create_engine(
-            sqlite_url,
-            poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
-            pool_timeout=30,
-            connect_args={"check_same_thread": False}
-        )
-        
-        # Create session factory
-        self._Session = sessionmaker(bind=self._engine)
-        
-        # Initialize the database if it doesn't exist
-        self._ensure_db_exists()
-        
+        try:
+            # Get the data directory
+            data_dir = platformdirs.user_data_dir("cylestio_monitor")
+            
+            # Create the data directory if it doesn't exist
+            os.makedirs(data_dir, exist_ok=True)
+            
+            # Set the database path
+            self.db_path = os.path.join(data_dir, "cylestio_monitor.db")
+            
+            # Create the database if it doesn't exist
+            self._ensure_db_exists()
+            
+            # Initialize the SQLAlchemy engine
+            self.engine = create_engine(f"sqlite:///{self.db_path}")
+            
+            # Create all tables
+            Base.metadata.create_all(self.engine)
+            
+            # Create the session factory
+            self.Session = sessionmaker(bind=self.engine)
+            
+            logger.info("Database initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise DatabaseError(f"Failed to initialize database: {e}")
+    
     def _ensure_db_exists(self) -> None:
         """
         Ensure that the global database file exists.
         
         If the file doesn't exist, create it and initialize the schema.
         """
-        if not self._db_path.exists():
-            logger.info(f"Creating global database at {self._db_path}")
+        if not self.db_path:
+            logger.info(f"Creating global database at {self.db_path}")
             
             try:
                 # Create all tables
-                Base.metadata.create_all(self._engine)
+                Base.metadata.create_all(self.engine)
                 logger.info("Database schema created successfully")
             except Exception as e:
                 logger.error(f"Failed to create database schema: {e}")
@@ -110,7 +108,7 @@ class DBManager:
         Yields:
             Session: SQLAlchemy session
         """
-        session = self._Session()
+        session = self.Session()
         try:
             yield session
         except Exception:
@@ -121,8 +119,8 @@ class DBManager:
     
     def close(self) -> None:
         """Close all database connections in the pool."""
-        if hasattr(self, '_engine'):
-            self._engine.dispose()
+        if hasattr(self, 'engine'):
+            self.engine.dispose()
     
     def get_or_create_agent(self, agent_id: str) -> int:
         """
@@ -148,7 +146,7 @@ class DBManager:
         self,
         agent_id: str,
         event_type: str,
-        data: Dict[str, Any],
+        data: Optional[Dict[str, Any]] = None,
         channel: str = "SYSTEM",
         level: str = "info",
         timestamp: Optional[datetime] = None
@@ -157,38 +155,57 @@ class DBManager:
         Log an event to the database.
         
         Args:
-            agent_id: The ID of the agent
+            agent_id: The ID of the agent that generated the event
             event_type: The type of event
-            data: The event data
-            channel: The event channel
-            level: The event level
+            data: Additional event data
+            channel: The channel the event was generated on (defaults to "SYSTEM")
+            level: The log level of the event (defaults to "info")
             timestamp: The event timestamp (defaults to now)
             
         Returns:
             The event ID
         """
-        timestamp = timestamp or datetime.now()
-        
-        with self._get_session() as session:
-            # Get or create the agent and get its ID
-            agent_db_obj = Agent.get_or_create(session, agent_id)
-            session.flush()  # Flush to ensure agent has an ID
+        try:
+            # Validate agent exists
+            agent = self._get_agent(agent_id)
+            if not agent:
+                raise ValueError(f"Agent {agent_id} does not exist")
             
-            # Create the event
-            event = Event.create_event(
-                session=session,
-                agent_id=agent_db_obj.id,
+            # Create event
+            event = Event(
+                agent=agent,
                 event_type=event_type,
                 channel=channel,
-                level=level.lower(),
-                data=data,
-                timestamp=timestamp
+                level=level,
+                data=data or {},
+                timestamp=timestamp or datetime.now()
             )
             
-            # Commit the transaction
-            session.commit()
+            # Log to database
+            with self._get_session() as session:
+                session.add(event)
+                session.commit()
+                event_id = event.id
             
-            return event.id
+            # Log to system logger
+            log_level = getattr(logging, level.upper(), logging.INFO)
+            logger.log(
+                log_level,
+                f"Event logged - Type: {event_type}, Channel: {channel}, Agent: {agent_id}",
+                extra={
+                    "event_id": event_id,
+                    "agent_id": agent_id,
+                    "event_type": event_type,
+                    "channel": channel,
+                    "data": data
+                }
+            )
+            
+            return event_id
+            
+        except Exception as e:
+            logger.error(f"Failed to log event: {e}")
+            raise DatabaseError(f"Failed to log event: {e}")
     
     def log_llm_call(
         self,
@@ -316,7 +333,7 @@ class DBManager:
                 event_id=event.id,
                 tool_name=tool_name,
                 input_params=input_params,
-                output=output or {},
+                output_result=output,
                 success=success,
                 duration_ms=duration_ms
             )
@@ -377,7 +394,8 @@ class DBManager:
                 alert_type=alert_type,
                 description=description,
                 severity=severity,
-                related_data=related_data or {}
+                matched_terms=related_data.get("matched_terms"),
+                action_taken=related_data.get("action_taken")
             )
             
             # Commit the transaction
@@ -989,8 +1007,8 @@ class DBManager:
                 (Event.event_type.like(search_pattern)) |
                 (Event.channel.like(search_pattern)) |
                 (Event.level.like(search_pattern)) |
-                (cast(Event.data.as_string(), type_=String).like(search_pattern))
-            )
+                (text("json_extract(data, '$') LIKE :pattern"))
+            ).params(pattern=search_pattern)
             
             # Apply limit
             stmt = stmt.limit(limit)
@@ -1041,10 +1059,30 @@ class DBManager:
             return count
     
     def vacuum(self) -> None:
-        """Vacuum the database to reclaim space."""
-        # SQLAlchemy doesn't have a direct method for VACUUM
-        # so we use the raw connection
-        self._engine.execute(text("VACUUM"))
+        """
+        Vacuum the SQLite database to optimize storage and performance.
+        """
+        # Ensure database exists
+        self._ensure_db_exists()
+        
+        # Get database path
+        db_path = self.db_path
+        
+        # Close any existing connections
+        self.close()
+        
+        try:
+            # Create a new connection directly to the database file
+            conn = sqlite3.connect(db_path)
+            conn.execute("VACUUM")
+            conn.close()
+            
+            # Reinitialize the engine
+            self._initialize()
+            
+        except sqlite3.Error as e:
+            logger.error(f"Failed to vacuum database: {e}")
+            raise DatabaseError(f"Failed to vacuum database: {e}")
     
     def get_db_path(self) -> Path:
         """
@@ -1053,7 +1091,7 @@ class DBManager:
         Returns:
             Path to the database file
         """
-        return self._db_path
+        return self.db_path
     
     def get_conversation_flow(
         self,
@@ -1252,7 +1290,7 @@ class DBManager:
                 (Event.event_type.like(search_pattern)) |
                 (Event.channel.like(search_pattern)) |
                 (Event.level.like(search_pattern)) |
-                (cast(Event.data.as_string(), type_=String).like(search_pattern))
+                (Event.data['$'].like(search_pattern))
             )
             
             # Apply pagination
@@ -1619,4 +1657,23 @@ class DBManager:
                     "avg_tokens_per_call": round((tokens_in or 0) / call_count, 2) if call_count > 0 else 0
                 })
             
-            return usage_stats 
+            return usage_stats
+
+    def _get_agent(self, agent_id: str) -> Optional[Agent]:
+        """
+        Get an agent by ID, creating it if it doesn't exist.
+        
+        Args:
+            agent_id: The ID of the agent
+            
+        Returns:
+            The agent object or None if it couldn't be created
+        """
+        try:
+            with self._get_session() as session:
+                agent = Agent.get_or_create(session, agent_id)
+                session.flush()
+                return agent
+        except Exception as e:
+            logger.error(f"Failed to get/create agent: {e}")
+            return None 
