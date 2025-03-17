@@ -1,4 +1,8 @@
-"""Tests for the database manager module."""
+"""Unit tests for the DBManager class.
+
+This module contains comprehensive tests for the DBManager class, covering all major
+functionality including event logging, querying, and aggregation methods.
+"""
 
 import json
 import os
@@ -8,10 +12,16 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from typing import Dict, Any, List
 
 import pytest
 
 from cylestio_monitor.db.db_manager import DBManager
+from cylestio_monitor.db.models import (
+    Event, Agent, EventType, EventChannel, EventLevel,
+    LLMCall, ToolCall, SecurityAlert, PerformanceMetric,
+    Session as SessionModel
+)
 
 
 @pytest.fixture
@@ -23,13 +33,19 @@ def mock_platformdirs():
 
 
 @pytest.fixture
-def db_manager(mock_platformdirs):
-    """Create a DBManager instance with a temporary database."""
+def test_db_dir(tmp_path):
+    """Create a temporary directory for the test database."""
+    return str(tmp_path / "test_db")
+
+
+@pytest.fixture
+def db_manager(test_db_dir):
+    """Create a DBManager instance with a test database."""
     # Reset the singleton instance
     DBManager._instance = None
     
     # Set the environment variable for testing
-    os.environ["CYLESTIO_TEST_DB_DIR"] = mock_platformdirs
+    os.environ["CYLESTIO_TEST_DB_DIR"] = test_db_dir
     
     # Create a new instance
     manager = DBManager()
@@ -42,6 +58,65 @@ def db_manager(mock_platformdirs):
     # Remove the environment variable
     if "CYLESTIO_TEST_DB_DIR" in os.environ:
         del os.environ["CYLESTIO_TEST_DB_DIR"]
+
+
+@pytest.fixture
+def test_agent(db_manager):
+    """Create a test agent."""
+    return db_manager.get_or_create_agent("test_agent_1")
+
+
+@pytest.fixture
+def test_events(db_manager, test_agent):
+    """Create a set of test events."""
+    # Create various types of events
+    events = []
+    
+    # LLM call
+    events.append(db_manager.log_llm_call(
+        agent_id="test_agent_1",
+        model="gpt-4",
+        prompt="Test prompt",
+        response="Test response",
+        tokens_in=10,
+        tokens_out=20,
+        duration_ms=1000,
+        cost=0.01
+    ))
+    
+    # Tool call
+    events.append(db_manager.log_tool_call(
+        agent_id="test_agent_1",
+        tool_name="test_tool",
+        input_params={"param1": "value1"},
+        output={"result": "success"},
+        success=True,
+        duration_ms=500
+    ))
+    
+    # Security alert
+    events.append(db_manager.log_security_event(
+        agent_id="test_agent_1",
+        alert_type="test_alert",
+        description="Test security alert",
+        severity="high",
+        related_data={"details": "test"}
+    ))
+    
+    # Performance metric
+    events.append(db_manager.log_event(
+        agent_id="test_agent_1",
+        event_type=EventType.PERFORMANCE_METRIC,
+        data={
+            "memory_usage": 100,
+            "cpu_usage": 50,
+            "duration_ms": 2000
+        },
+        channel=EventChannel.SYSTEM,
+        level=EventLevel.INFO
+    ))
+    
+    return events
 
 
 def test_singleton_pattern():
@@ -57,6 +132,89 @@ def test_singleton_pattern():
     assert manager1 is manager2
 
 
+def test_db_initialization(db_manager, test_db_dir):
+    """Test database initialization."""
+    assert db_manager.get_db_path().parent == Path(test_db_dir)
+    assert db_manager.get_db_path().exists()
+
+
+def test_get_or_create_agent(db_manager):
+    """Test agent creation and retrieval."""
+    agent_id = "test_agent_2"
+    db_id = db_manager.get_or_create_agent(agent_id)
+    assert db_id > 0
+    
+    # Test idempotency
+    db_id2 = db_manager.get_or_create_agent(agent_id)
+    assert db_id == db_id2
+
+
+def test_log_event(db_manager, test_agent):
+    """Test event logging."""
+    event_id = db_manager.log_event(
+        agent_id="test_agent_1",
+        event_type="test_event",
+        data={"test": "data"},
+        channel="TEST",
+        level="info"
+    )
+    assert event_id > 0
+    
+    # Verify event was created
+    events = db_manager.get_events(agent_id="test_agent_1")
+    assert len(events) > 0
+    assert events[0]["id"] == event_id
+
+
+def test_log_llm_call(db_manager, test_agent):
+    """Test LLM call logging."""
+    event_id = db_manager.log_llm_call(
+        agent_id="test_agent_1",
+        model="gpt-4",
+        prompt="Test prompt",
+        response="Test response",
+        tokens_in=10,
+        tokens_out=20,
+        duration_ms=1000,
+        cost=0.01
+    )
+    assert event_id > 0
+    
+    # Verify LLM call was created
+    llm_calls = db_manager.get_llm_calls(agent_id="test_agent_1")
+    assert len(llm_calls) > 0
+    assert llm_calls[0]["id"] == event_id
+    assert llm_calls[0]["model"] == "gpt-4"
+
+
+def test_log_tool_call(db_manager, test_agent):
+    """Test tool call logging."""
+    event_id = db_manager.log_tool_call(
+        agent_id="test_agent_1",
+        tool_name="test_tool",
+        input_params={"param1": "value1"},
+        output={"result": "success"},
+        success=True,
+        duration_ms=500
+    )
+    assert event_id > 0
+    
+    # Verify tool call was created
+    tool_calls = db_manager.get_tool_usage(agent_id="test_agent_1")
+    assert len(tool_calls) > 0
+    assert tool_calls[0]["id"] == event_id
+    assert tool_calls[0]["tool_name"] == "test_tool"
+
+
+def test_log_security_event(db_manager, test_agent):
+    """Test security event logging."""
+    event_id = db_manager.log_security_event(
+        agent_id="test_agent_1",
+        alert_type="test_alert",
+        description="Test security alert",
+        severity="high",
+        related_data={"details": "test"}
+    )
 def test_db_initialization(db_manager, mock_platformdirs):
     """Test that the database is initialized correctly."""
     # Check that the database file exists

@@ -468,22 +468,24 @@ class DBManager:
         model: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        sort_by: str = 'timestamp',
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
-        Get LLM calls from the database.
+        Get LLM calls from the database with advanced filtering and sorting.
         
         Args:
             agent_id: Filter by agent ID
             model: Filter by LLM model
             start_time: Filter by start time
             end_time: Filter by end time
+            sort_by: Field to sort by (timestamp, duration_ms, tokens_in, tokens_out, cost)
             limit: Maximum number of events to return
             offset: Offset for pagination
             
         Returns:
-            List of LLM call events
+            List of LLM call events with detailed information
         """
         with self._get_session() as session:
             # Start with a query that joins LLMCall, Event, and Agent
@@ -506,17 +508,20 @@ class DBManager:
             if end_time:
                 query = query.where(Event.timestamp <= end_time)
             
-            # Apply sorting and pagination
-            query = query.order_by(Event.timestamp.desc())
+            # Apply dynamic sorting
+            sort_field = getattr(LLMCall, sort_by, Event.timestamp)
+            query = query.order_by(sort_field.desc())
+            
+            # Apply pagination
             query = query.limit(limit).offset(offset)
             
             # Execute query
             result = session.execute(query).all()
             
-            # Convert to dictionaries
+            # Convert to dictionaries with detailed information
             llm_calls = []
             for llm_call, event, agent in result:
-                llm_call_dict = {
+                call_dict = {
                     "id": event.id,
                     "agent_id": agent.agent_id,
                     "event_type": event.event_type,
@@ -534,9 +539,93 @@ class DBManager:
                     "cost": llm_call.cost,
                     "data": event.data or {}
                 }
-                llm_calls.append(llm_call_dict)
+                llm_calls.append(call_dict)
             
             return llm_calls
+    
+    def get_tool_usage(
+        self,
+        agent_id: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        success: Optional[bool] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        sort_by: str = 'timestamp',
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get tool usage data with advanced filtering and sorting.
+        
+        Args:
+            agent_id: Filter by agent ID
+            tool_name: Filter by tool name
+            success: Filter by success status
+            start_time: Filter by start time
+            end_time: Filter by end time
+            sort_by: Field to sort by (timestamp, duration_ms)
+            limit: Maximum number of events to return
+            offset: Offset for pagination
+            
+        Returns:
+            List of tool usage events with detailed information
+        """
+        with self._get_session() as session:
+            # Start with a query that joins ToolCall, Event, and Agent
+            query = (
+                select(ToolCall, Event, Agent)
+                .join(Event, ToolCall.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if tool_name:
+                query = query.where(ToolCall.tool_name == tool_name)
+            
+            if success is not None:
+                query = query.where(ToolCall.success == success)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply dynamic sorting
+            sort_field = getattr(ToolCall, sort_by, Event.timestamp)
+            query = query.order_by(sort_field.desc())
+            
+            # Apply pagination
+            query = query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to dictionaries with detailed information
+            tool_calls = []
+            for tool_call, event, agent in result:
+                call_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "tool_name": tool_call.tool_name,
+                    "input_params": tool_call.input_params or {},
+                    "output_result": tool_call.output_result or {},
+                    "success": tool_call.success,
+                    "error_message": tool_call.error_message,
+                    "duration_ms": tool_call.duration_ms,
+                    "blocking": tool_call.blocking,
+                    "data": event.data or {}
+                }
+                tool_calls.append(call_dict)
+            
+            return tool_calls
     
     def get_security_alerts(
         self,
@@ -545,11 +634,12 @@ class DBManager:
         alert_type: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        sort_by: str = 'timestamp',
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
-        Get security alerts from the database.
+        Get security alerts with advanced filtering and sorting.
         
         Args:
             agent_id: Filter by agent ID
@@ -557,11 +647,12 @@ class DBManager:
             alert_type: Filter by alert type
             start_time: Filter by start time
             end_time: Filter by end time
+            sort_by: Field to sort by (timestamp, severity)
             limit: Maximum number of alerts to return
             offset: Offset for pagination
             
         Returns:
-            List of security alert events
+            List of security alerts with detailed information
         """
         with self._get_session() as session:
             # Start with a query that joins SecurityAlert, Event, and Agent
@@ -587,14 +678,17 @@ class DBManager:
             if end_time:
                 query = query.where(Event.timestamp <= end_time)
             
-            # Apply sorting and pagination
-            query = query.order_by(Event.timestamp.desc())
+            # Apply dynamic sorting
+            sort_field = getattr(SecurityAlert, sort_by, Event.timestamp)
+            query = query.order_by(sort_field.desc())
+            
+            # Apply pagination
             query = query.limit(limit).offset(offset)
             
             # Execute query
             result = session.execute(query).all()
             
-            # Convert to dictionaries
+            # Convert to dictionaries with detailed information
             alerts = []
             for alert, event, agent in result:
                 alert_dict = {
@@ -605,14 +699,102 @@ class DBManager:
                     "level": event.level,
                     "timestamp": event.timestamp,
                     "alert_type": alert.alert_type,
-                    "description": alert.description,
                     "severity": alert.severity,
-                    "related_data": alert.related_data or {},
+                    "description": alert.description,
+                    "matched_terms": alert.matched_terms or [],
+                    "action_taken": alert.action_taken,
                     "data": event.data or {}
                 }
                 alerts.append(alert_dict)
             
             return alerts
+    
+    def get_performance_metrics(
+        self,
+        agent_id: Optional[str] = None,
+        metric_type: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        sort_by: str = 'timestamp',
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get performance metrics with advanced filtering and sorting.
+        
+        Args:
+            agent_id: Filter by agent ID
+            metric_type: Filter by metric type (memory, cpu, duration, tokens, cost)
+            start_time: Filter by start time
+            end_time: Filter by end time
+            sort_by: Field to sort by (timestamp, memory_usage, cpu_usage, duration_ms, tokens_processed, cost)
+            limit: Maximum number of events to return
+            offset: Offset for pagination
+            
+        Returns:
+            List of performance metrics with detailed information
+        """
+        with self._get_session() as session:
+            # Start with a query that joins PerformanceMetric, Event, and Agent
+            query = (
+                select(PerformanceMetric, Event, Agent)
+                .join(Event, PerformanceMetric.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if metric_type:
+                # Filter based on metric type
+                if metric_type == 'memory':
+                    query = query.where(PerformanceMetric.memory_usage.isnot(None))
+                elif metric_type == 'cpu':
+                    query = query.where(PerformanceMetric.cpu_usage.isnot(None))
+                elif metric_type == 'duration':
+                    query = query.where(PerformanceMetric.duration_ms.isnot(None))
+                elif metric_type == 'tokens':
+                    query = query.where(PerformanceMetric.tokens_processed.isnot(None))
+                elif metric_type == 'cost':
+                    query = query.where(PerformanceMetric.cost.isnot(None))
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply dynamic sorting
+            sort_field = getattr(PerformanceMetric, sort_by, Event.timestamp)
+            query = query.order_by(sort_field.desc())
+            
+            # Apply pagination
+            query = query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to dictionaries with detailed information
+            metrics = []
+            for metric, event, agent in result:
+                metric_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "memory_usage": metric.memory_usage,
+                    "cpu_usage": metric.cpu_usage,
+                    "duration_ms": metric.duration_ms,
+                    "tokens_processed": metric.tokens_processed,
+                    "cost": metric.cost,
+                    "data": event.data or {}
+                }
+                metrics.append(metric_dict)
+            
+            return metrics
     
     def get_agent_stats(self, agent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -871,4 +1053,570 @@ class DBManager:
         Returns:
             Path to the database file
         """
-        return self._db_path 
+        return self._db_path
+    
+    def get_conversation_flow(
+        self,
+        session_id: str,
+        include_llm_details: bool = False,
+        limit: int = 1000
+    ) -> List[Dict[str, Any]]:
+        """
+        Get the full flow of a conversation with optional LLM details.
+        
+        Args:
+            session_id: The session ID to get the conversation flow for
+            include_llm_details: Whether to include detailed LLM information
+            limit: Maximum number of events to return
+            
+        Returns:
+            List of conversation events in chronological order
+        """
+        with self._get_session() as session:
+            # Start with a query that joins Event, Agent, and Session
+            query = (
+                select(Event, Agent, SessionModel)
+                .join(Agent, Event.agent_id == Agent.id)
+                .join(SessionModel, Event.session_id == SessionModel.id)
+                .where(SessionModel.session_id == session_id)
+            )
+            
+            # Add optional LLM call join if details are requested
+            if include_llm_details:
+                query = query.outerjoin(LLMCall, Event.id == LLMCall.event_id)
+            
+            # Order by timestamp ascending for chronological flow
+            query = query.order_by(Event.timestamp.asc())
+            
+            # Apply limit
+            query = query.limit(limit)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to dictionaries with conversation flow
+            flow = []
+            for event, agent, session_model in result:
+                event_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "session_id": session_model.session_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "data": event.data or {}
+                }
+                
+                # Add LLM details if requested and available
+                if include_llm_details and event.llm_call:
+                    event_dict.update({
+                        "model": event.llm_call.model,
+                        "prompt": event.llm_call.prompt,
+                        "response": event.llm_call.response,
+                        "tokens_in": event.llm_call.tokens_in,
+                        "tokens_out": event.llm_call.tokens_out,
+                        "duration_ms": event.llm_call.duration_ms,
+                        "temperature": event.llm_call.temperature,
+                        "cost": event.llm_call.cost
+                    })
+                
+                flow.append(event_dict)
+            
+            return flow
+
+    def get_agent_activity(
+        self,
+        agent_id: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        group_by: str = 'day'
+    ) -> List[Dict[str, Any]]:
+        """
+        Get overall activity for an agent with optional time-based grouping.
+        
+        Args:
+            agent_id: The agent ID to get activity for
+            start_time: Filter by start time
+            end_time: Filter by end time
+            group_by: Time unit to group by (hour, day, week, month)
+            
+        Returns:
+            List of activity metrics grouped by time period
+        """
+        with self._get_session() as session:
+            # Build the base query with necessary joins
+            query = (
+                select(
+                    Event.timestamp,
+                    func.count(Event.id).label('event_count'),
+                    func.count(LLMCall.id).label('llm_call_count'),
+                    func.count(ToolCall.id).label('tool_call_count'),
+                    func.count(SecurityAlert.id).label('security_alert_count')
+                )
+                .join(Agent, Event.agent_id == Agent.id)
+                .outerjoin(LLMCall, Event.id == LLMCall.event_id)
+                .outerjoin(ToolCall, Event.id == ToolCall.event_id)
+                .outerjoin(SecurityAlert, Event.id == SecurityAlert.event_id)
+                .where(Agent.agent_id == agent_id)
+            )
+            
+            # Apply time filters
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply grouping based on time unit
+            if group_by == 'hour':
+                query = query.group_by(
+                    func.strftime('%Y-%m-%d %H:00:00', Event.timestamp)
+                )
+            elif group_by == 'day':
+                query = query.group_by(
+                    func.date(Event.timestamp)
+                )
+            elif group_by == 'week':
+                query = query.group_by(
+                    func.strftime('%Y-W%W', Event.timestamp)
+                )
+            elif group_by == 'month':
+                query = query.group_by(
+                    func.strftime('%Y-%m', Event.timestamp)
+                )
+            
+            # Order by timestamp
+            query = query.order_by(Event.timestamp.asc())
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of dictionaries
+            activity = []
+            for timestamp, event_count, llm_count, tool_count, alert_count in result:
+                activity.append({
+                    "timestamp": timestamp,
+                    "event_count": event_count,
+                    "llm_call_count": llm_count,
+                    "tool_call_count": tool_count,
+                    "security_alert_count": alert_count
+                })
+            
+            return activity
+
+    def search_across_events(
+        self,
+        query: str,
+        event_types: Optional[List[str]] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform full-text search across all events with advanced filtering.
+        
+        Args:
+            query: The search query string
+            event_types: List of event types to search in
+            start_time: Filter by start time
+            end_time: Filter by end time
+            limit: Maximum number of results to return
+            offset: Offset for pagination
+            
+        Returns:
+            List of matching events with search context
+        """
+        with self._get_session() as session:
+            # Convert query string to SQLite FTS pattern
+            search_pattern = f"%{query}%"
+            
+            # Build the base query with all necessary joins
+            base_query = (
+                select(Event, Agent)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if event_types:
+                base_query = base_query.where(Event.event_type.in_(event_types))
+            
+            if start_time:
+                base_query = base_query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                base_query = base_query.where(Event.timestamp <= end_time)
+            
+            # Apply search filter using JSON functions for data
+            base_query = base_query.where(
+                (Event.event_type.like(search_pattern)) |
+                (Event.channel.like(search_pattern)) |
+                (Event.level.like(search_pattern)) |
+                (cast(Event.data.as_string(), type_=String).like(search_pattern))
+            )
+            
+            # Apply pagination
+            base_query = base_query.limit(limit).offset(offset)
+            
+            # Execute query
+            result = session.execute(base_query).all()
+            
+            # Convert to dictionaries with search context
+            events = []
+            for event, agent in result:
+                event_dict = {
+                    "id": event.id,
+                    "agent_id": agent.agent_id,
+                    "event_type": event.event_type,
+                    "channel": event.channel,
+                    "level": event.level,
+                    "timestamp": event.timestamp,
+                    "data": event.data or {}
+                }
+                
+                # Add search context if available
+                if event.data and isinstance(event.data, dict):
+                    # Look for the search term in data values
+                    for key, value in event.data.items():
+                        if isinstance(value, str) and query.lower() in value.lower():
+                            event_dict["search_context"] = {
+                                "field": key,
+                                "value": value
+                            }
+                            break
+                
+                events.append(event_dict)
+            
+            return events
+    
+    def count_events_by_type(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        agent_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Aggregate event counts by type with optional filtering.
+        
+        Args:
+            start_time: Filter by start time
+            end_time: Filter by end time
+            agent_id: Filter by agent ID
+            
+        Returns:
+            List of event type counts with percentages
+        """
+        with self._get_session() as session:
+            # Build the base query
+            query = (
+                select(
+                    Event.event_type,
+                    func.count(Event.id).label('count')
+                )
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Group by event type
+            query = query.group_by(Event.event_type)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Calculate total for percentage
+            total = sum(count for _, count in result)
+            
+            # Convert to list of dictionaries with percentages
+            counts = []
+            for event_type, count in result:
+                counts.append({
+                    "event_type": event_type,
+                    "count": count,
+                    "percentage": (count / total * 100) if total > 0 else 0
+                })
+            
+            return counts
+
+    def count_security_alerts_by_severity(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        agent_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get security alert counts by severity level with optional filtering.
+        
+        Args:
+            start_time: Filter by start time
+            end_time: Filter by end time
+            agent_id: Filter by agent ID
+            
+        Returns:
+            List of security alert counts by severity
+        """
+        with self._get_session() as session:
+            # Build the base query
+            query = (
+                select(
+                    SecurityAlert.severity,
+                    func.count(SecurityAlert.id).label('count')
+                )
+                .join(Event, SecurityAlert.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Group by severity
+            query = query.group_by(SecurityAlert.severity)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Calculate total for percentage
+            total = sum(count for _, count in result)
+            
+            # Convert to list of dictionaries with percentages
+            counts = []
+            for severity, count in result:
+                counts.append({
+                    "severity": severity,
+                    "count": count,
+                    "percentage": (count / total * 100) if total > 0 else 0
+                })
+            
+            return counts
+
+    def calculate_avg_response_time(
+        self,
+        agent_id: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        group_by: str = 'model'
+    ) -> List[Dict[str, Any]]:
+        """
+        Calculate average LLM response times with optional grouping.
+        
+        Args:
+            agent_id: Filter by agent ID
+            start_time: Filter by start time
+            end_time: Filter by end time
+            group_by: Field to group by (model, hour, day, week, month)
+            
+        Returns:
+            List of average response times by group
+        """
+        with self._get_session() as session:
+            # Build the base query
+            query = (
+                select(
+                    LLMCall.model,
+                    func.avg(LLMCall.duration_ms).label('avg_duration'),
+                    func.count(LLMCall.id).label('call_count')
+                )
+                .join(Event, LLMCall.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+                .where(LLMCall.duration_ms.isnot(None))
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Apply grouping based on specified field
+            if group_by == 'model':
+                query = query.group_by(LLMCall.model)
+            elif group_by == 'hour':
+                query = query.group_by(
+                    func.strftime('%Y-%m-%d %H:00:00', Event.timestamp)
+                )
+            elif group_by == 'day':
+                query = query.group_by(
+                    func.date(Event.timestamp)
+                )
+            elif group_by == 'week':
+                query = query.group_by(
+                    func.strftime('%Y-W%W', Event.timestamp)
+                )
+            elif group_by == 'month':
+                query = query.group_by(
+                    func.strftime('%Y-%m', Event.timestamp)
+                )
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of dictionaries
+            response_times = []
+            for group, avg_duration, call_count in result:
+                response_times.append({
+                    "group": group,
+                    "avg_duration_ms": round(avg_duration, 2),
+                    "call_count": call_count
+                })
+            
+            return response_times
+
+    def identify_slowest_operations(
+        self,
+        limit: int = 10,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        operation_type: str = 'llm'
+    ) -> List[Dict[str, Any]]:
+        """
+        Find slowest operations by type with optional time filtering.
+        
+        Args:
+            limit: Maximum number of slow operations to return
+            start_time: Filter by start time
+            end_time: Filter by end time
+            operation_type: Type of operation to analyze (llm, tool)
+            
+        Returns:
+            List of slowest operations with timing details
+        """
+        with self._get_session() as session:
+            if operation_type == 'llm':
+                # Query for slowest LLM calls
+                query = (
+                    select(LLMCall, Event, Agent)
+                    .join(Event, LLMCall.event_id == Event.id)
+                    .join(Agent, Event.agent_id == Agent.id)
+                    .where(LLMCall.duration_ms.isnot(None))
+                )
+            else:
+                # Query for slowest tool calls
+                query = (
+                    select(ToolCall, Event, Agent)
+                    .join(Event, ToolCall.event_id == Event.id)
+                    .join(Agent, Event.agent_id == Agent.id)
+                    .where(ToolCall.duration_ms.isnot(None))
+                )
+            
+            # Apply time filters
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Order by duration and limit results
+            duration_field = LLMCall.duration_ms if operation_type == 'llm' else ToolCall.duration_ms
+            query = query.order_by(duration_field.desc()).limit(limit)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of dictionaries
+            slow_ops = []
+            for op, event, agent in result:
+                if operation_type == 'llm':
+                    op_dict = {
+                        "id": event.id,
+                        "agent_id": agent.agent_id,
+                        "timestamp": event.timestamp,
+                        "model": op.model,
+                        "duration_ms": op.duration_ms,
+                        "tokens_in": op.tokens_in,
+                        "tokens_out": op.tokens_out,
+                        "cost": op.cost
+                    }
+                else:
+                    op_dict = {
+                        "id": event.id,
+                        "agent_id": agent.agent_id,
+                        "timestamp": event.timestamp,
+                        "tool_name": op.tool_name,
+                        "duration_ms": op.duration_ms,
+                        "success": op.success,
+                        "error_message": op.error_message
+                    }
+                slow_ops.append(op_dict)
+            
+            return slow_ops
+
+    def calculate_token_usage_by_model(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        agent_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get token usage statistics by model with optional filtering.
+        
+        Args:
+            start_time: Filter by start time
+            end_time: Filter by end time
+            agent_id: Filter by agent ID
+            
+        Returns:
+            List of token usage statistics by model
+        """
+        with self._get_session() as session:
+            # Build the base query
+            query = (
+                select(
+                    LLMCall.model,
+                    func.sum(LLMCall.tokens_in).label('total_tokens_in'),
+                    func.sum(LLMCall.tokens_out).label('total_tokens_out'),
+                    func.count(LLMCall.id).label('call_count'),
+                    func.sum(LLMCall.cost).label('total_cost')
+                )
+                .join(Event, LLMCall.event_id == Event.id)
+                .join(Agent, Event.agent_id == Agent.id)
+                .where(LLMCall.tokens_in.isnot(None))
+            )
+            
+            # Apply filters
+            if agent_id:
+                query = query.where(Agent.agent_id == agent_id)
+            
+            if start_time:
+                query = query.where(Event.timestamp >= start_time)
+            
+            if end_time:
+                query = query.where(Event.timestamp <= end_time)
+            
+            # Group by model
+            query = query.group_by(LLMCall.model)
+            
+            # Execute query
+            result = session.execute(query).all()
+            
+            # Convert to list of dictionaries
+            usage_stats = []
+            for model, tokens_in, tokens_out, call_count, total_cost in result:
+                usage_stats.append({
+                    "model": model,
+                    "total_tokens_in": tokens_in or 0,
+                    "total_tokens_out": tokens_out or 0,
+                    "call_count": call_count,
+                    "total_cost": round(total_cost or 0, 4),
+                    "avg_tokens_per_call": round((tokens_in or 0) / call_count, 2) if call_count > 0 else 0
+                })
+            
+            return usage_stats 

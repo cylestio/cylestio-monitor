@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Index, String, Text, DateTime, JSON
+from sqlalchemy import Index, String, Text, DateTime, JSON, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 
@@ -35,9 +35,9 @@ class Agent(Base):
     last_seen: Mapped[datetime.datetime] = mapped_column(
         DateTime, 
         default=datetime.datetime.utcnow,
-        server_default=datetime.datetime.utcnow()
+        server_default=text('CURRENT_TIMESTAMP')
     )
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    agent_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON, 
         comment="Flexible agent metadata (framework info, version, etc.)"
     )

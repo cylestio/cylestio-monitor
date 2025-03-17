@@ -9,7 +9,7 @@ import datetime
 import enum
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import ForeignKey, Index, String, Text, JSON, Enum
+from sqlalchemy import ForeignKey, Index, String, Text, JSON, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.ext.hybrid import hybrid_property
 

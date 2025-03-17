@@ -33,7 +33,7 @@ class Session(Base):
         default=datetime.datetime.utcnow
     )
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    session_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON,
         comment="Flexible session metadata"
     )
@@ -84,7 +84,7 @@ class Session(Base):
             self.end_time = datetime.datetime.utcnow()
     
     @classmethod
-    def create_new_session(cls, session, agent_id: int, metadata: Optional[Dict[str, Any]] = None) -> "Session":
+    def create_new_session(cls, session, agent_id: int, session_metadata: Optional[Dict[str, Any]] = None) -> "Session":
         """Create a new session for the given agent.
         
         Args:
@@ -97,7 +97,7 @@ class Session(Base):
         """
         new_session = cls(
             agent_id=agent_id,
-            metadata=metadata or {}
+            session_metadata=session_metadata or {}
         )
         session.add(new_session)
         return new_session
@@ -165,7 +165,7 @@ class Conversation(Base):
         default=datetime.datetime.utcnow
     )
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    conversation_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON,
         comment="Flexible conversation metadata"
     )
@@ -211,7 +211,7 @@ class Conversation(Base):
             self.end_time = datetime.datetime.utcnow()
     
     @classmethod
-    def create_new_conversation(cls, session, session_id: int, metadata: Optional[Dict[str, Any]] = None) -> "Conversation":
+    def create_new_conversation(cls, session, session_id: int, conversation_metadata: Optional[Dict[str, Any]] = None) -> "Conversation":
         """Create a new conversation within the given session.
         
         Args:
@@ -224,7 +224,7 @@ class Conversation(Base):
         """
         new_conversation = cls(
             session_id=session_id,
-            metadata=metadata or {}
+            session_metadata=session_metadata or {}
         )
         session.add(new_conversation)
         return new_conversation
