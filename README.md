@@ -93,6 +93,34 @@ cylestio-monitor/
     └── sdk-reference/         # API reference documentation
 ```
 
+## Testing
+
+For the MVP release, we focus on testing core functionality while excluding non-critical edge cases. The testing strategy includes:
+
+1. **Core Functionality Tests**: These are critical tests that verify essential features of the monitoring system:
+   - Database connections and basic operations
+   - Configuration management
+   - Security features (keyword detection, text normalization)
+   - Monitoring functionality
+   - Patchers for LLM providers (Anthropic, etc.)
+   - Event processing and analysis
+
+2. **Running Critical Tests**:
+   To run only the critical tests needed for the MVP:
+   ```bash
+   python -m pytest tests/test_import.py tests/test_config_manager.py tests/test_db_manager.py::test_singleton_pattern tests/test_security.py tests/test_monitor.py::test_enable_monitoring_import_error tests/test_patchers_anthropic.py::test_anthropic_patcher_init tests/test_events_processor.py::test_normalize_text -v
+   ```
+
+3. **Test Coverage**:
+   - Critical tests for MVP: ~30 tests
+   - Total test suite: 350+ tests (including edge cases and advanced features)
+
+4. **Running All Tests**:
+   To run the complete test suite (including tests that might fail due to edge cases):
+   ```bash
+   python -m pytest tests/
+   ```
+
 ## Database Schema
 
 The optimized database schema design for Cylestio Monitor can be found in the dedicated documentation file:

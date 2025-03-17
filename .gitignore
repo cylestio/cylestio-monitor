@@ -83,6 +83,11 @@ output/
 *_monitoring.json
 *monitoring*.json
 
+# Test artifacts
+test_agent
+test_processor_agent
+test.json
+
 # OS specific
 .DS_Store
 Thumbs.db
