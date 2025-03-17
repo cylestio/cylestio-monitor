@@ -93,6 +93,11 @@ cylestio-monitor/
     └── sdk-reference/         # API reference documentation
 ```
 
+## Database Schema
+
+The optimized database schema design for Cylestio Monitor can be found in the dedicated documentation file:
+[Database Schema Documentation](src/cylestio_monitor/db/db_readme.md)
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
