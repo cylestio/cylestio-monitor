@@ -9,11 +9,15 @@ import os
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
 from cylestio_monitor.events.processor import create_standardized_event
+from cylestio_monitor.api_client import send_event_to_api
 
 monitor_logger = logging.getLogger("CylestioMonitor")
 
 # Get configuration manager instance
 config_manager = ConfigManager()
+
+# Track processed events to prevent duplicates
+_processed_events = set()
 
 # --------------------------------------
 # Helper functions for normalization and keyword checking
@@ -37,6 +41,26 @@ def contains_dangerous(text: str) -> bool:
     normalized = normalize_text(text)
     dangerous_keywords = config_manager.get_dangerous_keywords()
     return any(keyword in normalized for keyword in dangerous_keywords)
+
+
+# Helper function to generate a unique event identifier
+def _get_event_id(event_type: str, data: Dict[str, Any], timestamp: Optional[datetime] = None) -> str:
+    """
+    Generate a unique identifier for an event to track duplicates.
+    
+    Args:
+        event_type: The event type
+        data: Event data
+        timestamp: Event timestamp
+        
+    Returns:
+        str: Unique event identifier
+    """
+    ts = timestamp.isoformat() if timestamp else datetime.now().isoformat()
+    # Create a simplified representation of the data for fingerprinting
+    data_repr = str(sorted([(k, str(v)[:50]) for k, v in data.items() if k not in ["timestamp"]]))
+    # Combine elements into a unique identifier
+    return f"{event_type}:{data_repr}:{ts[:16]}"  # Only use first part of timestamp for deduplication window
 
 
 # --------------------------------------
@@ -161,6 +185,35 @@ def log_event(
         level: Log level (e.g., "info", "warning", "error")
         direction: Message direction for chat events ("incoming" or "outgoing")
     """
+    # Debug logging for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        monitor_logger.debug(f"Processing LLM call event: {event_type}")
+    
+    # Check if this is a framework_patch event for the weather agent
+    agent_id = config_manager.get("monitoring.agent_id", "unknown")
+    if agent_id == "weather-agent" and event_type == "framework_patch":
+        monitor_logger.debug(f"Skipping framework_patch event for weather-agent")
+        return
+    
+    # Generate event ID for duplicate detection
+    event_id = _get_event_id(event_type, data)
+    
+    # Check if we've already processed this event recently
+    if event_id in _processed_events:
+        monitor_logger.debug(f"Skipping duplicate event: {event_type}")
+        return
+    
+    # Add to processed events set
+    _processed_events.add(event_id)
+    # Limit the size of the set to prevent memory growth
+    if len(_processed_events) > 1000:
+        # Remove oldest entries (arbitrary number)
+        try:
+            for _ in range(100):
+                _processed_events.pop()
+        except KeyError:
+            pass
+    
     # Get agent_id and config from configuration
     agent_id = config_manager.get("monitoring.agent_id")
     suspicious_words = config_manager.get("monitoring.suspicious_words", [])
@@ -195,47 +248,60 @@ def log_event(
     if current_frame:
         # Skip this function and go up 2 levels to find the caller
         frame = current_frame.f_back
-        if frame and frame.f_back:
+        if frame:
             frame = frame.f_back
             
-        # Extract caller info
-        if frame:
-            caller_info = inspect.getframeinfo(frame)
-            caller = {
-                "file": os.path.basename(caller_info.filename),
-                "line": caller_info.lineno,
-                "function": caller_info.function
+        while frame:
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            function = frame.f_code.co_name
+            
+            # Format the frame info and add to call stack
+            call_info = {
+                "file": os.path.basename(filename),
+                "line": lineno,
+                "function": function
             }
-            record["caller"] = caller
+            call_stack.append(call_info)
+            
+            # Go up one level
+            frame = frame.f_back
+            
+            # Limit stack depth to avoid huge logs
+            if len(call_stack) >= 5:
+                break
+                
+        # Add caller info to record
+        if call_stack:
+            record["caller"] = call_stack[0]
     
-    # Add full data to record
+    # Add data to record
     record["data"] = data
     
-    # Perform security checks if words to watch for are configured
-    if suspicious_words or dangerous_words:
-        import json
+    # Check for alerts in prompt or response fields
+    if "prompt" in data and isinstance(data["prompt"], str):
+        alert = "none"
+        if contains_dangerous(data["prompt"]):
+            alert = "dangerous"
+        elif contains_suspicious(data["prompt"]):
+            alert = "suspicious"
         
-        # Convert to string for easy pattern matching
-        event_str = json.dumps(record).lower()
-        
-        suspicious_matches = [word for word in suspicious_words if word.lower() in event_str]
-        dangerous_matches = [word for word in dangerous_words if word.lower() in event_str]
-        
-        if suspicious_matches:
-            record["security"] = {
-                "suspicious_matches": suspicious_matches,
-                "severity": "warning"
-            }
-            
-        if dangerous_matches:
-            # If record doesn't have a security field yet, add it
-            if "security" not in record:
-                record["security"] = {}
-                
-            record["security"]["dangerous_matches"] = dangerous_matches
-            record["security"]["severity"] = "critical"
+        if alert != "none":
+            data["alert"] = alert
+            record["alert"] = alert
     
-    # Log to file using log_to_file function
+    if "response" in data and isinstance(data["response"], str):
+        alert = "none"
+        if contains_dangerous(data["response"]):
+            alert = "dangerous"
+        elif contains_suspicious(data["response"]):
+            alert = "suspicious"
+        
+        if alert != "none":
+            data["response_alert"] = alert
+            record["response_alert"] = alert
+    
+    # Log to file
     log_file = config_manager.get("monitoring.log_file")
     if log_file:
         try:
@@ -243,20 +309,18 @@ def log_event(
         except Exception as e:
             monitor_logger.error(f"Failed to write to log file: {e}")
     
-    # Send event to API
-    if agent_id:
-        try:
-            log_to_db(
-                agent_id,
-                event_type,
-                data,
-                channel,
-                level,
-                None,  # No timestamp conversion needed
-                direction
-            )
-        except Exception as e:
-            monitor_logger.error(f"Failed to send event to API: {e}")
+    # Send to API
+    try:
+        log_to_db(
+            agent_id=agent_id or "unknown",
+            event_type=event_type,
+            data=data,
+            channel=channel,
+            level=level,
+            direction=direction
+        )
+    except Exception as e:
+        monitor_logger.error(f"Failed to send event to API: {e}")
 
 
 def _estimate_tokens(text: Any) -> int:
@@ -407,7 +471,12 @@ def pre_monitor_llm(channel: str, args: tuple, kwargs: Dict[str, Any]) -> tuple:
     else:
         alert = "none"
 
+    # Debug logging before creating LLM_call_start event
+    monitor_logger.debug(f"Creating LLM_call_start event in channel: {channel}")
     log_event("LLM_call_start", {"prompt": prompt, "alert": alert}, channel)
+    # Debug logging after creating LLM_call_start event
+    monitor_logger.debug(f"Created LLM_call_start event with prompt length: {len(prompt)}")
+    
     return start_time, prompt, alert
 
 
@@ -441,8 +510,12 @@ def post_monitor_llm(channel: str, start_time: float, result: Any) -> None:
     elif contains_suspicious(response):
         response_data["alert"] = "suspicious"
     
+    # Debug logging before creating LLM_call_finish event
+    monitor_logger.debug(f"Creating LLM_call_finish event in channel: {channel}")
     # Log the event with all gathered information
     log_event("LLM_call_finish", response_data, channel)
+    # Debug logging after creating LLM_call_finish event
+    monitor_logger.debug(f"Created LLM_call_finish event with response length: {len(response)}")
 
 
 # --------------------------------------
@@ -576,6 +649,24 @@ def process_standardized_event(
         direction: Event direction
         session_id: Session ID
     """
+    # Debug logging for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        monitor_logger.debug(f"Converting event to standardized schema: {event_type}")
+    
+    # Check if this is a framework_patch event for the weather agent
+    if agent_id == "weather-agent" and event_type == "framework_patch":
+        monitor_logger.debug(f"Skipping framework_patch event for weather-agent")
+        return
+    
+    # Check for duplicate events
+    event_id = _get_event_id(event_type, data, timestamp)
+    if event_id in _processed_events:
+        monitor_logger.debug(f"Skipping duplicate standardized event: {event_type}")
+        return
+    
+    # Add to processed events set
+    _processed_events.add(event_id)
+        
     # Get timestamp if not provided
     if timestamp is None:
         timestamp = datetime.now()
@@ -592,6 +683,10 @@ def process_standardized_event(
         session_id=session_id
     )
     
+    # Debug logging after conversion for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        monitor_logger.debug(f"Standardized event created: {event_type}")
+    
     # Convert to dictionary for logging
     event_dict = standardized_event.to_dict()
     
@@ -605,14 +700,24 @@ def process_standardized_event(
     
     # Send event to API
     try:
-        log_to_db(
+        # Debug logging before sending to API for LLM call events
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            monitor_logger.debug(f"Sending standardized event to API: {event_type}")
+            
+        # Send the event to the API using send_event_to_api instead of log_to_db
+        # to ensure proper routing to the API endpoint
+        success = send_event_to_api(
             agent_id=agent_id,
             event_type=event_type,
-            data=event_dict,
+            data=data,
             channel=channel,
             level=level,
             timestamp=timestamp,
             direction=direction
         )
+        
+        # Debug logging after sending to API for LLM call events
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            monitor_logger.debug(f"Sent standardized event to API: {event_type}, success: {success}")
     except Exception as e:
-        monitor_logger.error(f"Failed to log event to database: {e}")
+        monitor_logger.error(f"Failed to send event to API: {e}")

@@ -125,6 +125,14 @@ def enable_monitoring(
     # Get LLM provider info (will be updated by patchers when detected)
     llm_provider = "Unknown"
     
+    # Check if framework patching is enabled (default to True)
+    enable_framework_patching = config.get("enable_framework_patching", True)
+    
+    # Special case for weather-agent: disable framework patching
+    if agent_id == "weather-agent":
+        enable_framework_patching = False
+        logger.info(f"Framework patching disabled for agent: {agent_id}")
+    
     try:
         # Step 1: Patch MCP if available and enabled
         try:
@@ -153,6 +161,25 @@ def enable_monitoring(
                 llm_provider = "Anthropic"
                 # Log LLM client info
                 logger.info(f"LLM client detected: {llm_provider}")
+                
+                # Import and apply Anthropic patcher explicitly
+                try:
+                    # Import only the necessary patcher
+                    from .patchers.anthropic import AnthropicPatcher
+                    
+                    # Create and apply the patcher
+                    patcher = AnthropicPatcher(client=llm_client)
+                    logger.debug("Created AnthropicPatcher instance")
+                    
+                    # Apply the patch
+                    patcher.patch()
+                    logger.debug("Applied AnthropicPatcher.patch()")
+                    
+                    # Log success
+                    logger.info("Anthropic client patched for monitoring")
+                except Exception as e:
+                    logger.error(f"Failed to patch Anthropic client: {e}")
+                
                 monitor_logger.info(f"Monitoring enabled for {llm_provider}")
                 
             elif "openai" in module_name:
@@ -160,34 +187,51 @@ def enable_monitoring(
                 # Log LLM client info
                 logger.info(f"LLM client detected: {llm_provider}")
                 monitor_logger.info(f"Monitoring enabled for {llm_provider}")
+        
+        # Step 3: Try to patch framework libraries if enabled
+        if enable_framework_patching:
+            # Try to patch LangChain if present
+            try:
+                import langchain
                 
-        # Step 3: Try to patch LangChain if present
-        try:
-            import langchain
-            from .patchers.langchain_patcher import patch_langchain
-            
-            # Apply patches
-            patch_langchain()
-            logger.info("LangChain patched for monitoring")
-            monitor_logger.info("LangChain integration enabled")
-            
-        except ImportError:
-            # LangChain not installed or available
-            pass
-            
-        # Step 4: Try to patch LangGraph if present
-        try:
-            import langgraph
-            from .patchers.langgraph_patcher import patch_langgraph
-            
-            # Apply patches
-            patch_langgraph()
-            logger.info("LangGraph patched for monitoring")
-            monitor_logger.info("LangGraph integration enabled")
-            
-        except ImportError:
-            # LangGraph not installed or available
-            pass
+                # Only import the LangChain patcher if LangChain is available
+                try:
+                    from .patchers.langchain_patcher import patch_langchain
+                    
+                    # Create event processor for LangChain
+                    langchain_processor = EventProcessor(agent_id=agent_id, config=config)
+                    
+                    # Apply patches
+                    patch_langchain(langchain_processor)
+                    logger.info("LangChain patched for monitoring")
+                    monitor_logger.info("LangChain integration enabled")
+                except Exception as e:
+                    logger.error(f"Failed to patch LangChain: {e}")
+                    
+            except ImportError:
+                # LangChain not installed or available
+                pass
+                
+            # Try to patch LangGraph if present
+            try:
+                import langgraph
+                
+                # Only import the LangGraph patcher if LangGraph is available
+                try:
+                    from .patchers.langgraph_patcher import patch_langgraph
+                    
+                    # Apply patches
+                    patch_langgraph()
+                    logger.info("LangGraph patched for monitoring")
+                    monitor_logger.info("LangGraph integration enabled")
+                except Exception as e:
+                    logger.error(f"Failed to patch LangGraph: {e}")
+                    
+            except ImportError:
+                # LangGraph not installed or available
+                pass
+        else:
+            logger.info("Framework patching is disabled. Skipping LangChain and LangGraph patching.")
             
     except Exception as e:
         logger.error(f"Error during monitoring setup: {e}")

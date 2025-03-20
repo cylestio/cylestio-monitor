@@ -33,12 +33,16 @@ class ApiClient:
             endpoint: The remote API endpoint URL. If None, it will try to get from configuration or environment.
             http_method: The HTTP method to use (POST, PUT, etc.). If None, it will try to get from configuration.
         """
-        # Try to get endpoint from parameters, then config, then environment
+        # Try to get endpoint from parameters, then config, then environment, then default
         self.endpoint = endpoint
         if not self.endpoint:
             self.endpoint = config_manager.get("api.endpoint")
         if not self.endpoint:
             self.endpoint = os.environ.get("CYLESTIO_API_ENDPOINT")
+        if not self.endpoint:
+            # Set default endpoint if not provided anywhere else - use 127.0.0.1:8000
+            self.endpoint = "http://127.0.0.1:8000/"
+            logger.info(f"Using default API endpoint: {self.endpoint}")
             
         # Try to get HTTP method from parameters, then config, then default to POST
         self.http_method = http_method
@@ -50,9 +54,6 @@ class ApiClient:
         # Get timeout from config or use default
         self.timeout = config_manager.get("api.timeout", 5)
             
-        if not self.endpoint:
-            logger.warning("No API endpoint configured. Events will not be sent to a remote server.")
-        
         logger.info(f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}")
 
     def send_event(self, event: Dict[str, Any]) -> bool:
@@ -65,6 +66,11 @@ class ApiClient:
         Returns:
             bool: True if the event was successfully sent, False otherwise
         """
+        # Debug logging for LLM call events
+        event_type = event.get("event_type", "unknown")
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            logger.debug(f"ApiClient.send_event: Processing LLM call event: {event_type}")
+        
         if not self.endpoint:
             logger.warning("Cannot send event: No API endpoint configured")
             return False
@@ -72,6 +78,10 @@ class ApiClient:
         try:
             # Create the request based on the configured HTTP method
             headers = {"Content-Type": "application/json"}
+            
+            # Debug logging for LLM call events before sending request
+            if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+                logger.debug(f"ApiClient.send_event: About to send HTTP request for LLM call event: {event_type} to {self.endpoint}")
             
             # Make the request using the configured HTTP method
             if self.http_method.upper() == "POST":
@@ -94,17 +104,29 @@ class ApiClient:
             
             # Check if the request was successful
             if response.ok:
-                logger.debug(f"Event sent to API endpoint: {self.endpoint} using {self.http_method}")
+                if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+                    logger.debug(f"ApiClient.send_event: Successfully sent LLM call event: {event_type}, status: {response.status_code}")
+                else:
+                    logger.debug(f"Event sent to API endpoint: {self.endpoint} using {self.http_method}")
                 return True
             else:
-                logger.error(f"Failed to send event to API: {response.status_code} - {response.text}")
+                if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+                    logger.error(f"Failed to send LLM call event to API: {event_type}, status: {response.status_code} - {response.text}")
+                else:
+                    logger.error(f"Failed to send event to API: {response.status_code} - {response.text}")
                 return False
                 
         except requests.RequestException as e:
-            logger.error(f"Error sending event to API: {str(e)}")
+            if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+                logger.error(f"Error sending LLM call event to API: {event_type}, error: {str(e)}")
+            else:
+                logger.error(f"Error sending event to API: {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error sending event to API: {str(e)}")
+            if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+                logger.error(f"Unexpected error sending LLM call event to API: {event_type}, error: {str(e)}")
+            else:
+                logger.error(f"Unexpected error sending event to API: {str(e)}")
             return False
 
 
@@ -149,6 +171,10 @@ def send_event_to_api(
     Returns:
         bool: True if the event was successfully sent, False otherwise
     """
+    # Debug logging for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        logger.debug(f"api_client.send_event_to_api: Processing LLM call event: {event_type}")
+    
     # Get timestamp if not provided
     if timestamp is None:
         timestamp = datetime.now()
@@ -173,6 +199,16 @@ def send_event_to_api(
     if "conversation_id" in data:
         event["conversation_id"] = data["conversation_id"]
     
+    # Debug logging for LLM call events before sending
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        logger.debug(f"api_client.send_event_to_api: Sending LLM call event to API client: {event_type}")
+    
     # Send the event to the API
     client = get_api_client()
-    return client.send_event(event) 
+    result = client.send_event(event)
+    
+    # Debug logging for LLM call events after sending
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        logger.debug(f"api_client.send_event_to_api: LLM call event sent to API client: {event_type}, success: {result}")
+    
+    return result 
