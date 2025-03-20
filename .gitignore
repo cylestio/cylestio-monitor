@@ -279,6 +279,7 @@ output/
 examples/output/
 examples/*/output/
 examples/*/*/output/
+example_*
 
 # Database files
 *.sqlite3

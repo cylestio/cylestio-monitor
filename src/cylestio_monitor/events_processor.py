@@ -8,6 +8,7 @@ import os
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
+from cylestio_monitor.events.processor import create_standardized_event
 
 monitor_logger = logging.getLogger("CylestioMonitor")
 
@@ -544,3 +545,74 @@ def post_monitor_mcp_tool(channel: str, tool_name: str, start_time: float, resul
         {"tool": tool_name, "duration": duration, "result": result_str, "alert": alert},
         channel,
     )
+
+
+# --------------------------------------
+# New function for standardized event processing
+# --------------------------------------
+def process_standardized_event(
+    agent_id: str,
+    event_type: str,
+    data: Dict[str, Any],
+    channel: str = "SYSTEM",
+    level: str = "info",
+    timestamp: Optional[datetime] = None,
+    direction: Optional[str] = None,
+    session_id: Optional[str] = None
+) -> None:
+    """
+    Process an event using the standardized schema conversion layer.
+    
+    This function creates a standardized event using the new conversion layer,
+    then logs it to both the file and database.
+    
+    Args:
+        agent_id: Agent ID
+        event_type: Event type
+        data: Event data
+        channel: Event channel
+        level: Log level
+        timestamp: Event timestamp
+        direction: Event direction
+        session_id: Session ID
+    """
+    # Get timestamp if not provided
+    if timestamp is None:
+        timestamp = datetime.now()
+        
+    # Convert to standardized event
+    standardized_event = create_standardized_event(
+        agent_id=agent_id,
+        event_type=event_type,
+        data=data,
+        channel=channel,
+        level=level,
+        timestamp=timestamp,
+        direction=direction,
+        session_id=session_id
+    )
+    
+    # Convert to dictionary for logging
+    event_dict = standardized_event.to_dict()
+    
+    # Log to file using log_to_file function
+    log_file = config_manager.get("monitoring.log_file")
+    if log_file:
+        try:
+            log_to_file(event_dict, log_file)
+        except Exception as e:
+            monitor_logger.error(f"Failed to write to log file: {e}")
+    
+    # Send event to API
+    try:
+        log_to_db(
+            agent_id=agent_id,
+            event_type=event_type,
+            data=event_dict,
+            channel=channel,
+            level=level,
+            timestamp=timestamp,
+            direction=direction
+        )
+    except Exception as e:
+        monitor_logger.error(f"Failed to log event to database: {e}")
