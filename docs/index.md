@@ -8,7 +8,7 @@ Cylestio Monitor is a Python SDK that provides security and monitoring capabilit
 - **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
-- **Structured logging**: Events stored in SQLite with optional JSON output
+- **Flexible logging**: Send events to a remote API endpoint with optional JSON file backup
 
 ## Quick Start
 
@@ -19,10 +19,13 @@ from anthropic import Anthropic
 # Create your LLM client
 client = Anthropic()
 
-# Enable monitoring
+# Enable monitoring with API endpoint
 enable_monitoring(
     agent_id="my_agent",
-    llm_client=client
+    llm_client=client,
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
 )
 
 # Use your client as normal

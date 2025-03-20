@@ -33,8 +33,6 @@ source venv/bin/activate  # (or venv\Scripts\activate on Windows)
 pip install -e ../../..
 ```
 
-This ensures that all required dependencies (including SQLAlchemy for database operations) are properly installed.
-
 ## Quick Start
 
 ```python
@@ -44,10 +42,13 @@ from anthropic import Anthropic
 # Create your LLM client
 client = Anthropic()
 
-# Enable monitoring
+# Enable monitoring with a remote API endpoint
 enable_monitoring(
     agent_id="my_agent",
-    llm_client=client
+    llm_client=client,
+    config={
+        "api_endpoint": "https://your-api-endpoint.com/events"
+    }
 )
 
 # Use your client as normal
@@ -65,7 +66,7 @@ response = client.messages.create(
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses 
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
-- **Structured logging**: Events stored in SQLite with optional JSON output
+- **Flexible storage options**: Events can be sent to a remote API endpoint or stored locally in JSON files
 
 ## Security Features
 
@@ -94,7 +95,6 @@ cylestio-monitor/
 ├── src/                       # Source code for the Cylestio Monitor package
 │   └── cylestio_monitor/      # Main package
 │       ├── patchers/          # Framework-specific patchers (Anthropic, MCP, etc.)
-│       ├── db/                # Database management and schema
 │       ├── events/            # Event definitions and processing
 │       ├── config/            # Configuration management
 │       └── utils/             # Utility functions
@@ -115,7 +115,7 @@ cylestio-monitor/
 For the MVP release, we focus on testing core functionality while excluding non-critical edge cases. The testing strategy includes:
 
 1. **Core Functionality Tests**: These are critical tests that verify essential features of the monitoring system:
-   - Database connections and basic operations
+   - API client functionality
    - Configuration management
    - Security features (keyword detection, text normalization)
    - Monitoring functionality
@@ -125,7 +125,7 @@ For the MVP release, we focus on testing core functionality while excluding non-
 2. **Running Critical Tests**:
    To run only the critical tests needed for the MVP:
    ```bash
-   python -m pytest tests/test_import.py tests/test_config_manager.py tests/test_db_manager.py::test_singleton_pattern tests/test_security.py tests/test_monitor.py::test_enable_monitoring_import_error tests/test_patchers_anthropic.py::test_anthropic_patcher_init tests/test_events_processor.py::test_normalize_text -v
+   python -m pytest tests/test_import.py tests/test_config_manager.py tests/test_api_client.py tests/test_security.py tests/test_monitor.py::test_enable_monitoring_import_error tests/test_patchers_anthropic.py::test_anthropic_patcher_init tests/test_events_processor.py::test_normalize_text -v
    ```
 
 3. **Test Coverage**:
@@ -138,10 +138,16 @@ For the MVP release, we focus on testing core functionality while excluding non-
    python -m pytest tests/
    ```
 
-## Database Schema
+## API Client
 
-The optimized database schema design for Cylestio Monitor can be found in the dedicated documentation file:
-[Database Schema Documentation](src/cylestio_monitor/db/db_readme.md)
+The Cylestio Monitor now uses a lightweight REST API client to send telemetry events to a remote endpoint instead of storing them in a local database. This approach offers several advantages:
+
+- **Centralized Event Storage**: All events from different agents can be collected in a central location
+- **Real-time Monitoring**: Events are sent in real-time to the API for immediate analysis
+- **Minimal Storage Requirements**: No local database maintenance required
+- **Scalability**: Easily scale monitoring across multiple agents and applications
+
+The API client can be configured by providing an endpoint URL either through the `api_endpoint` configuration parameter or by setting the `CYLESTIO_API_ENDPOINT` environment variable.
 
 ## Contributing
 

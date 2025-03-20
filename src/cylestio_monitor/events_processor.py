@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 import os
 
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.db import utils as db_utils
 from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
 
 monitor_logger = logging.getLogger("CylestioMonitor")
@@ -58,7 +57,7 @@ class EventProcessor:
     def process_event(self, event_type: str, data: Dict[str, Any], 
                       channel: str = "APPLICATION", level: str = "info",
                       direction: Optional[str] = None) -> None:
-        """Process an event by logging it to the database and performing any required actions.
+        """Process an event by logging it to the API and performing any required actions.
         
         Args:
             event_type: The type of event
@@ -243,66 +242,20 @@ def log_event(
         except Exception as e:
             monitor_logger.error(f"Failed to write to log file: {e}")
     
-    # Store event in database with proper relations
+    # Send event to API
     if agent_id:
         try:
-            from cylestio_monitor.event_logger import log_to_db
-            
-            # Add direction to data if it was provided separately
-            if direction and "direction" not in data:
-                data["direction"] = direction
-                
-            # Log to database using the relational schema
             log_to_db(
-                agent_id=agent_id,
-                event_type=event_type,
-                data=data,
-                channel=channel,
-                level=level,
-                timestamp=datetime.fromisoformat(record["timestamp"])
+                agent_id,
+                event_type,
+                data,
+                channel,
+                level,
+                None,  # No timestamp conversion needed
+                direction
             )
         except Exception as e:
-            monitor_logger.error(f"Failed to log event to database: {e}")
-    
-    # Log security alerts as separate events
-    if "security" in record and record["security"].get("severity") == "critical":
-        security_data = {
-            "severity": "critical",
-            "matches": record["security"].get("dangerous_matches", []),
-            "original_event": {
-                "event_type": event_type,
-                "channel": channel
-            }
-        }
-        
-        # Log directly to file to ensure it's captured even if database logging fails
-        if log_file:
-            try:
-                security_record = {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "CRITICAL",
-                    "agent_id": agent_id or "unknown",
-                    "event_type": "security_alert",
-                    "channel": "SECURITY",
-                    "data": security_data
-                }
-                
-                log_to_file(security_record, log_file)
-            except Exception as e:
-                monitor_logger.error(f"Failed to write security alert to log file: {e}")
-        
-        # Log to database through the specialized handler
-        if agent_id:
-            try:
-                log_to_db(
-                    agent_id=agent_id,
-                    event_type="security_alert",
-                    data=security_data,
-                    channel="SECURITY",
-                    level="critical"
-                )
-            except Exception as e:
-                monitor_logger.error(f"Failed to log security alert to database: {e}")
+            monitor_logger.error(f"Failed to send event to API: {e}")
 
 
 def _estimate_tokens(text: Any) -> int:

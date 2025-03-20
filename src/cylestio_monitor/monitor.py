@@ -14,7 +14,7 @@ from pathlib import Path
 import platformdirs
 
 from .config import ConfigManager
-from .db import utils as db_utils, DatabaseManager
+from .api_client import get_api_client, ApiClient
 from .event_logger import log_console_message, process_and_log_event
 from .events_listener import monitor_call, monitor_llm_call
 from .events_processor import log_event, EventProcessor
@@ -40,11 +40,10 @@ def enable_monitoring(
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
         config: Optional configuration dictionary that can include:
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            - db_path: Path to the SQLite database file (if None, uses default location in user data directory)
-            - log_file: Path to the output log file (if None, only SQLite logging is used)
+            - log_file: Path to the output log file (if None, only API logging is used)
                 - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
                 - If a file without extension is provided, ".json" will be added
-            - sql_debug: Enable SQLAlchemy query logging (useful for development)
+            - api_endpoint: URL of the remote API endpoint to send events to
             - development_mode: Enable additional development features like detailed logging
     
     Note:
@@ -107,30 +106,18 @@ def enable_monitoring(
     config_manager.set("monitoring.log_file", log_file)
     config_manager.save()
     
-    # Initialize the database using DatabaseManager
-    try:
-        db_manager = DatabaseManager()
-        db_path = config.get("db_path")
-        db_path_obj = Path(db_path) if db_path else None
+    # Initialize the API client if endpoint is provided
+    api_endpoint = config.get("api_endpoint")
+    if api_endpoint:
+        # Set the environment variable for the API endpoint
+        os.environ["CYLESTIO_API_ENDPOINT"] = api_endpoint
         
-        # Pass SQL debug option to database manager
-        sql_debug = config.get("sql_debug", development_mode)
-        db_result = db_manager.initialize_database(
-            db_path=db_path_obj,
-            enable_sql_logging=sql_debug
-        )
-        
-        if not db_result["success"]:
-            logger.error(f"Failed to initialize database: {db_result['error']}")
-            # Continue execution even if DB initialization fails, as we'll fall back to file logging
-        
-        # Log database initialization status
-        logger.info(f"Database initialized at {db_result.get('db_path', 'unknown location')}")
-        db_path = db_result.get('db_path', 'unknown')
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        db_path = "unknown"
+        # Initialize the API client
+        api_client = get_api_client()
+        if api_client.endpoint:
+            logger.info(f"API client initialized with endpoint: {api_client.endpoint}")
+        else:
+            logger.warning("API endpoint not configured. Events will only be logged to file.")
     
     # Initialize the event processor
     event_processor = EventProcessor(agent_id=agent_id, config=config)
@@ -149,128 +136,121 @@ def enable_monitoring(
             ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
             
             # Log the patch
-            log_event("MCP_patch", {"message": "MCP client patched"}, "SYSTEM")
+            logger.info("MCP patched for monitoring")
+            monitor_logger.info("MCP integration enabled")
             
-            logger.info("MCP monitoring enabled")
-            if llm_provider == "Unknown":
-                llm_provider = "MCP"
         except ImportError:
-            # MCP not available, skip patching
-            logger.debug("MCP module not available, skipping ClientSession patching")
-        except Exception as e:
-            # Log the error but continue with other monitoring
-            logger.error(f"Failed to enable MCP monitoring: {e}")
-        
-        # Step 2: Add LangChain monitoring if available
-        try:
-            from .patchers.langchain_patcher import patch_langchain
-            import langchain
+            # MCP not installed or available
+            pass
             
-            patch_langchain(event_processor)
-            logger.info("LangChain monitoring enabled")
-            
-            if llm_provider == "Unknown":
-                llm_provider = "LangChain"
-        except ImportError:
-            logger.debug("LangChain not installed, skipping monitoring")
-        
-        # Step 3: Add LangGraph monitoring if available
-        try:
-            from .patchers.langgraph_patcher import patch_langgraph
-            import langgraph
-            
-            patch_langgraph(event_processor)
-            logger.info("LangGraph monitoring enabled")
-            
-            if llm_provider == "Unknown":
-                llm_provider = "LangGraph"
-        except ImportError:
-            logger.debug("LangGraph not installed, skipping monitoring")
-            
-        # Step 4: If an LLM client was provided directly, patch it (e.g., Anthropic)
+        # Step 2: Patch various LLM clients if provided
         if llm_client:
-            # Extract the provider name if possible
-            if hasattr(llm_client, "__class__"):
-                client_provider = f"{llm_client.__class__.__module__}/{llm_client.__class__.__name__}"
-                llm_provider = client_provider
-                if hasattr(llm_client, "_client") and hasattr(llm_client._client, "user_agent"):
-                    llm_provider = llm_client._client.user_agent
-
-            # Patch the LLM client
-            # Default to messages.create method for most LLM clients
-            llm_method_path = "messages.create"
+            # Attempt to determine the provider
+            provider_name = llm_client.__class__.__name__
+            module_name = llm_client.__class__.__module__.split('.')[0].lower()
             
-            parts = llm_method_path.split(".")
-            target = llm_client
-            for part in parts[:-1]:
-                target = getattr(target, part)
-            method_name = parts[-1]
-            original_method = getattr(target, method_name)
-
-            # Apply the appropriate monitor decorator
-            patched_method = monitor_llm_call(original_method, "LLM")
-            setattr(target, method_name, patched_method)
-
-            # Log the patch
-            log_event("LLM_patch", {"method": llm_method_path, "provider": llm_provider}, "SYSTEM")
+            if "anthropic" in module_name or "claude" in provider_name.lower():
+                llm_provider = "Anthropic"
+                # Log LLM client info
+                logger.info(f"LLM client detected: {llm_provider}")
+                monitor_logger.info(f"Monitoring enabled for {llm_provider}")
+                
+            elif "openai" in module_name:
+                llm_provider = "OpenAI"
+                # Log LLM client info
+                logger.info(f"LLM client detected: {llm_provider}")
+                monitor_logger.info(f"Monitoring enabled for {llm_provider}")
+                
+        # Step 3: Try to patch LangChain if present
+        try:
+            import langchain
+            from .patchers.langchain_patcher import patch_langchain
             
-        # Log monitoring enabled event
-        monitoring_data = {
-            "agent_id": agent_id,
-            "LLM_provider": llm_provider,
-            "database_path": db_path
-        }
-        
-        # Log to both database and JSON file through the log_event function
-        log_event("monitoring_enabled", monitoring_data, "SYSTEM", "info")
-        
-        logger.info(f"Monitoring enabled for agent {agent_id}")
-        
+            # Apply patches
+            patch_langchain()
+            logger.info("LangChain patched for monitoring")
+            monitor_logger.info("LangChain integration enabled")
+            
+        except ImportError:
+            # LangChain not installed or available
+            pass
+            
+        # Step 4: Try to patch LangGraph if present
+        try:
+            import langgraph
+            from .patchers.langgraph_patcher import patch_langgraph
+            
+            # Apply patches
+            patch_langgraph()
+            logger.info("LangGraph patched for monitoring")
+            monitor_logger.info("LangGraph integration enabled")
+            
+        except ImportError:
+            # LangGraph not installed or available
+            pass
+            
     except Exception as e:
-        logger.error(f"Failed to enable monitoring: {e}")
-        raise
+        logger.error(f"Error during monitoring setup: {e}")
+        monitor_logger.error(f"Error during monitoring setup: {e}")
+        
+    # Log successful initialization
+    logger.info(f"Cylestio monitoring enabled for agent: {agent_id}")
+    monitor_logger.info(f"Monitoring initialized for agent: {agent_id}")
+    
+    # Log the initialization event
+    process_and_log_event(
+        agent_id=agent_id,
+        event_type="monitor_init",
+        data={
+            "timestamp": datetime.now().isoformat(),
+            "api_endpoint": os.environ.get("CYLESTIO_API_ENDPOINT", "Not configured"),
+            "log_file": log_file,
+            "llm_provider": llm_provider,
+            "debug_level": debug_level,
+            "development_mode": development_mode
+        },
+        channel="SYSTEM",
+        level="info"
+    )
 
 
 def disable_monitoring() -> None:
-    """Disable all active monitoring."""
-    # Get agent_id from configuration
+    """
+    Disable monitoring and clean up resources.
+    
+    This will revert any monkey patches and clean up resources.
+    """
+    logger.info("Disabling monitoring")
+    
+    # Get agent ID from configuration
     config_manager = ConfigManager()
     agent_id = config_manager.get("monitoring.agent_id")
     
+    # Log shutdown event
     if agent_id:
-        # Log monitoring disabled event
-        monitoring_data = {"agent_id": agent_id, "timestamp": datetime.now().isoformat()}
-        
-        # Log to database and file through the log_event function
-        log_event("monitoring_disabled", monitoring_data, "SYSTEM", "info")
+        process_and_log_event(
+            agent_id=agent_id,
+            event_type="monitor_shutdown",
+            data={"timestamp": datetime.now().isoformat()},
+            channel="SYSTEM",
+            level="info"
+        )
     
     logger.info("Monitoring disabled")
 
 
-def get_database_path() -> str:
+def get_api_endpoint() -> str:
     """
-    Get the path to the global SQLite database.
+    Get the API endpoint URL.
     
     Returns:
-        Path to the database file
+        str: API endpoint URL
     """
-    return db_utils.get_db_path()
+    api_client = get_api_client()
+    return api_client.endpoint or "Not configured"
 
 
-def cleanup_old_events(days: int = 30) -> int:
-    """
-    Delete events older than the specified number of days.
-    
-    Args:
-        days: Number of days to keep
-        
-    Returns:
-        Number of deleted events
-    """
-    return db_utils.cleanup_old_events(days)
-
-
-def log_to_file_and_db(
+def log_to_file_and_api(
     event_type: str,
     data: Dict[str, Any],
     agent_id: Optional[str] = None,
@@ -280,42 +260,32 @@ def log_to_file_and_db(
     direction: Optional[str] = None
 ) -> None:
     """
-    Log detailed application events to both the database and JSON file.
+    Log an event to file and API.
     
     Args:
-        event_type: Type of event being logged
-        data: Event data dictionary
-        agent_id: Agent ID (defaults to configured agent_id)
-        log_file: Path to JSON log file (defaults to configured log_file)
+        event_type: Event type
+        data: Event data
+        agent_id: Agent ID (optional, uses configured agent_id if not provided)
+        log_file: Path to log file (optional, uses configured log_file if not provided)
         channel: Event channel
-        level: Log level (info, warning, error, debug)
-        direction: Message direction for chat events ("incoming" or "outgoing")
+        level: Log level
+        direction: Event direction
     """
-    # Get configuration if not provided
-    config_manager = ConfigManager()
-    agent_id = agent_id or config_manager.get("monitoring.agent_id")
-    log_file = log_file or config_manager.get("monitoring.log_file")
+    # Get agent_id from configuration if not provided
+    if agent_id is None:
+        config_manager = ConfigManager()
+        agent_id = config_manager.get("monitoring.agent_id")
+        if not agent_id:
+            logger.error("No agent_id provided and none found in configuration")
+            return
     
-    if not agent_id:
-        logger.warning("No agent_id provided for logging. Event will not be logged.")
-        return
-    
-    # Add agent_id to data if not present
-    if "agent_id" not in data:
-        data["agent_id"] = agent_id
-    
-    # Set log_file in config temporarily if provided
-    if log_file:
-        config_manager.set("monitoring.log_file", log_file)
-    
-    # Log to database and file through the log_event function
-    try:
-        log_event(event_type, data, channel, level, direction)
-    except Exception as e:
-        logger.error(f"Failed to log event: {e}")
-    
-    # Reset to original log_file if we temporarily changed it
-    if log_file and log_file != config_manager.get("monitoring.log_file", None):
-        config_manager.set("monitoring.log_file", config_manager.get("monitoring.log_file"))
+    # Log the event
+    process_and_log_event(
+        agent_id=agent_id,
+        event_type=event_type,
+        data=data,
+        channel=channel,
+        level=level
+    )
 
-__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_db", "get_database_path", "cleanup_old_events"]
+__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_api", "get_api_endpoint"]
