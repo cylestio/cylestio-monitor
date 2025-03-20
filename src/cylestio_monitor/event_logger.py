@@ -143,6 +143,10 @@ def log_to_db(
         timestamp (Optional[datetime], optional): Event timestamp. Defaults to None.
         direction (Optional[str], optional): Event direction. Defaults to None.
     """
+    # Debug logging for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        logger.debug(f"log_to_db: Processing LLM call event: {event_type}")
+    
     # Get timestamp if not provided
     if timestamp is None:
         timestamp = datetime.now()
@@ -170,6 +174,15 @@ def log_to_db(
                 direction = "outgoing"
             elif event_type.endswith("_response") or event_type.endswith("_completion"):
                 direction = "incoming"
+            # Special handling for LLM call events
+            elif event_type == "LLM_call_start":
+                direction = "outgoing"
+            elif event_type == "LLM_call_finish":
+                direction = "incoming"
+        
+        # Debug logging for LLM call events before sending
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            logger.debug(f"log_to_db: About to send LLM call event to API: {event_type}")
         
         # Send the event to the API
         send_event_to_api(
@@ -181,6 +194,10 @@ def log_to_db(
             timestamp=timestamp,
             direction=direction
         )
+        
+        # Debug logging for LLM call events after sending
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            logger.debug(f"log_to_db: Successfully sent LLM call event to API: {event_type}")
             
     except Exception as e:
         logger.error(f"Failed to send event to API: {e}")

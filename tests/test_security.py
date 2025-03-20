@@ -75,3 +75,31 @@ def test_text_normalization():
 
     # Test with numbers
     assert normalize_text("123Numbers456") == "123NUMBERS456"
+
+
+@pytest.mark.security
+def test_event_content_alerts(mock_config_manager):
+    """Test that events with dangerous or suspicious content trigger alerts."""
+    from cylestio_monitor.events_processor import log_event
+    
+    with patch("cylestio_monitor.events_processor.log_to_db") as mock_log_to_db, \
+         patch("cylestio_monitor.events_processor.log_to_file"):
+        
+        # Test with dangerous content in different fields
+        log_event("test_event", {"content": "DROP TABLE users"}, "TEST")
+        assert mock_log_to_db.call_args[1]["data"]["alert"] == "dangerous"
+        assert mock_log_to_db.call_args[1]["level"] == "warning"
+        
+        mock_log_to_db.reset_mock()
+        log_event("test_event", {"message": "The server will rm -rf by mistake"}, "TEST")
+        assert mock_log_to_db.call_args[1]["data"]["alert"] == "dangerous"
+        
+        # Test with suspicious content
+        mock_log_to_db.reset_mock()
+        log_event("test_event", {"text": "Someone might BOMB the server"}, "TEST")
+        assert mock_log_to_db.call_args[1]["data"]["alert"] == "suspicious"
+        
+        # Test with safe content
+        mock_log_to_db.reset_mock()
+        log_event("test_event", {"value": "This is a safe message"}, "TEST")
+        assert "alert" not in mock_log_to_db.call_args[1]["data"]

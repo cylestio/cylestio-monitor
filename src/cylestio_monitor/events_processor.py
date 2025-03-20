@@ -216,8 +216,6 @@ def log_event(
     
     # Get agent_id and config from configuration
     agent_id = config_manager.get("monitoring.agent_id")
-    suspicious_words = config_manager.get("monitoring.suspicious_words", [])
-    dangerous_words = config_manager.get("monitoring.dangerous_words", [])
     
     # Create base record with required fields
     record = {
@@ -278,11 +276,55 @@ def log_event(
     # Add data to record
     record["data"] = data
     
-    # Check for alerts in prompt or response fields
+    # Extract content from nested message structures
+    content_values = []
+    
+    # Check for direct string fields first
+    for field in ["content", "message", "text", "prompt", "response", "value"]:
+        if field in data and isinstance(data[field], str):
+            content_values.append(data[field])
+    
+    # Handle nested structures (arrays of messages common in LLM APIs)
+    for field in ["prompt", "messages", "inputs"]:
+        if field in data:
+            # Handle array of messages
+            if isinstance(data[field], list):
+                for item in data[field]:
+                    # Handle message objects with content field
+                    if isinstance(item, dict) and "content" in item:
+                        if isinstance(item["content"], str):
+                            content_values.append(item["content"])
+                        # Handle array of content blocks
+                        elif isinstance(item["content"], list):
+                            for content_block in item["content"]:
+                                if isinstance(content_block, dict) and "text" in content_block:
+                                    content_values.append(content_block["text"])
+                                elif isinstance(content_block, str):
+                                    content_values.append(content_block)
+    
+    # Check all extracted content values for dangerous or suspicious words
+    alert = "none"
+    for content in content_values:
+        if contains_dangerous(content):
+            alert = "dangerous"
+            level = "warning"  # Upgrade log level for dangerous alerts
+            record["level"] = level.upper()
+            break
+        elif contains_suspicious(content) and alert != "dangerous":
+            alert = "suspicious"
+    
+    # Set the alert if found
+    if alert != "none":
+        data["alert"] = alert
+        record["alert"] = alert
+    
+    # Keep existing specific field checks
     if "prompt" in data and isinstance(data["prompt"], str):
         alert = "none"
         if contains_dangerous(data["prompt"]):
             alert = "dangerous"
+            level = "warning"  # Upgrade log level for dangerous alerts
+            record["level"] = level.upper()
         elif contains_suspicious(data["prompt"]):
             alert = "suspicious"
         
@@ -294,6 +336,8 @@ def log_event(
         alert = "none"
         if contains_dangerous(data["response"]):
             alert = "dangerous"
+            level = "warning"  # Upgrade log level for dangerous alerts
+            record["level"] = level.upper()
         elif contains_suspicious(data["response"]):
             alert = "suspicious"
         

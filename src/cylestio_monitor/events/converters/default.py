@@ -29,6 +29,13 @@ class DefaultEventConverter(BaseEventConverter):
         Returns:
             StandardizedEvent: A standardized event instance
         """
+        # Debug logging for LLM call events
+        event_type = event.get("event_type", "unknown")
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            import logging
+            logger = logging.getLogger("CylestioMonitor")
+            logger.debug(f"DefaultConverter: Processing LLM call event: {event_type}")
+            
         # Start with common fields
         common_fields = self._copy_common_fields(event)
         
@@ -69,8 +76,17 @@ class DefaultEventConverter(BaseEventConverter):
             # If we can't determine, put everything in extra
             extra = data
             
+        # For LLM call events, ensure we don't lose data
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            if request is None and response is None:
+                request = data  # Default to putting data in request for these events
+                
+            import logging
+            logger = logging.getLogger("CylestioMonitor")
+            logger.debug(f"DefaultConverter: Constructed event data for {event_type}")
+            
         # Create the standardized event
-        return StandardizedEvent(
+        standardized_event = StandardizedEvent(
             timestamp=common_fields["timestamp"],
             level=common_fields["level"],
             agent_id=common_fields["agent_id"],
@@ -89,4 +105,12 @@ class DefaultEventConverter(BaseEventConverter):
             request=request,
             response=response,
             extra=data
-        ) 
+        )
+        
+        # Log final event creation for LLM call events
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            import logging
+            logger = logging.getLogger("CylestioMonitor")
+            logger.debug(f"DefaultConverter: Created standardized event for {event_type}")
+            
+        return standardized_event 
