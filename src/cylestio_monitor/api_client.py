@@ -12,25 +12,48 @@ from typing import Any, Dict, Optional
 import requests
 from datetime import datetime
 
+from cylestio_monitor.config import ConfigManager
+
 # Set up module-level logger
 logger = logging.getLogger(__name__)
 
+# Get configuration manager instance
+config_manager = ConfigManager()
 
 class ApiClient:
     """
     Simple REST API client for sending telemetry events to a remote endpoint.
     """
 
-    def __init__(self, endpoint: Optional[str] = None):
+    def __init__(self, endpoint: Optional[str] = None, http_method: Optional[str] = None):
         """
         Initialize the API client.
         
         Args:
-            endpoint: The remote API endpoint URL. If None, it will try to get from environment.
+            endpoint: The remote API endpoint URL. If None, it will try to get from configuration or environment.
+            http_method: The HTTP method to use (POST, PUT, etc.). If None, it will try to get from configuration.
         """
-        self.endpoint = endpoint or os.environ.get("CYLESTIO_API_ENDPOINT")
+        # Try to get endpoint from parameters, then config, then environment
+        self.endpoint = endpoint
+        if not self.endpoint:
+            self.endpoint = config_manager.get("api.endpoint")
+        if not self.endpoint:
+            self.endpoint = os.environ.get("CYLESTIO_API_ENDPOINT")
+            
+        # Try to get HTTP method from parameters, then config, then default to POST
+        self.http_method = http_method
+        if not self.http_method:
+            self.http_method = config_manager.get("api.http_method", "POST")
+        if not self.http_method:
+            self.http_method = "POST"  # Default to POST if not specified
+            
+        # Get timeout from config or use default
+        self.timeout = config_manager.get("api.timeout", 5)
+            
         if not self.endpoint:
             logger.warning("No API endpoint configured. Events will not be sent to a remote server.")
+        
+        logger.info(f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}")
 
     def send_event(self, event: Dict[str, Any]) -> bool:
         """
@@ -47,17 +70,31 @@ class ApiClient:
             return False
             
         try:
-            # Set a reasonable timeout to avoid blocking the application
-            response = requests.post(
-                self.endpoint,
-                json=event,
-                headers={"Content-Type": "application/json"},
-                timeout=5  # 5 seconds timeout
-            )
+            # Create the request based on the configured HTTP method
+            headers = {"Content-Type": "application/json"}
+            
+            # Make the request using the configured HTTP method
+            if self.http_method.upper() == "POST":
+                response = requests.post(
+                    self.endpoint,
+                    json=event,
+                    headers=headers,
+                    timeout=self.timeout
+                )
+            elif self.http_method.upper() == "PUT":
+                response = requests.put(
+                    self.endpoint,
+                    json=event,
+                    headers=headers,
+                    timeout=self.timeout
+                )
+            else:
+                logger.error(f"Unsupported HTTP method: {self.http_method}")
+                return False
             
             # Check if the request was successful
             if response.ok:
-                logger.debug(f"Event sent to API endpoint: {self.endpoint}")
+                logger.debug(f"Event sent to API endpoint: {self.endpoint} using {self.http_method}")
                 return True
             else:
                 logger.error(f"Failed to send event to API: {response.status_code} - {response.text}")

@@ -39,6 +39,18 @@ monitoring:
     - "suspicious"
     - "dangerous"
 
+# API configuration
+api:
+  # API endpoint for sending telemetry events
+  endpoint: "http://127.0.0.1:8000/"
+  # HTTP method to use (POST, PUT, etc.)
+  http_method: "POST"
+  # Timeout in seconds
+  timeout: 5
+  # Retry settings
+  retries: 3
+  retry_delay: 1
+
 # Dashboard integration
 dashboard:
   enabled: true
