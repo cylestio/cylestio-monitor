@@ -7,6 +7,7 @@ including chain executions, LLM calls, and tool usage.
 import time
 from typing import Any, Dict, List, Optional, Union, Callable
 from datetime import datetime
+import logging
 
 try:
     # Try to import from langchain_core (0.3+)
@@ -21,6 +22,8 @@ except ImportError:
 
 from ..events_processor import EventProcessor
 
+# Set up module-level logger
+logger = logging.getLogger(__name__)
 
 class LangChainMonitor(BaseCallbackHandler):
     """Monitor for LangChain events."""
@@ -885,12 +888,12 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                                                 [str(message.content) for message in messages],
                                                 verbose=getattr(self, "verbose", False)
                                             )
-                                        except Exception:
+                                        except Exception as exc:
                                             # Ignore callback errors
-                                            pass
-                            except Exception:
+                                            logger.debug(f"Callback error ignored: {exc}")
+                            except Exception as exc:
                                 # If callback handling fails, just continue
-                                pass
+                                logger.debug(f"Callback handling error ignored: {exc}")
                             
                             # Make a copy of kwargs WITHOUT the callbacks
                             clean_kwargs = {k: v for k, v in kwargs.items() if k != "callbacks"}
@@ -905,27 +908,27 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                                         if hasattr(callback, "on_llm_end"):
                                             try:
                                                 callback.on_llm_end(result)
-                                            except Exception:
+                                            except Exception as exc:
                                                 # Ignore callback errors
-                                                pass
-                                except Exception:
+                                                logger.debug(f"Callback on_llm_end error ignored: {exc}")
+                                except Exception as exc:
                                     # If callback handling fails, just continue
-                                    pass
+                                    logger.debug(f"Callback handling error ignored: {exc}")
                                 
                                 return result
-                            except Exception as e:
+                            except Exception as exc:
                                 # Try to fire callback events for monitoring
                                 try:
                                     for callback in callbacks:
                                         if hasattr(callback, "on_llm_error"):
                                             try:
-                                                callback.on_llm_error(e)
-                                            except Exception:
+                                                callback.on_llm_error(exc)
+                                            except Exception as exc:
                                                 # Ignore callback errors
-                                                pass
-                                except Exception:
+                                                logger.debug(f"Callback on_llm_error error ignored: {exc}")
+                                except Exception as exc:
                                     # If callback handling fails, just continue
-                                    pass
+                                    logger.debug(f"Callback handling error ignored: {exc}")
                                 
                                 # Re-raise the original exception
                                 raise
@@ -955,12 +958,12 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                                                     [str(message.content) for message in messages],
                                                     verbose=getattr(self, "verbose", False)
                                                 )
-                                            except Exception:
+                                            except Exception as exc:
                                                 # Ignore callback errors
-                                                pass
-                                except Exception:
+                                                logger.debug(f"Callback error ignored: {exc}")
+                                except Exception as exc:
                                     # If callback handling fails, just continue
-                                    pass
+                                    logger.debug(f"Callback handling error ignored: {exc}")
                                 
                                 # Make a clean copy of kwargs WITHOUT callbacks
                                 clean_kwargs = {k: v for k, v in kwargs.items() if k != "callbacks"}
