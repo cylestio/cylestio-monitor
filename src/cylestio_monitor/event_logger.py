@@ -2,7 +2,7 @@
 """
 Event logging module for Cylestio Monitor.
 
-This module handles all actual logging to database and file,
+This module handles all actual logging to API and file,
 maintaining a single source of truth for all output operations.
 """
 
@@ -10,10 +10,10 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, cast, Tuple
 
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.db import utils as db_utils
+from cylestio_monitor.api_client import send_event_to_api
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -24,6 +24,103 @@ config_manager = ConfigManager()
 # Console logger for user-facing messages
 monitor_logger = logging.getLogger("CylestioMonitor")
 
+# Dictionaries to track current sessions and conversations by agent_id
+_current_sessions = {}  # agent_id -> session_id mapping
+_current_conversations = {}  # (agent_id, session_id) -> conversation_id mapping
+
+def _get_or_create_session_id(agent_id: str) -> str:
+    """Get current session ID for agent or create a new one.
+    
+    Args:
+        agent_id: The agent identifier
+        
+    Returns:
+        str: Session ID to use
+    """
+    global _current_sessions
+    if agent_id not in _current_sessions:
+        # Generate a new session ID
+        _current_sessions[agent_id] = f"session_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    return _current_sessions[agent_id]
+
+def _get_or_create_conversation_id(agent_id: str, session_id: str) -> str:
+    """Get or create a conversation ID for the agent.
+    
+    Args:
+        agent_id (str): Agent ID
+        session_id (str): Session ID
+    
+    Returns:
+        str: Conversation ID
+    """
+    key = (agent_id, session_id)
+    if key in _current_conversations:
+        return _current_conversations[key]
+    
+    # Generate a new conversation ID
+    conversation_id = f"conv_{agent_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+    _current_conversations[key] = conversation_id
+    return conversation_id
+
+def _should_start_new_conversation(event_type: str, data: Dict[str, Any]) -> bool:
+    """Determine if a new conversation should be started based on the event type.
+    
+    Args:
+        event_type (str): Type of event
+        data (Dict[str, Any]): Event data
+        
+    Returns:
+        bool: True if a new conversation should be started
+    """
+    # Start a new conversation when a user initiates communication
+    if event_type == "user_message" and data.get("direction") == "incoming":
+        return True
+    
+    # If client is initialized or restarted, start a new conversation
+    if event_type in ["client_init", "restart", "session_start"]:
+        return True
+    
+    # If there's an explicit conversation_start event
+    if event_type == "conversation_start":
+        return True
+    
+    return False
+
+def _should_end_conversation(event_type: str, data: Dict[str, Any]) -> bool:
+    """Determine if the current conversation should be ended.
+    
+    Args:
+        event_type (str): Type of event
+        data (Dict[str, Any]): Event data
+        
+    Returns:
+        bool: True if the conversation should be ended
+    """
+    # End conversation on explicit events
+    if event_type in ["conversation_end", "session_end", "client_shutdown"]:
+        return True
+    
+    # End conversation on "quit", "exit", or similar user commands
+    if event_type == "user_message" and isinstance(data.get("content"), str):
+        content = data.get("content", "").lower().strip()
+        if content in ["quit", "exit", "bye", "goodbye"]:
+            return True
+    
+    # Consider long periods of inactivity as ending a conversation
+    # This would need to be implemented with a timestamp comparison
+    
+    return False
+
+def _reset_conversation_id(agent_id: str, session_id: str) -> None:
+    """Reset the conversation ID for an agent, forcing a new conversation on next event.
+    
+    Args:
+        agent_id (str): Agent ID
+        session_id (str): Session ID
+    """
+    key = (agent_id, session_id)
+    if key in _current_conversations:
+        del _current_conversations[key]
 
 def log_to_db(
     agent_id: str,
@@ -31,66 +128,115 @@ def log_to_db(
     data: Dict[str, Any],
     channel: str = "SYSTEM",
     level: str = "info",
-    timestamp: Optional[datetime] = None
+    timestamp: Optional[datetime] = None,
+    direction: Optional[str] = None
 ) -> None:
     """
-    Log an event to the SQLite database.
+    Send an event to the remote API endpoint instead of storing in the database.
     
     Args:
-        agent_id: The ID of the agent
-        event_type: The type of event being logged
-        data: Event data dictionary
-        channel: Event channel
-        level: Log level
-        timestamp: Timestamp for the event (defaults to now)
+        agent_id (str): Agent ID
+        event_type (str): Event type
+        data (Dict[str, Any]): Event data
+        channel (str, optional): Event channel. Defaults to "SYSTEM".
+        level (str, optional): Log level. Defaults to "info".
+        timestamp (Optional[datetime], optional): Event timestamp. Defaults to None.
+        direction (Optional[str], optional): Event direction. Defaults to None.
     """
+    # Debug logging for LLM call events
+    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+        logger.debug(f"log_to_db: Processing LLM call event: {event_type}")
+    
+    # Get timestamp if not provided
+    if timestamp is None:
+        timestamp = datetime.now()
+    
     try:
-        # Log to the database using db_utils
-        db_utils.log_to_db(
+        # Get session ID from data or generate a new one
+        session_id = data.get("session_id")
+        if not session_id:
+            session_id = _get_or_create_session_id(agent_id)
+            data["session_id"] = session_id
+            
+        # Check if we should start a new conversation or end the current one
+        if _should_start_new_conversation(event_type, data):
+            _reset_conversation_id(agent_id, session_id)  # Force a new conversation ID
+        
+        # Get conversation ID from data or generate a new one
+        conversation_id = data.get("conversation_id")
+        if not conversation_id:
+            conversation_id = _get_or_create_conversation_id(agent_id, session_id)
+            data["conversation_id"] = conversation_id
+        
+        # Determine event direction if applicable
+        if direction is None:
+            if event_type.endswith("_request") or event_type.endswith("_prompt"):
+                direction = "outgoing"
+            elif event_type.endswith("_response") or event_type.endswith("_completion"):
+                direction = "incoming"
+            # Special handling for LLM call events
+            elif event_type == "LLM_call_start":
+                direction = "outgoing"
+            elif event_type == "LLM_call_finish":
+                direction = "incoming"
+        
+        # Debug logging for LLM call events before sending
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            logger.debug(f"log_to_db: About to send LLM call event to API: {event_type}")
+        
+        # Send the event to the API
+        send_event_to_api(
             agent_id=agent_id,
             event_type=event_type,
             data=data,
             channel=channel,
             level=level,
-            timestamp=timestamp or datetime.now()
+            timestamp=timestamp,
+            direction=direction
         )
+        
+        # Debug logging for LLM call events after sending
+        if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+            logger.debug(f"log_to_db: Successfully sent LLM call event to API: {event_type}")
+            
     except Exception as e:
-        logger.error(f"Failed to log event to database: {e}")
-        # Don't re-raise; we want to continue with file logging even if DB fails
+        logger.error(f"Failed to send event to API: {e}")
 
+def json_serializer(obj: Any) -> Any:
+    """JSON serializer for objects not serializable by default json code."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 def log_to_file(
     record: Dict[str, Any],
     log_file: Optional[str] = None
 ) -> None:
     """
-    Log an event to a JSON file.
+    Log a record to a JSON file.
     
     Args:
-        record: The complete record to log (already formatted)
-        log_file: Path to the log file (if None, uses configured log_file)
+        record: The record to log
+        log_file: The path to the log file
     """
-    # Get log file path from config if not provided
-    log_file = log_file or config_manager.get("monitoring.log_file")
+    # If no log file provided, check configuration
+    if log_file is None:
+        log_file = config_manager.get("monitoring.log_file")
     
+    # If still no log file, return early
     if not log_file:
         return
     
     try:
-        # Ensure directory exists
-        log_dir = os.path.dirname(os.path.abspath(log_file))
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
         
-        # Convert to JSON string and write to file
-        msg = json.dumps(record)
-        with open(log_file, "a") as f:
-            f.write(msg + "\n")
+        # Append to the file
+        with open(log_file, "a", encoding="utf-8") as f:
+            json.dump(record, f, default=json_serializer)
+            f.write("\n")  # Add newline for each record
     except Exception as e:
-        logger.error(f"Failed to log event to file {log_file}: {e}")
-        # Log to console as fallback
-        monitor_logger.error(f"Failed to log to file: {e}")
-
+        logger.error(f"Failed to write to log file: {e}")
 
 def log_console_message(
     message: str,
@@ -98,22 +244,21 @@ def log_console_message(
     channel: str = "SYSTEM"
 ) -> None:
     """
-    Log a simple message to the console.
+    Log a simple text message to the console.
     
     Args:
         message: The message to log
-        level: Log level
-        channel: Channel for extra context
+        level: The log level
+        channel: The channel to log to
     """
-    if level.lower() == "debug":
-        monitor_logger.debug(message, extra={"channel": channel})
-    elif level.lower() == "warning":
-        monitor_logger.warning(message, extra={"channel": channel})
-    elif level.lower() == "error":
-        monitor_logger.error(message, extra={"channel": channel})
-    else:
-        monitor_logger.info(message, extra={"channel": channel})
-
+    level_upper = level.upper()
+    level_method = getattr(monitor_logger, level.lower(), monitor_logger.info)
+    
+    # Format the message with channel
+    formatted_message = f"[{channel}] {message}"
+    
+    # Log using the appropriate level method
+    level_method(formatted_message)
 
 def process_and_log_event(
     agent_id: str,
@@ -124,23 +269,38 @@ def process_and_log_event(
     record: Optional[Dict[str, Any]] = None
 ) -> None:
     """
-    Process and log an event to both database and file.
-    
-    This is the main entry point for all logging operations.
+    Process and log an event both to file and API.
     
     Args:
-        agent_id: The ID of the agent
-        event_type: The type of event being logged
-        data: Event data dictionary
+        agent_id: Agent ID
+        event_type: Event type
+        data: Event data
         channel: Event channel
         level: Log level
-        record: Optional pre-formatted record (if not provided, just logs data directly)
+        record: Optional pre-formatted record
     """
-    # Log a simple console message for user feedback
-    log_console_message(f"Event: {event_type}", level, channel)
+    # Create or use provided record
+    if record is None:
+        # Create base record with required fields
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "level": level.upper(),
+            "agent_id": agent_id,
+            "event_type": event_type,
+            "channel": channel.upper(),
+            "data": data
+        }
     
-    # Log to database
-    if agent_id:
+    # Log to file
+    log_file = config_manager.get("monitoring.log_file")
+    if log_file:
+        try:
+            log_to_file(record, log_file)
+        except Exception as e:
+            logger.error(f"Failed to write to log file: {e}")
+    
+    # Log to API
+    try:
         log_to_db(
             agent_id=agent_id,
             event_type=event_type,
@@ -148,7 +308,5 @@ def process_and_log_event(
             channel=channel,
             level=level
         )
-    
-    # Log to file if a record is provided
-    if record:
-        log_to_file(record) 
+    except Exception as e:
+        logger.error(f"Failed to send event to API: {e}") 

@@ -18,10 +18,13 @@ from anthropic import Anthropic
 # Create your LLM client
 client = Anthropic()
 
-# Enable monitoring
+# Enable monitoring with API endpoint
 enable_monitoring(
     agent_id="my_agent",
-    llm_client=client
+    llm_client=client,
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
 )
 
 # Use your client as normal - monitoring happens automatically
@@ -38,25 +41,31 @@ With just these few lines of code, Cylestio Monitor will:
 - Log request and response data
 - Monitor for security threats
 - Record performance metrics
-- Store events in a queryable database
+- Send events to the configured API endpoint
 
 ## Monitoring with JSON Logging
 
-If you prefer to also log events to JSON files for external processing:
+If you prefer to also log events to JSON files for local backup:
 
 ```python
-# Enable monitoring with both SQLite and JSON logging
+# Enable monitoring with API and JSON logging
 enable_monitoring(
     agent_id="my_agent",
     llm_client=client,
-    log_file="/path/to/logs/monitoring.json"
+    config={
+        "api_endpoint": "https://api.example.com/events",
+        "log_file": "/path/to/logs/monitoring.json"
+    }
 )
 
 # Or log to a directory (a timestamped file will be created)
 enable_monitoring(
     agent_id="my_agent",
     llm_client=client,
-    log_file="/path/to/logs/"
+    config={
+        "api_endpoint": "https://api.example.com/events",
+        "log_file": "/path/to/logs/"
+    }
 )
 ```
 
@@ -71,7 +80,12 @@ from mcp import ClientSession
 from cylestio_monitor import enable_monitoring
 
 # Enable monitoring before creating your MCP session
-enable_monitoring(agent_id="mcp-project")
+enable_monitoring(
+    agent_id="mcp-project",
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
+)
 
 # Create and use your MCP client as normal
 session = ClientSession(stdio, write)
@@ -88,7 +102,13 @@ from cylestio_monitor import enable_monitoring
 client = OpenAI()
 
 # Enable monitoring
-enable_monitoring(agent_id="openai-project", llm_client=client)
+enable_monitoring(
+    agent_id="openai-project", 
+    llm_client=client,
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
+)
 
 # Use your client as normal
 response = client.chat.completions.create(
@@ -101,53 +121,36 @@ response = client.chat.completions.create(
 
 For additional frameworks or custom integrations, see our [Framework Support](../user-guide/frameworks/index.md) documentation.
 
-## Accessing Monitoring Data
+## Manually Sending Events
 
-Query the monitoring database to analyze interactions:
-
-```python
-from cylestio_monitor import get_database_path
-from cylestio_monitor.db import utils as db_utils
-
-# Get recent events for a specific agent
-events = db_utils.get_recent_events(agent_id="my-project", limit=10)
-
-# Get events by type
-llm_events = db_utils.get_events_by_type("LLM_call_start", agent_id="my-project")
-
-# Get events from the last 24 hours
-recent_events = db_utils.get_events_last_hours(24, agent_id="my-project")
-```
-
-## Visualizing Data with the Dashboard
-
-To see monitoring data in our interactive dashboard, install the separate dashboard package:
-
-```bash
-pip install cylestio-dashboard
-```
-
-Run it with:
-
-```bash
-cylestio-dashboard
-```
-
-Visit `http://localhost:8501` to access the dashboard.
-
-## Security Reports and Alerts
-
-To view security reports and alerts:
+You can manually send events to the API using the API client:
 
 ```python
-from cylestio_monitor.db import utils as db_utils
+from cylestio_monitor.api_client import send_event_to_api
 
-# Get all security alerts
-alerts = db_utils.get_security_alerts(agent_id="my-project")
+# Send a custom event
+send_event_to_api(
+    agent_id="my-agent",
+    event_type="custom-event",
+    data={
+        "message": "Something interesting happened",
+        "custom_field": "custom value"
+    },
+    channel="CUSTOM",
+    level="info"
+)
+```
 
-# Generate a security summary report
-report = db_utils.generate_security_report(agent_id="my-project", 
-                                          time_period_hours=24)
+## Checking API Endpoint
+
+To check the configured API endpoint:
+
+```python
+from cylestio_monitor import get_api_endpoint
+
+# Get the current API endpoint
+endpoint = get_api_endpoint()
+print(f"Sending events to: {endpoint}")
 ```
 
 ## Disabling Monitoring

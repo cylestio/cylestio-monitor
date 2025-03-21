@@ -112,7 +112,7 @@ class MonitoredRAGAgent:
         # Cylestio Monitor will automatically track all relevant operations
         # Also specify the JSON file path for local monitoring
         log_file_path = os.path.join(os.getcwd(), "output", "cylestio_logs.json")
-        enable_monitoring(agent_id="rag-agent", log_file=log_file_path)
+        enable_monitoring(agent_id="rag-agent", config={"log_file": "output/rag_monitoring.json"})
         
         # Validate environment variables
         anthropic_key = validate_environment()

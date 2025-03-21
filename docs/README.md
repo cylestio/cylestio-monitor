@@ -13,7 +13,7 @@ This directory contains the technical documentation for the Cylestio Monitor SDK
   - [Overview](sdk-reference/overview.md)
   - [Monitor Module](sdk-reference/monitor.md)
   - [Events](sdk-reference/events.md)
-  - [Database](sdk-reference/database.md)
+  - [API Client](sdk-reference/api-client.md)
 
 - **Security**: Security features and best practices
   - [Best Practices](security/best-practices.md)

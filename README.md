@@ -18,6 +18,21 @@ Cylestio Monitor is a Python SDK that provides security and monitoring capabilit
 pip install cylestio-monitor
 ```
 
+### Installation for Example Projects
+
+If you're using one of the example projects in a subdirectory with its own virtual environment:
+
+```bash
+# Navigate to the example directory 
+cd examples/agents/your_agent_dir
+
+# Activate your virtual environment
+source venv/bin/activate  # (or venv\Scripts\activate on Windows)
+
+# Install the Cylestio Monitor from the parent directory in development mode
+pip install -e ../../..
+```
+
 ## Quick Start
 
 ```python
@@ -27,10 +42,13 @@ from anthropic import Anthropic
 # Create your LLM client
 client = Anthropic()
 
-# Enable monitoring
+# Enable monitoring with a remote API endpoint
 enable_monitoring(
     agent_id="my_agent",
-    llm_client=client
+    llm_client=client,
+    config={
+        "api_endpoint": "https://your-api-endpoint.com/events"
+    }
 )
 
 # Use your client as normal
@@ -48,7 +66,7 @@ response = client.messages.create(
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses 
 - **Security monitoring**: Detects and blocks dangerous prompts
 - **Performance tracking**: Monitors call durations and response times
-- **Structured logging**: Events stored in SQLite with optional JSON output
+- **Flexible storage options**: Events can be sent to a remote API endpoint or stored locally in JSON files
 
 ## Security Features
 
@@ -77,7 +95,6 @@ cylestio-monitor/
 ├── src/                       # Source code for the Cylestio Monitor package
 │   └── cylestio_monitor/      # Main package
 │       ├── patchers/          # Framework-specific patchers (Anthropic, MCP, etc.)
-│       ├── db/                # Database management and schema
 │       ├── events/            # Event definitions and processing
 │       ├── config/            # Configuration management
 │       └── utils/             # Utility functions
@@ -92,6 +109,45 @@ cylestio-monitor/
     ├── advanced-topics/       # Advanced usage documentation
     └── sdk-reference/         # API reference documentation
 ```
+
+## Testing
+
+For the MVP release, we focus on testing core functionality while excluding non-critical edge cases. The testing strategy includes:
+
+1. **Core Functionality Tests**: These are critical tests that verify essential features of the monitoring system:
+   - API client functionality
+   - Configuration management
+   - Security features (keyword detection, text normalization)
+   - Monitoring functionality
+   - Patchers for LLM providers (Anthropic, etc.)
+   - Event processing and analysis
+
+2. **Running Critical Tests**:
+   To run only the critical tests needed for the MVP:
+   ```bash
+   python -m pytest tests/test_import.py tests/test_config_manager.py tests/test_api_client.py tests/test_security.py tests/test_monitor.py::test_enable_monitoring_import_error tests/test_patchers_anthropic.py::test_anthropic_patcher_init tests/test_events_processor.py::test_normalize_text -v
+   ```
+
+3. **Test Coverage**:
+   - Critical tests for MVP: ~30 tests
+   - Total test suite: 350+ tests (including edge cases and advanced features)
+
+4. **Running All Tests**:
+   To run the complete test suite (including tests that might fail due to edge cases):
+   ```bash
+   python -m pytest tests/
+   ```
+
+## API Client
+
+The Cylestio Monitor now uses a lightweight REST API client to send telemetry events to a remote endpoint instead of storing them in a local database. This approach offers several advantages:
+
+- **Centralized Event Storage**: All events from different agents can be collected in a central location
+- **Real-time Monitoring**: Events are sent in real-time to the API for immediate analysis
+- **Minimal Storage Requirements**: No local database maintenance required
+- **Scalability**: Easily scale monitoring across multiple agents and applications
+
+The API client can be configured by providing an endpoint URL either through the `api_endpoint` configuration parameter or by setting the `CYLESTIO_API_ENDPOINT` environment variable.
 
 ## Contributing
 

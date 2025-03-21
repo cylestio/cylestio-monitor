@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cylestio-monitor"
-version = "0.1.2"
+version = "0.1.3"
 description = "A monitoring tool for LLM API calls"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-keywords = ["llm", "monitoring", "api", "sqlite", "database", "security", "compliance"]
+keywords = ["llm", "monitoring", "api", "security", "compliance"]
 authors = [
     { name = "Cylestio.com", email = "contact@Cylestio.com" }
 ]
@@ -31,6 +31,7 @@ dependencies = [
     "structlog>=24.1.0",
     "platformdirs>=4.0.0",
     "pyyaml>=6.0.0",
+    "requests>=2.31.0",
     "tomli; python_version < '3.11'",
 ]
 
@@ -43,7 +44,6 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cylestio_monitor"]
-include = ["src/cylestio_monitor/db"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/cylestio_monitor/config/default_config.yaml" = "cylestio_monitor/config/default_config.yaml"

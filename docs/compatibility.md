@@ -46,6 +46,7 @@ Cylestio Monitor also depends on the following libraries:
 | structlog | ≥ 24.1.0 | Structured logging |
 | platformdirs | ≥ 4.0.0 | Platform-specific directory handling |
 | pyyaml | ≥ 6.0.0 | YAML configuration parsing |
+| requests | ≥ 2.31.0 | HTTP requests for API client |
 
 ## Compatibility Testing
 

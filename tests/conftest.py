@@ -1,9 +1,12 @@
 """Pytest configuration file."""
 
 import logging
-from unittest.mock import MagicMock
+import os
+import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
+from cylestio_monitor.api_client import ApiClient
 
 
 @pytest.fixture(autouse=True)
@@ -21,4 +24,54 @@ def mock_llm_client():
     client.__class__.__module__ = "anthropic"
     client.__class__.__name__ = "Anthropic"
     client.messages.create = MagicMock()
+    client.messages.create.__name__ = "create"
+    client.messages.create.__annotations__ = {}
     return client
+
+
+@pytest.fixture
+def mock_api_client():
+    """Fixture that provides a mocked ApiClient instance."""
+    client = MagicMock(spec=ApiClient)
+    client.endpoint = "https://example.com/api/events"
+    client.send_event = MagicMock(return_value=True)
+    
+    with patch("cylestio_monitor.api_client.get_api_client", return_value=client):
+        yield client
+
+
+@pytest.fixture
+def mock_logger():
+    """Fixture that provides a mocked logger instance."""
+    logger = MagicMock()
+    logger.info = MagicMock()
+    logger.debug = MagicMock()
+    logger.warning = MagicMock()
+    logger.error = MagicMock()
+    logger.log = MagicMock()
+    return logger
+
+
+@pytest.fixture
+def mock_platformdirs():
+    """Mock platformdirs to use a temporary directory."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.makedirs(temp_dir, exist_ok=True)
+        with patch("platformdirs.user_data_dir", return_value=temp_dir):
+            yield temp_dir
+
+
+@pytest.fixture
+def mock_requests():
+    """Mock requests library for API client tests."""
+    with patch("cylestio_monitor.api_client.requests") as mock_requests:
+        # Setup the mock response
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.text = "Success"
+        
+        # Setup the mock post method
+        mock_requests.post.return_value = mock_response
+        
+        yield mock_requests

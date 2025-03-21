@@ -66,16 +66,16 @@ data_masking:
       replacement: "[PHONE]"
     # ... and more
 
-# Database settings
-database:
-  # Number of days to keep events before automatic cleanup
-  retention_days: 30
+# API client settings
+api:
+  # API endpoint for sending events
+  endpoint: ""
   
-  # Whether to vacuum the database on startup
-  vacuum_on_startup: true
+  # Request timeout in seconds
+  timeout: 5
   
-  # Maximum database size in MB (0 for unlimited)
-  max_size_mb: 1000
+  # Retry on failure (not yet implemented)
+  retry_enabled: false
 
 # Logging settings
 logging:
@@ -110,7 +110,8 @@ from cylestio_monitor import enable_monitoring
 enable_monitoring(
     agent_id="my_agent",
     llm_client=client,
-    config_overrides={
+    config={
+        "api_endpoint": "https://api.example.com/events",
         "security": {
             "suspicious_keywords": ["custom", "keywords", "here"],
             "dangerous_action": "alert"  # Don't block, just alert
@@ -127,8 +128,8 @@ enable_monitoring(
 Set configuration via environment variables:
 
 ```bash
-# Set retention period to 60 days
-export CYLESTIO_DATABASE_RETENTION_DAYS=60
+# Set API endpoint
+export CYLESTIO_API_ENDPOINT="https://api.example.com/events"
 
 # Disable security monitoring
 export CYLESTIO_SECURITY_ENABLED=false
@@ -151,15 +152,100 @@ The configuration system follows this priority order (highest to lowest):
 To verify your configuration is working as expected:
 
 ```python
-from cylestio_monitor import get_current_config
+from cylestio_monitor import get_api_endpoint
+from cylestio_monitor.config import ConfigManager
 
-# Get the full active configuration
-config = get_current_config()
-print(config)
+# Check API endpoint
+api_endpoint = get_api_endpoint()
+print(f"API endpoint: {api_endpoint}")
 
-# Test a specific security setting
-if config["security"]["enabled"]:
-    print("Security monitoring is enabled")
+# Check other configuration values
+config = ConfigManager()
+print(f"Security enabled: {config.get('security.enabled')}")
+```
+
+## Configuration Reference
+
+### API Client Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `api_endpoint` | string | `""` | URL of the remote API endpoint |
+| `api.timeout` | integer | 5 | Request timeout in seconds |
+
+### Security Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `security.enabled` | boolean | true | Enable or disable security monitoring |
+| `security.suspicious_keywords` | list | [see config] | Keywords that trigger a suspicious flag |
+| `security.dangerous_keywords` | list | [see config] | Keywords that block the request |
+| `security.suspicious_action` | string | "alert" | Action to take for suspicious content: "alert", "block", or "log" |
+| `security.dangerous_action` | string | "block" | Action to take for dangerous content: "block", "alert", or "log" |
+
+### Data Masking Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `data_masking.enabled` | boolean | true | Enable or disable data masking |
+| `data_masking.patterns` | list | [see config] | Patterns to mask in logs and stored data |
+
+### Logging Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `logging.level` | string | "INFO" | Log level for SDK operations |
+| `logging.include_timestamp` | boolean | true | Whether to include timestamps in logs |
+| `logging.include_agent_id` | boolean | true | Whether to include agent_id in logs |
+| `logging.console_format` | string | "text" | Format for console logs: "text" or "json" |
+| `log_file` | string | null | Path to output JSON log file |
+
+## Environment Variables
+
+| Environment Variable | Configuration Parameter |
+|----------------------|-------------------------|
+| `CYLESTIO_API_ENDPOINT` | API endpoint URL |
+| `CYLESTIO_SECURITY_ENABLED` | `security.enabled` |
+| `CYLESTIO_SECURITY_SUSPICIOUS_KEYWORDS` | `security.suspicious_keywords` (comma-separated) |
+| `CYLESTIO_SECURITY_DANGEROUS_KEYWORDS` | `security.dangerous_keywords` (comma-separated) |
+| `CYLESTIO_SECURITY_SUSPICIOUS_ACTION` | `security.suspicious_action` |
+| `CYLESTIO_SECURITY_DANGEROUS_ACTION` | `security.dangerous_action` |
+| `CYLESTIO_LOG_FILE` | Path to output JSON log file |
+| `CYLESTIO_LOG_LEVEL` | `logging.level` |
+
+## Example Configuration File
+
+Here's a complete example configuration file:
+
+```yaml
+security:
+  enabled: true
+  suspicious_keywords:
+    - "hack"
+    - "exploit"
+    - "vulnerability"
+  dangerous_keywords:
+    - "sql injection"
+    - "ignore all instructions"
+  suspicious_action: "alert"
+  dangerous_action: "block"
+
+data_masking:
+  enabled: true
+  patterns:
+    - name: "credit_card"
+      regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
+      replacement: "[CREDIT_CARD]"
+
+api:
+  endpoint: "https://api.example.com/events"
+  timeout: 10
+
+logging:
+  level: "INFO"
+  include_timestamp: true
+  include_agent_id: true
+  console_format: "text"
 ```
 
 ## Next Steps

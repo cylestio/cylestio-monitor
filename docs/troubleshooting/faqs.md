@@ -33,24 +33,30 @@ Yes, Cylestio Monitor is designed for production use. However, as with any monit
 Cylestio Monitor requires:
 
 - Python 3.11 or higher
-- SQLite 3.35.0 or higher (for JSON1 extension support)
-- Sufficient disk space for the SQLite database and JSON logs (if enabled)
+- Requests library for API communication
+- Sufficient disk space for JSON logs (if enabled)
 
-### Where is the SQLite database stored?
+### Where are monitoring events sent?
 
-The database file is stored in an OS-specific location determined by the `platformdirs` library:
+Events are sent to a remote API endpoint specified in your configuration. This allows for centralized collection and analysis of monitoring data from multiple agents and applications.
 
-- **Windows**: `C:\Users\<username>\AppData\Local\cylestio\cylestio-monitor\cylestio_monitor.db`
-- **macOS**: `~/Library/Application Support/cylestio-monitor/cylestio_monitor.db`
-- **Linux**: `~/.local/share/cylestio-monitor/cylestio_monitor.db`
+### Can I change the API endpoint?
 
-### Can I change the database location?
-
-Yes, you can change the database location by setting the `CYLESTIO_DB_PATH` environment variable:
+Yes, you can change the API endpoint in several ways:
 
 ```python
+# Method 1: Using environment variables
 import os
-os.environ["CYLESTIO_DB_PATH"] = "/path/to/custom/location/cylestio_monitor.db"
+os.environ["CYLESTIO_API_ENDPOINT"] = "https://api.example.com/events"
+
+# Method 2: Using configuration when enabling monitoring
+from cylestio_monitor import enable_monitoring
+enable_monitoring(
+    agent_id="my_agent",
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
+)
 ```
 
 ### How do I enable monitoring for my LLM client?
@@ -67,7 +73,10 @@ client = Anthropic()
 # Enable monitoring
 enable_monitoring(
     agent_id="my_agent",
-    llm_client=client
+    llm_client=client,
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
 )
 ```
 
@@ -80,7 +89,12 @@ from cylestio_monitor import enable_monitoring
 from mcp import ClientSession
 
 # Enable monitoring
-enable_monitoring(agent_id="mcp-project")
+enable_monitoring(
+    agent_id="mcp-project",
+    config={
+        "api_endpoint": "https://api.example.com/events"
+    }
+)
 
 # Create and use your MCP client as normal
 session = ClientSession(stdio, write)
@@ -123,7 +137,7 @@ security:
 
 ### Can I use a different logging format?
 
-Currently, Cylestio Monitor uses a fixed JSON format for logging. However, you can process the logs in any way you want after they're written to the database or JSON file.
+Currently, Cylestio Monitor uses a fixed JSON format for logging. However, you can process the logs in any way you want after they're sent to the API endpoint or written to the JSON file.
 
 ### How do I configure log rotation?
 
@@ -138,64 +152,134 @@ logging:
 
 ## Usage
 
-### How do I query the database for events?
+### What happens if the API endpoint is unavailable?
 
-You can query the database using the utility functions in the `db.utils` module:
+Cylestio Monitor is designed to handle API endpoint failures gracefully. If the API endpoint is unavailable:
 
-```python
-from cylestio_monitor.db import utils as db_utils
+1. The error is logged to your application logs
+2. If file logging is enabled, events will still be written to the JSON log file
+3. Your application continues to run without interruption
 
-# Get recent events
-events = db_utils.get_recent_events(agent_id="my-project", limit=10)
+### How do I manually send events to the API?
 
-# Get events by type
-llm_events = db_utils.get_events_by_type("LLM_call_start", agent_id="my-project")
-
-# Get events from the last 24 hours
-recent_events = db_utils.get_events_last_hours(24, agent_id="my-project")
-```
-
-### How do I log custom events?
-
-You can log custom events using the `log_event` function:
+You can manually send events using the API client:
 
 ```python
-from cylestio_monitor import log_event
+from cylestio_monitor.api_client import send_event_to_api
 
-# Log a custom event
-log_event(
-    event_type="custom_event",
-    data={"key": "value"},
+# Send a custom event
+send_event_to_api(
+    agent_id="my-agent",
+    event_type="custom-event",
+    data={
+        "message": "Something interesting happened",
+        "custom_field": "custom value"
+    },
     channel="CUSTOM",
     level="info"
 )
 ```
 
-### How do I monitor a custom function?
+### How do I check if events are being sent successfully?
 
-You can monitor a custom function using the `monitor_call` decorator:
+You can check the status of event transmission in your application logs. Look for log entries from the `cylestio_monitor.api_client` logger:
 
-```python
-from cylestio_monitor.events_listener import monitor_call
-
-# Original function
-def my_function(arg1, arg2):
-    return arg1 + arg2
-
-# Patched function
-my_function = monitor_call(my_function, "CUSTOM")
+```
+2023-03-20 12:34:56 - cylestio_monitor.api_client - DEBUG - Event sent to API endpoint: https://api.example.com/events
 ```
 
-### How do I clean up old events?
+Or errors, if there are any:
 
-You can clean up old events using the `cleanup_old_events` function:
-
-```python
-from cylestio_monitor import cleanup_old_events
-
-# Delete events older than 30 days
-deleted_count = cleanup_old_events(days=30)
 ```
+2023-03-20 12:34:56 - cylestio_monitor.api_client - ERROR - Failed to send event to API: 500 - Internal Server Error
+```
+
+### Does Cylestio Monitor handle sensitive data securely?
+
+Cylestio Monitor includes a data masking system that can automatically redact sensitive information like credit card numbers, social security numbers, and other PII before sending the data to the API endpoint. You can configure data masking patterns in the configuration file.
+
+### Can I implement custom API authentication?
+
+The current version of Cylestio Monitor does not include built-in authentication for the API endpoint. If your API requires authentication, consider:
+
+1. Setting up a service that accepts unauthenticated requests from Cylestio Monitor and then forwards them to your authenticated API
+2. Using an API endpoint that supports IP-based restrictions
+3. Using an API gateway with API keys
+4. Implementing a custom client by extending the `ApiClient` class
+
+### How do I handle high-volume monitoring?
+
+For high-volume applications, consider:
+
+1. Setting up a scalable API endpoint that can handle the load
+2. Using a queue or buffer service
+3. Sampling or filtering events before sending them
+4. Setting up local JSON file logging as a backup
+
+## Technical Details
+
+### What is the format of the events sent to the API?
+
+Events are sent as JSON objects with the following structure:
+
+```json
+{
+  "timestamp": "2023-03-20T12:34:56.789Z",
+  "agent_id": "my-agent",
+  "event_type": "llm_request",
+  "channel": "LLM",
+  "level": "INFO",
+  "data": {
+    "prompt": "Tell me about AI monitoring",
+    "model": "claude-3-opus-20240229"
+  },
+  "direction": "outgoing"
+}
+```
+
+### Can I use Cylestio Monitor with serverless functions?
+
+Yes, Cylestio Monitor can be used with serverless functions. However, keep in mind:
+
+1. Cold starts might introduce delays in the first event transmission
+2. API endpoint configuration should be done with each function invocation
+3. You may want to increase the timeout for API requests in high-latency environments
+
+### Can I use Cylestio Monitor with Docker?
+
+Yes, you can use Cylestio Monitor with Docker. Make sure your Dockerfile includes the necessary dependencies:
+
+```dockerfile
+FROM python:3.11
+
+# Install Cylestio Monitor
+RUN pip install cylestio-monitor requests
+
+# Set API endpoint
+ENV CYLESTIO_API_ENDPOINT="https://api.example.com/events"
+
+# ... rest of your Dockerfile
+```
+
+### How does Cylestio Monitor handle request failures?
+
+Cylestio Monitor handles request failures by:
+
+1. Logging the error for debugging
+2. Returning control to your application without blocking
+3. Ensuring your application's performance isn't affected by monitoring issues
+4. Attempting to log to file if API endpoint is unavailable and file logging is enabled
+
+### What's the overhead of using Cylestio Monitor?
+
+Cylestio Monitor is designed to be lightweight. The overhead includes:
+
+1. HTTP request time to the API endpoint (async, non-blocking)
+2. JSON serialization of event data
+3. Basic security scanning of prompts and responses
+4. Optional file I/O for JSON logging
+
+Most operations complete in milliseconds and shouldn't noticeably impact your application's performance.
 
 ## Security
 
