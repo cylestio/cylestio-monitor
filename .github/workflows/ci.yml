@@ -38,9 +38,10 @@ jobs:
         pip list
         echo "Verifying langchain imports..."
         python -c "import langchain; import langchain_core; print('Langchain imports successful')"
-        # Test that our dependency handling in test files works
-        echo "Testing collection of problematic test files..."
-        python -c "import sys; sys.path.insert(0, '.'); from tests.test_events_processor import DBManager; from tests.test_patchers_anthropic import MockBaseCallbackHandler; print('Mock imports successful')"
+        
+        # Run our verification script
+        echo "Running mock module verification script..."
+        python tests/ci_verify.py
         
     - name: Run linters and formatters
       run: |
@@ -65,11 +66,15 @@ jobs:
         echo "Running CI setup script..."
         python tests/ci_setup.py
         
-        # Run tests with verbose output
-        echo "Running tests..."
+        # First test just the core library code without problematic tests
+        echo "Testing core library functionality..."
+        python -m pytest -v --cov=src --cov-report=xml --cov-report=term-missing src/
+        
+        # Try running the full test suite with all mocks in place
+        echo "Running full test suite..."
         python -m pytest -v --cov=src --cov-report=xml --cov-report=term-missing || true
         
-        # Try running specific tests to see which ones pass
+        # Ensure we have at least basic test coverage by running safe tests
         echo "Running safe tests only..."
         python -m pytest -v --cov=src --cov-report=xml --cov-report=term-missing -k "not test_events_processor and not test_patchers_anthropic"
       continue-on-error: true
