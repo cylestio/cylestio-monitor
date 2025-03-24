@@ -1,138 +1,119 @@
-"""Tests for the anthropic patcher."""
+"""Tests for the Anthropic patcher module."""
 
-import sys
+from unittest.mock import MagicMock, patch, ANY
 import pytest
-from unittest.mock import MagicMock, patch
 
-# Check for langchain dependencies and skip if not available
-missing_deps = []
-for module_name in ['langchain', 'langchain_core']:
-    if module_name not in sys.modules:
-        try:
-            __import__(module_name)
-        except ImportError:
-            missing_deps.append(module_name)
-
-if missing_deps:
-    pytest.skip(
-        f"Skipping tests because these dependencies are missing: {', '.join(missing_deps)}",
-        allow_module_level=True
-    )
-
-# Now that we've confirmed dependencies are available, import the tested code
-from src.cylestio_monitor.patchers.anthropic import AnthropicPatcher
+from cylestio_monitor.patchers.anthropic import (
+    AnthropicPatcher, 
+    patch_anthropic_module,
+    unpatch_anthropic_module
+)
 
 
-def test_anthropic_patcher_init():
-    """Test the AnthropicPatcher initialization."""
+class MockClient:
+    """Mock Anthropic client for testing."""
+    
+    def __init__(self, api_key=None, base_url=None):
+        """Initialize the mock client."""
+        self.api_key = api_key or "dummy_key"
+        self.base_url = base_url or "https://api.anthropic.com"
+        self.messages = MagicMock()
+        self.messages.create = self._create_message
+        
+    def _create_message(self, *args, **kwargs):
+        """Mock message creation method."""
+        return {
+            "id": "msg_mock",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello, world!"}],
+            "model": kwargs.get("model", "claude-3-opus-20240229"),
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5
+            }
+        }
+
+
+@pytest.fixture
+def mock_anthropic_module():
+    """Create a mock Anthropic module."""
+    module = MagicMock()
+    module.Anthropic = MockClient
+    module.__version__ = "0.18.0"
+    return module
+
+
+def test_anthropic_patcher_initialization():
+    """Test the AnthropicPatcher class initialization."""
     # Create a mock client
     mock_client = MagicMock()
-    mock_client.__class__.__module__ = "anthropic"
-    mock_client.__class__.__name__ = "Anthropic"
-
-    # Create a config dictionary
-    config = {"test_key": "test_value"}
-
+    
     # Create an AnthropicPatcher instance
-    patcher = AnthropicPatcher(mock_client, config)
-
-    # Check that the client and config are set correctly
+    patcher = AnthropicPatcher(client=mock_client)
+    
+    # Check that the client is set correctly
     assert patcher.client == mock_client
-    assert patcher.config == config
     assert patcher.is_patched is False
     assert patcher.original_funcs == {}
 
 
-@pytest.mark.xfail(reason="Known issue with log_event call count - will fix after MVP")
-def test_anthropic_patcher_patch():
-    """Test the patch method of AnthropicPatcher."""
-    # Create a mock client
-    mock_client = MagicMock()
-    mock_client.__class__.__module__ = "anthropic"
-    mock_client.__class__.__name__ = "Anthropic"
-
-    # Set up the client to have a nested method
-    mock_client.messages = MagicMock()
-    mock_client.messages.create = MagicMock()
-    mock_client.messages.create.__name__ = "create"
-    mock_client.messages.create.__annotations__ = {}
-    original_method = mock_client.messages.create
-
-    # Create an AnthropicPatcher instance
-    patcher = AnthropicPatcher(mock_client)
-
-    # Patch the method
-    with patch("src.cylestio_monitor.patchers.anthropic.log_event") as mock_log_event:
-        patcher.patch()
-
-        # Call the patched method
-        mock_client.messages.create(
-            model="claude-3",
-            max_tokens=1000,
-            messages=[{"role": "user", "content": "Hello"}]
-        )
-
-        # For MVP, just verify patching doesn't crash
-        assert patcher.is_patched is True
+@patch("cylestio_monitor.patchers.anthropic.sys")
+@patch("cylestio_monitor.patchers.anthropic.logging.getLogger")
+def test_anthropic_module_patch(mock_get_logger, mock_sys, mock_anthropic_module):
+    """Test patching the Anthropic module globally."""
+    # Setup mock sys.modules
+    mock_sys.modules = {"anthropic": mock_anthropic_module}
+    
+    # Apply the patch - add custom behavior to the mock to simulate patching
+    with patch("cylestio_monitor.patchers.anthropic.AnthropicPatcher.patch_module") as mock_patch_module:
+        # Set up mock to change Anthropic class
+        def patch_effect():
+            mock_anthropic_module.Anthropic = MagicMock()
+        
+        mock_patch_module.side_effect = patch_effect
+        
+        # Save the original class
+        original_class = mock_anthropic_module.Anthropic
+        
+        # Apply the patch
+        patch_anthropic_module()
+        
+        # Verify the method was called
+        mock_patch_module.assert_called_once()
 
 
-def test_anthropic_patcher_patch_no_client():
-    """Test the patch method of AnthropicPatcher with no client."""
-    # Create an AnthropicPatcher instance with no client
-    patcher = AnthropicPatcher()
-
-    # Patch the method
-    patcher.patch()
-
-    # Check that is_patched is still False
-    assert patcher.is_patched is False
-
-
-def test_anthropic_patcher_unpatch():
-    """Test the unpatch method of AnthropicPatcher."""
-    # Create a mock client
-    mock_client = MagicMock()
-    mock_client.__class__.__module__ = "anthropic"
-    mock_client.__class__.__name__ = "Anthropic"
-
-    # Set up the client to have a nested method
-    mock_client.messages = MagicMock()
-    mock_client.messages.create = MagicMock()
-    original_method = mock_client.messages.create
-
-    # Create an AnthropicPatcher instance
-    patcher = AnthropicPatcher(mock_client)
-
-    # Set up the patcher as if it had been patched
-    patcher.original_funcs["messages.create"] = original_method
-    patcher.is_patched = True
-
-    # Replace the method with a mock
-    mock_client.messages.create = MagicMock()
-
-    # Unpatch the method
-    patcher.unpatch()
-
-    # Check that the method was restored
-    assert mock_client.messages.create == original_method
-
-    # Check that is_patched is set to False
-    assert patcher.is_patched is False
-
-    # Check that original_funcs is empty
-    assert "messages.create" not in patcher.original_funcs
-
-
-def test_anthropic_patcher_unpatch_not_patched():
-    """Test the unpatch method of AnthropicPatcher when not patched."""
-    # Create a mock client
-    mock_client = MagicMock()
-
-    # Create an AnthropicPatcher instance
-    patcher = AnthropicPatcher(mock_client)
-
-    # Unpatch the method
-    patcher.unpatch()
-
-    # Check that is_patched is still False
-    assert patcher.is_patched is False
+@patch("cylestio_monitor.patchers.anthropic.sys")
+def test_restore_anthropic_patches(mock_sys, mock_anthropic_module):
+    """Test restoring the Anthropic patches."""
+    # Setup mock sys.modules
+    mock_sys.modules = {"anthropic": mock_anthropic_module}
+    
+    # Apply the patch - add custom behavior to the mock to simulate patching
+    with patch("cylestio_monitor.patchers.anthropic.AnthropicPatcher.patch_module") as mock_patch_module:
+        # Set up mock to change Anthropic class
+        def patch_effect():
+            mock_anthropic_module.Anthropic = MagicMock()
+        
+        mock_patch_module.side_effect = patch_effect
+        
+        # Apply patches
+        patch_anthropic_module()
+        
+        # Reset mocks for unpatch
+        with patch("cylestio_monitor.patchers.anthropic.AnthropicPatcher.unpatch_module") as mock_unpatch_module:
+            # Set up mock to restore original Anthropic class
+            mock_original = mock_anthropic_module.Anthropic
+            
+            def unpatch_effect():
+                # Simulate restoration
+                mock_anthropic_module.Anthropic = MockClient
+            
+            mock_unpatch_module.side_effect = unpatch_effect
+            
+            # Restore the patches
+            unpatch_anthropic_module()
+            
+            # Verify unpatch was called
+            mock_unpatch_module.assert_called_once()

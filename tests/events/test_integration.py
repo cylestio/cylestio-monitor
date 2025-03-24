@@ -120,8 +120,12 @@ class TestEventConversionPipeline(unittest.TestCase):
         
         # Check that the data passed to send_event_to_api is a dictionary
         self.assertIsInstance(kwargs["data"], dict)
-        self.assertIn("event_category", kwargs["data"])
-        self.assertEqual(kwargs["data"]["event_category"], "llm_request")
+        # The "event_category" field is no longer used
+        # Instead, check for other key fields that should be present in the new schema
+        self.assertIn("llm_type", kwargs["data"])
+        self.assertIn("model", kwargs["data"])
+        self.assertIn("prompts", kwargs["data"])
+        self.assertIn("run_id", kwargs["data"])
     
     def test_end_to_end_conversion(self):
         """Test the complete end-to-end conversion process."""

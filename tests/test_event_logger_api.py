@@ -55,12 +55,16 @@ class TestEventLoggerWithApi(unittest.TestCase):
 
     @patch("cylestio_monitor.event_logger.log_to_file")
     @patch("cylestio_monitor.api_client.requests.post")
-    def test_process_and_log_event(self, mock_post, mock_log_to_file):
+    @patch("cylestio_monitor.event_logger.config_manager")
+    def test_process_and_log_event(self, mock_config_manager, mock_post, mock_log_to_file):
         """Test that process_and_log_event function logs to both file and API."""
         # Set up mock response
         mock_response = MagicMock()
         mock_response.ok = True
         mock_post.return_value = mock_response
+        
+        # Configure the config manager to return a log file path
+        mock_config_manager.get.return_value = "test_log_file.json"
         
         # Call the process_and_log_event function
         process_and_log_event(
@@ -80,10 +84,14 @@ class TestEventLoggerWithApi(unittest.TestCase):
         # Get the API call arguments
         args, kwargs = mock_post.call_args
         
-        # Assert the event properties
+        # Assert API endpoint
+        self.assertEqual(args[0], "https://example.com/api/events")  # Default endpoint
+        
+        # Assert API payload
         self.assertEqual(kwargs["json"]["agent_id"], "test-agent")
         self.assertEqual(kwargs["json"]["event_type"], "test-event")
-        self.assertEqual(kwargs["json"]["data"], {"foo": "bar", "session_id": kwargs["json"]["data"]["session_id"], "conversation_id": kwargs["json"]["data"]["conversation_id"]})
+        self.assertEqual(kwargs["json"]["channel"], "TEST")
+        self.assertEqual(kwargs["json"]["level"], "INFO")
 
     @patch("cylestio_monitor.api_client.requests.post")
     def test_session_and_conversation_tracking(self, mock_post):

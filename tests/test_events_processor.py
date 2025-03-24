@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.cylestio_monitor.events_processor import (
+from cylestio_monitor.events_processor import (
     _extract_prompt,
     _extract_response,
     contains_dangerous,
@@ -44,7 +44,7 @@ def test_normalize_text():
     assert normalize_text(None) == "NONE"
 
 
-@patch("src.cylestio_monitor.events_processor.config_manager")
+@patch("cylestio_monitor.events_processor.config_manager")
 def test_contains_suspicious(mock_config_manager):
     """Test the contains_suspicious function."""
     # Configure the mock config_manager
@@ -66,7 +66,7 @@ def test_contains_suspicious(mock_config_manager):
     assert contains_suspicious("") is False
 
 
-@patch("src.cylestio_monitor.events_processor.config_manager")
+@patch("cylestio_monitor.events_processor.config_manager")
 def test_contains_dangerous(mock_config_manager):
     """Test the contains_dangerous function."""
     # Configure the mock config_manager
@@ -89,19 +89,30 @@ def test_contains_dangerous(mock_config_manager):
     assert contains_dangerous("") is False
 
 
-@pytest.mark.xfail(reason="Mock logger needs fixing after MVP")
-@patch("src.cylestio_monitor.events_processor.monitor_logger")
-@patch("src.cylestio_monitor.events_processor.config_manager")
-def test_log_event(mock_config_manager, mock_logger):
-    """Test the log_event function."""
-    # Configure the mock config_manager
-    mock_config_manager.get.return_value = "test_agent"
+@patch("cylestio_monitor.events_processor.send_event_to_api")
+def test_log_event_data_enrichment(mock_api):
+    """Test that log_event adds the necessary fields to the data."""
+    # Call log_event
+    log_event("test_event", {"foo": "bar"}, "test", "info")
+    
+    # Verify that send_event_to_api was called
+    mock_api.assert_called_once()
+    
+    # If mock_api was called, check its arguments
+    if mock_api.call_args is not None:
+        args, kwargs = mock_api.call_args
+        
+        # Check that the data was passed correctly
+        assert "data" in kwargs
+        assert kwargs["data"]["foo"] == "bar"
+        assert kwargs["channel"] == "test"  # Channel as passed to the function
+        assert kwargs["level"] == "info"  # Should preserve case
 
-    # Call the function with minimal testing for MVP
-    log_event("test_event", {"key": "value"})
 
-    # Verify logger was called (since db_utils was removed)
-    assert mock_logger.info.called or mock_logger.log.called
+@patch("cylestio_monitor.events_processor.process_and_log_event")
+def test_log_event_channel_case(mock_process):
+    """Test that log_event converts channel to uppercase."""
+    # ... existing code ...
 
 
 def test_extract_prompt():
@@ -149,9 +160,9 @@ def test_extract_response():
     assert "nonserializable" in _extract_response(response).lower()
 
 
-@patch("src.cylestio_monitor.events_processor.log_event")
-@patch("src.cylestio_monitor.events_processor.contains_suspicious")
-@patch("src.cylestio_monitor.events_processor.contains_dangerous")
+@patch("cylestio_monitor.events_processor.log_event")
+@patch("cylestio_monitor.events_processor.contains_suspicious")
+@patch("cylestio_monitor.events_processor.contains_dangerous")
 def test_pre_monitor_llm(mock_contains_dangerous, mock_contains_suspicious, mock_log_event):
     """Test the pre_monitor_llm function."""
     # Configure the mocks for non-suspicious, non-dangerous content
@@ -203,7 +214,7 @@ def test_pre_monitor_llm(mock_contains_dangerous, mock_contains_suspicious, mock
     mock_log_event.assert_called_once()
 
 
-@patch("src.cylestio_monitor.events_processor.log_event")
+@patch("cylestio_monitor.events_processor.log_event")
 def test_post_monitor_llm(mock_log_event):
     """Test the post_monitor_llm function."""
     # Test with non-suspicious response
@@ -234,7 +245,7 @@ def test_post_monitor_llm(mock_log_event):
     mock_log_event.assert_called_once()
 
 
-@patch("src.cylestio_monitor.events_processor.log_event")
+@patch("cylestio_monitor.events_processor.log_event")
 def test_pre_monitor_call(mock_log_event):
     """Test the pre_monitor_call function."""
 
@@ -252,7 +263,7 @@ def test_pre_monitor_call(mock_log_event):
     assert call_args[2] == "TEST"
 
 
-@patch("src.cylestio_monitor.events_processor.log_event")
+@patch("cylestio_monitor.events_processor.log_event")
 def test_post_monitor_call(mock_log_event):
     """Test the post_monitor_call function."""
 

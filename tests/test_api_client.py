@@ -31,8 +31,13 @@ class TestApiClient(unittest.TestCase):
 
     def test_api_client_init_without_endpoint(self):
         """Test initializing the API client without an endpoint."""
+        # Clear any existing environment variables
+        if "CYLESTIO_API_ENDPOINT" in os.environ:
+            del os.environ["CYLESTIO_API_ENDPOINT"]
+            
         client = ApiClient()
-        self.assertIsNone(client.endpoint)
+        # Default local endpoint is now expected instead of None
+        self.assertEqual(client.endpoint, "http://127.0.0.1:8000/")
 
     @patch("cylestio_monitor.api_client.requests.post")
     def test_send_event_success(self, mock_post):
