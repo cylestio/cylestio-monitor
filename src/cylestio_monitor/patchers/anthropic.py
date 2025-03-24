@@ -5,20 +5,30 @@ import inspect
 import logging
 import traceback
 import json
+import sys
 from typing import Any, Dict, Optional
 
-from anthropic import Anthropic
+# Try to import Anthropic but don't fail if not available
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 from ..events_processor import log_event
 from .base import BasePatcher
 
 # Track patched clients to prevent duplicate patching
 _patched_clients = set()
+_is_module_patched = False
+
+# Store original methods for restoration
+_original_methods = {}
 
 class AnthropicPatcher(BasePatcher):
     """Patcher for monitoring Anthropic API calls."""
 
-    def __init__(self, client: Optional[Anthropic] = None, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, client: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
         """Initialize Anthropic patcher.
 
         Args:
@@ -33,7 +43,7 @@ class AnthropicPatcher(BasePatcher):
     def patch(self) -> None:
         """Apply monitoring patches to Anthropic client."""
         if not self.client:
-            self.logger.warning("No Anthropic client provided, skipping patch")
+            self.logger.warning("No Anthropic client provided, skipping instance patch")
             return
 
         # Check if this client is already patched
@@ -202,3 +212,82 @@ class AnthropicPatcher(BasePatcher):
             _patched_clients.discard(id(self.client))
 
         self.logger.info("Removed Anthropic monitoring patches")
+
+    @classmethod
+    def patch_module(cls) -> None:
+        """Apply global patches to the Anthropic module.
+        
+        This enables automatic patching of all Anthropic clients created after
+        this method is called, without requiring explicit passing to enable_monitoring.
+        """
+        global _is_module_patched, _original_methods
+        
+        logger = logging.getLogger("CylestioMonitor.Anthropic")
+        
+        if _is_module_patched:
+            logger.debug("Anthropic module already patched")
+            return
+        
+        if not ANTHROPIC_AVAILABLE:
+            logger.debug("Anthropic module not available, skipping module patch")
+            return
+        
+        try:
+            # Patch the Anthropic class constructor
+            original_init = Anthropic.__init__
+            
+            @functools.wraps(original_init)
+            def patched_init(self, *args, **kwargs):
+                # Call original init
+                original_init(self, *args, **kwargs)
+                
+                # Automatically patch this instance
+                logger.debug("Auto-patching new Anthropic instance")
+                patcher = AnthropicPatcher(client=self)
+                patcher.patch()
+            
+            # Save original method for later restoration
+            _original_methods['Anthropic.__init__'] = original_init
+            
+            # Apply the patched init
+            Anthropic.__init__ = patched_init
+            
+            _is_module_patched = True
+            logger.info("Applied global Anthropic module patches")
+            
+        except Exception as e:
+            logger.error(f"Failed to apply global Anthropic patches: {e}")
+
+    @classmethod
+    def unpatch_module(cls) -> None:
+        """Remove global patches from the Anthropic module."""
+        global _is_module_patched
+        
+        logger = logging.getLogger("CylestioMonitor.Anthropic")
+        
+        if not _is_module_patched:
+            return
+        
+        if not ANTHROPIC_AVAILABLE:
+            return
+        
+        try:
+            # Restore original methods
+            if 'Anthropic.__init__' in _original_methods:
+                Anthropic.__init__ = _original_methods['Anthropic.__init__']
+                del _original_methods['Anthropic.__init__']
+            
+            _is_module_patched = False
+            logger.info("Removed global Anthropic module patches")
+            
+        except Exception as e:
+            logger.error(f"Failed to remove global Anthropic patches: {e}")
+
+# Simplified functions for use from outside the class
+def patch_anthropic_module():
+    """Apply global patches to the Anthropic module."""
+    AnthropicPatcher.patch_module()
+
+def unpatch_anthropic_module():
+    """Remove global patches from the Anthropic module."""
+    AnthropicPatcher.unpatch_module()
