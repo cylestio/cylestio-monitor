@@ -1,12 +1,16 @@
-"""Tests for the anthropic patcher module."""
+"""Tests for the anthropic patcher."""
 
 import pytest
 
-# Skip these tests when the required dependencies aren't available
-pytest.importorskip("langchain", reason="langchain is not installed")
-pytest.importorskip("langchain_core", reason="langchain_core is not installed")
+# Skip this test module if langchain dependencies are not available
+try:
+    import langchain_core
+    import langchain
+except ImportError:
+    pytest.skip("Langchain dependencies not available", allow_module_level=True)
 
 from unittest.mock import MagicMock, patch
+
 from src.cylestio_monitor.patchers.anthropic import AnthropicPatcher
 
 
@@ -37,28 +41,28 @@ def test_anthropic_patcher_patch():
     mock_client = MagicMock()
     mock_client.__class__.__module__ = "anthropic"
     mock_client.__class__.__name__ = "Anthropic"
-    
+
     # Set up the client to have a nested method
     mock_client.messages = MagicMock()
     mock_client.messages.create = MagicMock()
     mock_client.messages.create.__name__ = "create"
     mock_client.messages.create.__annotations__ = {}
     original_method = mock_client.messages.create
-    
+
     # Create an AnthropicPatcher instance
     patcher = AnthropicPatcher(mock_client)
-    
+
     # Patch the method
     with patch("src.cylestio_monitor.patchers.anthropic.log_event") as mock_log_event:
         patcher.patch()
-        
+
         # Call the patched method
         mock_client.messages.create(
             model="claude-3",
             max_tokens=1000,
             messages=[{"role": "user", "content": "Hello"}]
         )
-        
+
         # For MVP, just verify patching doesn't crash
         assert patcher.is_patched is True
 
