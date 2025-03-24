@@ -279,6 +279,21 @@ def disable_monitoring() -> None:
     """
     logger.info("Disabling Cylestio monitoring")
     
+    # Get agent_id from configuration
+    config_manager = ConfigManager()
+    agent_id = config_manager.get("monitoring.agent_id")
+    
+    # Log the monitoring finish event before unpatching everything
+    if agent_id:
+        process_and_log_event(
+            agent_id=agent_id,
+            event_type="monitor_finish",
+            data={
+                "timestamp": datetime.now().isoformat(),
+            },
+            channel="SYSTEM"
+        )
+    
     # Try to unpatch module-level patches
     try:
         # Unpatch Anthropic module
