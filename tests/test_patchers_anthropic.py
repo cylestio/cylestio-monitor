@@ -1,16 +1,25 @@
 """Tests for the anthropic patcher."""
 
+import sys
 import pytest
-
-# Skip this test module if langchain dependencies are not available
-try:
-    import langchain_core
-    import langchain
-except ImportError:
-    pytest.skip("Langchain dependencies not available", allow_module_level=True)
-
 from unittest.mock import MagicMock, patch
 
+# Check for langchain dependencies and skip if not available
+missing_deps = []
+for module_name in ['langchain', 'langchain_core']:
+    if module_name not in sys.modules:
+        try:
+            __import__(module_name)
+        except ImportError:
+            missing_deps.append(module_name)
+
+if missing_deps:
+    pytest.skip(
+        f"Skipping tests because these dependencies are missing: {', '.join(missing_deps)}",
+        allow_module_level=True
+    )
+
+# Now that we've confirmed dependencies are available, import the tested code
 from src.cylestio_monitor.patchers.anthropic import AnthropicPatcher
 
 
