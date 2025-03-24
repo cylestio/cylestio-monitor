@@ -1,20 +1,31 @@
-"""Tests for the Cylestio Monitor SDK."""
+"""
+Sitecustomize module for Python
 
-# This code runs when the tests package is imported, before any test runs
+This module is automatically imported by Python when it starts.
+We use it to set up our mock modules before any other imports happen.
+"""
+
 import sys
 import types
-import os
 import logging
+import os
 
-# Set up logging for debugging
+# Skip in development environments
+if os.environ.get('CYLESTIO_DEV_ENV') == 'local':
+    # Don't apply mocks in local dev environment
+    print("Skipping mock setup in local development environment")
+    sys.exit(0)
+
+# Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("tests")
+logger = logging.getLogger("sitecustomize")
 
-# Setup mock db modules
+logger.info("Initializing mock modules for CI environment")
+
+# Create and register mock DB modules
 def setup_mock_db():
-    """Set up mock DB modules to prevent import errors."""
+    """Set up mock DB modules."""
     if 'cylestio_monitor.db' not in sys.modules:
-        logger.info("Creating mock DB modules")
         db_module = types.ModuleType('cylestio_monitor.db')
         sys.modules['cylestio_monitor.db'] = db_module
         
@@ -24,45 +35,46 @@ def setup_mock_db():
             def __init__(self):
                 pass
             def _get_connection(self):
-                pass
+                return None
         
         db_manager_module.DBManager = DBManager
         sys.modules['cylestio_monitor.db.db_manager'] = db_manager_module
         
         db_utils_module = types.ModuleType('cylestio_monitor.db.utils')
-        db_utils_module.log_to_db = lambda *args, **kwargs: None
+        
+        def log_to_db(*args, **kwargs):
+            return None
+        
+        db_utils_module.log_to_db = log_to_db
         sys.modules['cylestio_monitor.db.utils'] = db_utils_module
 
-# Setup mock langchain modules
+# Create and register mock langchain modules
 def setup_mock_langchain():
-    """Set up mock langchain modules to prevent import errors."""
+    """Set up mock langchain modules."""
     for module_name in ['langchain', 'langchain_core']:
         if module_name not in sys.modules:
-            logger.info(f"Creating mock {module_name} module")
-            # Create base module
+            # Create the base module
             base_module = types.ModuleType(module_name)
             sys.modules[module_name] = base_module
             
-            # Create callbacks submodule
-            callbacks_name = f"{module_name}.callbacks"
-            callbacks_module = types.ModuleType(callbacks_name)
-            sys.modules[callbacks_name] = callbacks_module
+            # Create callbacks module
+            callbacks_module = types.ModuleType(f"{module_name}.callbacks")
+            sys.modules[f"{module_name}.callbacks"] = callbacks_module
             setattr(base_module, 'callbacks', callbacks_module)
             
             # Create base submodule
-            base_name = f"{module_name}.callbacks.base"
-            base_submodule = types.ModuleType(base_name)
+            base_submodule = types.ModuleType(f"{module_name}.callbacks.base")
             
             # Add BaseCallbackHandler class
             class MockBaseCallbackHandler:
                 pass
             
             base_submodule.BaseCallbackHandler = MockBaseCallbackHandler
-            sys.modules[base_name] = base_submodule
+            sys.modules[f"{module_name}.callbacks.base"] = base_submodule
             setattr(callbacks_module, 'base', base_submodule)
 
 # Run setup
 setup_mock_db()
 setup_mock_langchain()
 
-logger.info("Mock modules initialized in tests/__init__.py")
+logger.info("Mock modules initialized by sitecustomize.py") 
