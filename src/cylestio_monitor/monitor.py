@@ -27,19 +27,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def enable_monitoring(
+def start_monitoring(
     agent_id: str,
-    llm_client: Any = None,
     config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    Enable monitoring for AI agents across various frameworks.
+    Initialize monitoring for AI agents across various frameworks.
     
     Args:
         agent_id: Unique identifier for the agent
-        llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
-                    Note: This parameter is maintained for backward compatibility but
-                    is no longer required for Anthropic clients.
         config: Optional configuration dictionary that can include:
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             - log_file: Path to the output log file (if None, only API logging is used)
@@ -167,44 +163,7 @@ def enable_monitoring(
         except Exception as e:
             logger.warning(f"Failed to apply global Anthropic patches: {e}")
             
-        # Step 3: For backward compatibility, patch explicit llm_client if provided
-        if llm_client:
-            # Attempt to determine the provider
-            provider_name = llm_client.__class__.__name__
-            module_name = llm_client.__class__.__module__.split('.')[0].lower()
-            
-            if "anthropic" in module_name or "claude" in provider_name.lower():
-                llm_provider = "Anthropic"
-                # Log LLM client info
-                logger.info(f"LLM client detected: {llm_provider}")
-                
-                # Import and apply Anthropic patcher explicitly
-                try:
-                    # Import only the necessary patcher
-                    from .patchers.anthropic import AnthropicPatcher
-                    
-                    # Create and apply the patcher
-                    patcher = AnthropicPatcher(client=llm_client)
-                    logger.debug("Created AnthropicPatcher instance")
-                    
-                    # Apply the patch
-                    patcher.patch()
-                    logger.debug("Applied AnthropicPatcher.patch()")
-                    
-                    # Log success
-                    logger.info("Anthropic client patched for monitoring")
-                except Exception as e:
-                    logger.error(f"Failed to patch Anthropic client: {e}")
-                
-                monitor_logger.info(f"Monitoring enabled for {llm_provider}")
-                
-            elif "openai" in module_name:
-                llm_provider = "OpenAI"
-                # Log LLM client info
-                logger.info(f"LLM client detected: {llm_provider}")
-                monitor_logger.info(f"Monitoring enabled for {llm_provider}")
-        
-        # Step 4: Try to patch framework libraries if enabled
+        # Step 3: Try to patch framework libraries if enabled
         if enable_framework_patching:
             # Try to patch LangChain if present
             try:
@@ -271,13 +230,13 @@ def enable_monitoring(
     )
 
 
-def disable_monitoring() -> None:
+def stop_monitoring() -> None:
     """
-    Disable all monitoring and clean up resources.
+    Stop all monitoring and clean up resources.
     
     This will restore any patched functions to their original state.
     """
-    logger.info("Disabling Cylestio monitoring")
+    logger.info("Stopping Cylestio monitoring")
     
     # Get agent_id from configuration
     config_manager = ConfigManager()
@@ -338,7 +297,7 @@ def disable_monitoring() -> None:
         pass
     
     # Log the cleanup
-    logger.info("Cylestio monitoring disabled")
+    logger.info("Cylestio monitoring stopped")
 
 
 def get_api_endpoint() -> str:
@@ -390,4 +349,4 @@ def log_to_file_and_api(
         level=level
     )
 
-__all__ = ["enable_monitoring", "disable_monitoring", "log_to_file_and_api", "get_api_endpoint"]
+__all__ = ["start_monitoring", "stop_monitoring", "log_to_file_and_api", "get_api_endpoint"]

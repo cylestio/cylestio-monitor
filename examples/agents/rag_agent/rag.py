@@ -33,7 +33,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 
 # Import Cylestio Monitor for automatic monitoring
 # Install via: pip install cylestio-monitor
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring
 
 # Create output directories if they don't exist
 os.makedirs("output", exist_ok=True)
@@ -113,7 +113,7 @@ class MonitoredRAGAgent:
         # 1. LangChain components (through framework detection)
         # 2. The underlying Anthropic client (through auto-patching)
         log_file_path = os.path.join(os.getcwd(), "output", "cylestio_logs.json")
-        enable_monitoring(agent_id="rag-agent", config={"log_file": "output/rag_monitoring.json"})
+        start_monitoring(agent_id="rag-agent", config={"log_file": "output/rag_monitoring.json"})
         
         # Validate environment variables
         anthropic_key = validate_environment()

@@ -17,7 +17,7 @@ import time
 from typing import Dict, Any, List
 
 # Import Cylestio Monitor - core SDK
-from cylestio_monitor import enable_monitoring, log_to_file_and_db
+from cylestio_monitor import start_monitoring, log_to_file_and_db
 
 # Import optional LLM frameworks (check availability)
 try:
@@ -62,9 +62,8 @@ def test_direct_anthropic(api_key: str):
     client = Anthropic(api_key=api_key)
     
     # Enable monitoring with this client
-    enable_monitoring(
+    start_monitoring(
         agent_id="direct-anthropic-example",
-        llm_client=client,
         log_file=os.path.join(create_output_dir(), "anthropic_logs"),
     )
     
@@ -130,7 +129,7 @@ Your answer:"""
     chain = LLMChain(llm=llm, prompt=prompt)
     
     # Enable monitoring
-    enable_monitoring(
+    start_monitoring(
         agent_id="langchain-example",
         log_file=os.path.join(create_output_dir(), "langchain_logs"),
     )
@@ -224,7 +223,7 @@ Your answer:"""
     compiled_graph = graph.compile()
     
     # Enable monitoring
-    enable_monitoring(
+    start_monitoring(
         agent_id="langgraph-example",
         log_file=os.path.join(create_output_dir(), "langgraph_logs"),
     )

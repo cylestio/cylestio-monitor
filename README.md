@@ -36,16 +36,15 @@ pip install -e ../../..
 ## Quick Start
 
 ```python
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring
 from anthropic import Anthropic
 
 # Create your LLM client
 client = Anthropic()
 
 # Enable monitoring with a remote API endpoint
-enable_monitoring(
+start_monitoring(
     agent_id="my_agent",
-    llm_client=client,
     config={
         "api_endpoint": "https://your-api-endpoint.com/events"
     }
@@ -57,6 +56,10 @@ response = client.messages.create(
     max_tokens=1000,
     messages=[{"role": "user", "content": "Hello, Claude!"}]
 )
+
+# When finished, stop monitoring
+from cylestio_monitor import stop_monitoring
+stop_monitoring()
 ```
 
 ## Key Features
