@@ -109,8 +109,9 @@ class MonitoredRAGAgent:
             model_name: The Anthropic model to use
         """
         # Enable monitoring with the agent ID - this is all that's needed for monitoring
-        # Cylestio Monitor will automatically track all relevant operations
-        # Also specify the JSON file path for local monitoring
+        # Cylestio Monitor will automatically detect and patch:
+        # 1. LangChain components (through framework detection)
+        # 2. The underlying Anthropic client (through auto-patching)
         log_file_path = os.path.join(os.getcwd(), "output", "cylestio_logs.json")
         enable_monitoring(agent_id="rag-agent", config={"log_file": "output/rag_monitoring.json"})
         
@@ -118,6 +119,7 @@ class MonitoredRAGAgent:
         anthropic_key = validate_environment()
         
         # Initialize the LLM
+        # Note: The underlying Anthropic client is automatically patched by Cylestio Monitor
         self.llm = ChatAnthropic(
             model=model_name,
             anthropic_api_key=anthropic_key,

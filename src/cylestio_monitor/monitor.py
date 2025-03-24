@@ -38,6 +38,8 @@ def enable_monitoring(
     Args:
         agent_id: Unique identifier for the agent
         llm_client: Optional LLM client instance (Anthropic, OpenAI, etc.)
+                    Note: This parameter is maintained for backward compatibility but
+                    is no longer required for Anthropic clients.
         config: Optional configuration dictionary that can include:
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             - log_file: Path to the output log file (if None, only API logging is used)
@@ -48,7 +50,8 @@ def enable_monitoring(
     
     Note:
         The SDK automatically detects which frameworks are installed and available to monitor.
-        No explicit configuration is needed to enable monitoring for specific frameworks.
+        No explicit configuration is needed to enable monitoring for specific frameworks,
+        including Anthropic clients which are now automatically detected and patched.
     """
     config = config or {}
     
@@ -151,7 +154,20 @@ def enable_monitoring(
             # MCP not installed or available
             pass
             
-        # Step 2: Patch various LLM clients if provided
+        # Step 2: Apply global module patching for Anthropic (new approach)
+        try:
+            # Import patcher module and apply global patch
+            from .patchers.anthropic import patch_anthropic_module
+            patch_anthropic_module()
+            llm_provider = "Anthropic (Auto-detected)"
+            logger.info("Anthropic module patched for global monitoring")
+            monitor_logger.info("Anthropic integration enabled (global module patching)")
+        except ImportError:
+            logger.debug("Anthropic module not available for global patching")
+        except Exception as e:
+            logger.warning(f"Failed to apply global Anthropic patches: {e}")
+            
+        # Step 3: For backward compatibility, patch explicit llm_client if provided
         if llm_client:
             # Attempt to determine the provider
             provider_name = llm_client.__class__.__name__
@@ -188,7 +204,7 @@ def enable_monitoring(
                 logger.info(f"LLM client detected: {llm_provider}")
                 monitor_logger.info(f"Monitoring enabled for {llm_provider}")
         
-        # Step 3: Try to patch framework libraries if enabled
+        # Step 4: Try to patch framework libraries if enabled
         if enable_framework_patching:
             # Try to patch LangChain if present
             try:
@@ -249,38 +265,65 @@ def enable_monitoring(
             "timestamp": datetime.now().isoformat(),
             "api_endpoint": os.environ.get("CYLESTIO_API_ENDPOINT", "Not configured"),
             "log_file": log_file,
-            "llm_provider": llm_provider,
-            "debug_level": debug_level,
-            "development_mode": development_mode
+            "llm_provider": llm_provider
         },
-        channel="SYSTEM",
-        level="info"
+        channel="SYSTEM"
     )
 
 
 def disable_monitoring() -> None:
     """
-    Disable monitoring and clean up resources.
+    Disable all monitoring and clean up resources.
     
-    This will revert any monkey patches and clean up resources.
+    This will restore any patched functions to their original state.
     """
-    logger.info("Disabling monitoring")
+    logger.info("Disabling Cylestio monitoring")
     
-    # Get agent ID from configuration
-    config_manager = ConfigManager()
-    agent_id = config_manager.get("monitoring.agent_id")
+    # Try to unpatch module-level patches
+    try:
+        # Unpatch Anthropic module
+        from .patchers.anthropic import unpatch_anthropic_module
+        unpatch_anthropic_module()
+        logger.info("Anthropic module unpatched")
+    except ImportError:
+        logger.debug("Anthropic module not available for unpatching")
+    except Exception as e:
+        logger.warning(f"Failed to unpatch Anthropic module: {e}")
     
-    # Log shutdown event
-    if agent_id:
-        process_and_log_event(
-            agent_id=agent_id,
-            event_type="monitor_shutdown",
-            data={"timestamp": datetime.now().isoformat()},
-            channel="SYSTEM",
-            level="info"
-        )
+    # Try to unpatch LangChain if it was patched
+    try:
+        # Import only if LangChain is available
+        import langchain
+        
+        try:
+            from .patchers.langchain_patcher import unpatch_langchain
+            unpatch_langchain()
+            logger.info("LangChain unpatched")
+        except Exception as e:
+            logger.warning(f"Error unpatching LangChain: {e}")
+            
+    except ImportError:
+        # LangChain not installed
+        pass
     
-    logger.info("Monitoring disabled")
+    # Try to unpatch LangGraph if it was patched
+    try:
+        # Import only if LangGraph is available
+        import langgraph
+        
+        try:
+            from .patchers.langgraph_patcher import unpatch_langgraph
+            unpatch_langgraph()
+            logger.info("LangGraph unpatched")
+        except Exception as e:
+            logger.warning(f"Error unpatching LangGraph: {e}")
+            
+    except ImportError:
+        # LangGraph not installed
+        pass
+    
+    # Log the cleanup
+    logger.info("Cylestio monitoring disabled")
 
 
 def get_api_endpoint() -> str:

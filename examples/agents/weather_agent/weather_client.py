@@ -41,23 +41,19 @@ class WeatherAIAgent:
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
 
-        # Create Anthropic client
-        self.anthropic = Anthropic()
-
-        # Enable monitoring with our SDK
-        # enable_monitoring(
-        #     agent_id="weather-agent", 
-        #     llm_client=self.anthropic, 
-        #     log_file="output/my_weather_agent_monitoring.json",
-        # )
+        # Enable monitoring with our SDK - no need to pass llm_client anymore
+        # The SDK will automatically detect and patch Anthropic instances
         enable_monitoring(
             agent_id="weather-agent", 
-            llm_client=self.anthropic,
             config={
                 "log_file": "output/weather_monitoring.json"
             }
         )
         logger.info("Monitoring enabled for Weather AI Agent")
+        
+        # Create Anthropic client - it will be automatically patched
+        self.anthropic = Anthropic()
+        logger.info("Created Anthropic client instance")
 
     async def connect_to_server(self, server_script_path: str):
         """Connect to the Weather MCP server.
