@@ -91,12 +91,12 @@ class TestEventConversionPipeline(unittest.TestCase):
         self.assertEqual(standardized.trace_id, "1742216889.9256918")
     
     @patch('cylestio_monitor.events_processor.log_to_file')
-    @patch('cylestio_monitor.events_processor.log_to_db')
+    @patch('cylestio_monitor.events_processor.send_event_to_api')
     @patch('cylestio_monitor.events_processor.config_manager.get')
-    def test_process_standardized_event(self, mock_config_get, mock_log_to_db, mock_log_to_file):
+    def test_process_standardized_event(self, mock_config_get, mock_send_event_to_api, mock_log_to_file):
         """Test the process_standardized_event function with mocked logging."""
         # Configure mocks
-        mock_log_to_db.return_value = None
+        mock_send_event_to_api.return_value = True
         mock_log_to_file.return_value = None
         # Mock the config_manager.get call to return a log file path
         mock_config_get.return_value = "test_log_file.json"
@@ -107,18 +107,18 @@ class TestEventConversionPipeline(unittest.TestCase):
         # Check that log_to_file was called
         mock_log_to_file.assert_called_once()
         
-        # Check that log_to_db was called
-        mock_log_to_db.assert_called_once()
+        # Check that send_event_to_api was called
+        mock_send_event_to_api.assert_called_once()
         
-        # Check the arguments passed to log_to_db
-        args, kwargs = mock_log_to_db.call_args
+        # Check the arguments passed to send_event_to_api
+        args, kwargs = mock_send_event_to_api.call_args
         self.assertEqual(kwargs["agent_id"], "chatbot-agent")
         self.assertEqual(kwargs["event_type"], "model_request")
         self.assertEqual(kwargs["channel"], "LANGCHAIN")
         self.assertEqual(kwargs["level"], "info")
         self.assertEqual(kwargs["direction"], "outgoing")
         
-        # Check that the data passed to log_to_db is a dictionary
+        # Check that the data passed to send_event_to_api is a dictionary
         self.assertIsInstance(kwargs["data"], dict)
         self.assertIn("event_category", kwargs["data"])
         self.assertEqual(kwargs["data"]["event_category"], "llm_request")

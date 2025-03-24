@@ -122,7 +122,7 @@ def _reset_conversation_id(agent_id: str, session_id: str) -> None:
     if key in _current_conversations:
         del _current_conversations[key]
 
-def log_to_db(
+def send_event_to_remote_api(
     agent_id: str,
     event_type: str,
     data: Dict[str, Any],
@@ -132,7 +132,7 @@ def log_to_db(
     direction: Optional[str] = None
 ) -> None:
     """
-    Send an event to the remote API endpoint instead of storing in the database.
+    Send an event to the remote API endpoint.
     
     Args:
         agent_id (str): Agent ID
@@ -145,7 +145,7 @@ def log_to_db(
     """
     # Debug logging for LLM call events
     if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
-        logger.debug(f"log_to_db: Processing LLM call event: {event_type}")
+        logger.debug(f"send_event_to_remote_api: Processing LLM call event: {event_type}")
     
     # Get timestamp if not provided
     if timestamp is None:
@@ -182,7 +182,7 @@ def log_to_db(
         
         # Debug logging for LLM call events before sending
         if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
-            logger.debug(f"log_to_db: About to send LLM call event to API: {event_type}")
+            logger.debug(f"send_event_to_remote_api: About to send LLM call event to API: {event_type}")
         
         # Send the event to the API
         send_event_to_api(
@@ -197,10 +197,13 @@ def log_to_db(
         
         # Debug logging for LLM call events after sending
         if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
-            logger.debug(f"log_to_db: Successfully sent LLM call event to API: {event_type}")
+            logger.debug(f"send_event_to_remote_api: Successfully sent LLM call event to API: {event_type}")
             
     except Exception as e:
         logger.error(f"Failed to send event to API: {e}")
+
+# For backward compatibility
+log_to_db = send_event_to_remote_api
 
 def json_serializer(obj: Any) -> Any:
     """JSON serializer for objects not serializable by default json code."""
@@ -301,7 +304,7 @@ def process_and_log_event(
     
     # Log to API
     try:
-        log_to_db(
+        send_event_to_remote_api(
             agent_id=agent_id,
             event_type=event_type,
             data=data,

@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import os
 
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.event_logger import log_console_message, log_to_db, log_to_file, process_and_log_event
+from cylestio_monitor.event_logger import log_console_message, log_to_file, process_and_log_event
 from cylestio_monitor.events.processor import create_standardized_event
 from cylestio_monitor.api_client import send_event_to_api
 
@@ -355,7 +355,7 @@ def log_event(
     
     # Send to API
     try:
-        log_to_db(
+        send_event_to_api(
             agent_id=agent_id or "unknown",
             event_type=event_type,
             data=data,
@@ -681,7 +681,7 @@ def process_standardized_event(
     Process an event using the standardized schema conversion layer.
     
     This function creates a standardized event using the new conversion layer,
-    then logs it to both the file and database.
+    then logs it to the file and sends it to the API endpoint.
     
     Args:
         agent_id: Agent ID
@@ -748,20 +748,18 @@ def process_standardized_event(
         if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
             monitor_logger.debug(f"Sending standardized event to API: {event_type}")
             
-        # Send the event to the API using send_event_to_api instead of log_to_db
-        # to ensure proper routing to the API endpoint
-        success = send_event_to_api(
+        # Send the event to the API
+        send_event_to_api(
             agent_id=agent_id,
             event_type=event_type,
             data=data,
             channel=channel,
             level=level,
-            timestamp=timestamp,
             direction=direction
         )
         
         # Debug logging after sending to API for LLM call events
         if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
-            monitor_logger.debug(f"Sent standardized event to API: {event_type}, success: {success}")
+            monitor_logger.debug(f"Sent standardized event to API: {event_type}, success: {True}")
     except Exception as e:
         monitor_logger.error(f"Failed to send event to API: {e}")
