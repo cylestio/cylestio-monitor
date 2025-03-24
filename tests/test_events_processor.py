@@ -20,7 +20,6 @@ from src.cylestio_monitor.events_processor import (
     pre_monitor_llm,
 )
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.db.db_manager import DBManager
 
 
 @pytest.fixture
@@ -28,30 +27,6 @@ def mock_logger():
     """Mock the logger for testing."""
     with patch("cylestio_monitor.events_processor.monitor_logger") as mock_logger:
         yield mock_logger
-
-
-@pytest.fixture
-def db_manager():
-    """Create a DBManager instance with a temporary database."""
-    # Create a temporary directory for the database
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Set the environment variable for testing
-        os.environ["CYLESTIO_TEST_DB_DIR"] = temp_dir
-        
-        # Reset the singleton instance
-        DBManager._instance = None
-        
-        # Create a new instance
-        manager = DBManager()
-        
-        yield manager
-        
-        # Clean up
-        manager.close()
-        
-        # Remove the environment variable
-        if "CYLESTIO_TEST_DB_DIR" in os.environ:
-            del os.environ["CYLESTIO_TEST_DB_DIR"]
 
 
 def test_normalize_text():
@@ -310,8 +285,7 @@ def test_post_monitor_call(mock_log_event):
     assert call_args[2] == "TEST"
 
 
-@pytest.mark.xfail(reason="Integration test needs fixing after MVP")
-def test_log_event_to_db(db_manager):
-    """Test that log_event logs to the database."""
-    # Just skip for MVP
-    assert True
+@pytest.mark.skip(reason="Database has been removed from the project")
+def test_log_event_to_db():
+    """Test is skipped because events are now sent to an API server instead of a database."""
+    pass
