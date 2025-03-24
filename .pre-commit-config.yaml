@@ -40,13 +40,7 @@ repos:
       # Local pre-push hook for security
       - id: pre-push-security
         name: Pre-push security checks
-        entry: |
-          #!/bin/bash
-          echo "Running pre-push security checks..."
-          echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
-          echo "Running security checks..."
-          echo "Security checks disabled temporarily"
-          exit 0
+        entry: python -c "print('Security checks disabled temporarily')"
         language: system
         pass_filenames: false
         stages: [push] 
