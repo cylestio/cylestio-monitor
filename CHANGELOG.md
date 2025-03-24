@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2024-03-24
+
+### Security
+- Updated dependencies to fix vulnerabilities
+- Added additional security checks in pre-commit hooks
+
+### Changed
+- Enhanced documentation for release process
+- Improved code quality and test coverage
+
 ## [0.1.3] - 2024-03-21
 
 ### Added
