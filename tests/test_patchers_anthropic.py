@@ -1,8 +1,12 @@
 """Tests for the anthropic patcher module."""
 
-from unittest.mock import MagicMock, patch
-
 import pytest
+
+# Skip these tests when the required dependencies aren't available
+pytest.importorskip("langchain", reason="langchain is not installed")
+pytest.importorskip("langchain_core", reason="langchain_core is not installed")
+
+from unittest.mock import MagicMock, patch
 from src.cylestio_monitor.patchers.anthropic import AnthropicPatcher
 
 
