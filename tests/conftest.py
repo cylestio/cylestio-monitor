@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -35,7 +36,7 @@ def mock_api_client():
     client = MagicMock(spec=ApiClient)
     client.endpoint = "https://example.com/api/events"
     client.send_event = MagicMock(return_value=True)
-    
+
     with patch("cylestio_monitor.api_client.get_api_client", return_value=client):
         yield client
 
@@ -70,8 +71,21 @@ def mock_requests():
         mock_response.ok = True
         mock_response.status_code = 200
         mock_response.text = "Success"
-        
+
         # Setup the mock post method
         mock_requests.post.return_value = mock_response
-        
+
         yield mock_requests
+
+
+@pytest.fixture(autouse=True)
+def mock_db_utils():
+    """Mock db_utils for tests since it's been removed from the project."""
+    mock = MagicMock()
+    mock.log_to_db = MagicMock(return_value=None)
+    
+    with patch("cylestio_monitor.db.db_manager.DBManager", MagicMock()):
+        with patch.dict("sys.modules", {"cylestio_monitor.db": MagicMock(), 
+                                        "cylestio_monitor.db.db_manager": MagicMock(),
+                                        "cylestio_monitor.db.utils": mock}):
+            yield mock
