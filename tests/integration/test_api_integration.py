@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from cylestio_monitor.api_client import ApiClient, get_api_client, send_event_to_api
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.events_processor import log_event, EventProcessor
-from cylestio_monitor.event_logger import log_to_db, process_and_log_event
+from cylestio_monitor.event_logger import process_and_log_event
 
 
 class TestApiIntegration(unittest.TestCase):
