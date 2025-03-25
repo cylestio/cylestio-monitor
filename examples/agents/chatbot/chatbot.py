@@ -20,7 +20,7 @@ from langchain.chains import ConversationChain
 from langchain_core.messages import HumanMessage, AIMessage
 
 # Import the Cylestio Monitor functions
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring
 
 # Create output directory if it doesn't exist
 os.makedirs("output", exist_ok=True)
@@ -75,7 +75,7 @@ class MonitoredChatbot:
         api_key = validate_environment()
         
         # Enable monitoring with minimal parameters
-        enable_monitoring(agent_id="chatbot-agent", config={"log_file":"output/chatbot_monitoring.json"})
+        start_monitoring(agent_id="chatbot-agent", config={"log_file":"output/chatbot_monitoring.json"})
         
         # Initialize the LLM
         self.llm = ChatAnthropic(

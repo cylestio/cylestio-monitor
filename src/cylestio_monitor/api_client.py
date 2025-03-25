@@ -2,7 +2,7 @@
 REST API client for sending telemetry events to a remote endpoint.
 
 This module provides a minimal implementation for sending telemetry events
-to a remote REST API endpoint instead of storing them in a local SQLite database.
+to a remote REST API endpoint.
 """
 
 import json

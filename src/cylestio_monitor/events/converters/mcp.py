@@ -72,8 +72,7 @@ class MCPEventConverter(BaseEventConverter):
         if event.get("event_type") == "monitoring_enabled":
             request = {
                 "agent_id": data.get("agent_id"),
-                "LLM_provider": data.get("LLM_provider"),
-                "database_path": data.get("database_path")
+                "LLM_provider": data.get("LLM_provider")
             }
             
         # For user interaction events
@@ -86,7 +85,7 @@ class MCPEventConverter(BaseEventConverter):
         # Store any unmapped fields in extra
         processed_keys = {
             "framework", "call_stack", "security", "performance", 
-            "message", "agent_id", "LLM_provider", "database_path",
+            "message", "agent_id", "LLM_provider",
             "content", "metadata"
         }
                           

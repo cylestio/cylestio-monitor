@@ -19,7 +19,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 # Import our monitoring SDK
-from cylestio_monitor import disable_monitoring, enable_monitoring
+from cylestio_monitor import stop_monitoring, start_monitoring
 
 # Configure logging
 logging.basicConfig(
@@ -43,7 +43,7 @@ class WeatherAIAgent:
 
         # Enable monitoring with our SDK - no need to pass llm_client anymore
         # The SDK will automatically detect and patch Anthropic instances
-        enable_monitoring(
+        start_monitoring(
             agent_id="weather-agent", 
             config={
                 "log_file": "output/weather_monitoring.json"
@@ -241,8 +241,8 @@ class WeatherAIAgent:
         """Clean up resources and disable monitoring."""
         logger.info("Cleaning up resources")
         await self.exit_stack.aclose()
-        disable_monitoring()
-        logger.info("Monitoring disabled")
+        stop_monitoring()
+        logger.info("Monitoring stopped")
 
 
 async def main():

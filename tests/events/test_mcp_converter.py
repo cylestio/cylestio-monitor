@@ -52,7 +52,6 @@ class TestMCPConverter(unittest.TestCase):
             "data": {
                 "agent_id": "chatbot-agent",
                 "LLM_provider": "MCP",
-                "database_path": "/path/to/db",
                 "call_stack": [
                     {"file": "test_file.py", "line": 20, "function": "test_enable"}
                 ],
@@ -139,7 +138,6 @@ class TestMCPConverter(unittest.TestCase):
         self.assertIsNotNone(standardized.request)
         self.assertEqual(standardized.request.get("agent_id"), "chatbot-agent")
         self.assertEqual(standardized.request.get("LLM_provider"), "MCP")
-        self.assertEqual(standardized.request.get("database_path"), "/path/to/db")
         
         # Check event category
         self.assertEqual(standardized.event_category, "system")

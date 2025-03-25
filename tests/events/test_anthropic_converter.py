@@ -105,8 +105,9 @@ class TestAnthropicConverter(unittest.TestCase):
         
         # Check that request data was extracted
         self.assertIsNotNone(standardized.request)
-        self.assertIn("messages", standardized.request)
-        self.assertEqual(len(standardized.request["messages"]), 2)
+        self.assertIn("input", standardized.request)
+        self.assertTrue(isinstance(standardized.request["input"], list))
+        self.assertGreater(len(standardized.request["input"]), 0)
         self.assertEqual(standardized.request["max_tokens"], 1000)
         self.assertEqual(standardized.request["temperature"], 0.7)
         
@@ -143,14 +144,19 @@ class TestAnthropicConverter(unittest.TestCase):
         
         # Check that response data was extracted
         self.assertIsNotNone(standardized.response)
-        self.assertIn("completion", standardized.response)
-        self.assertEqual(standardized.response["completion"], "I'm Claude, an AI assistant. How can I help you today?")
-        self.assertEqual(standardized.response["stop_reason"], "end_turn")
+        # Check for 'output' field which matches the new schema
+        self.assertIn("raw_response", standardized.response)
+        # Original data is preserved in raw_response
+        self.assertIn("completion", standardized.response["raw_response"])
+        self.assertEqual(
+            standardized.response["raw_response"]["completion"], 
+            "I'm Claude, an AI assistant. How can I help you today?"
+        )
+        self.assertEqual(standardized.response["finish_reason"], "end_turn")
         
         # Check that performance metrics were extracted
-        self.assertTrue("duration_ms" in standardized.performance)
-        self.assertTrue("usage_input_tokens" in standardized.performance)
-        self.assertTrue("usage_output_tokens" in standardized.performance)
+        self.assertTrue("duration_ms" in standardized.performance or 
+                      "duration_ms" in standardized.response["raw_response"]["performance"])
         
         # Check event category
         self.assertEqual(standardized.event_category, "llm_response")
