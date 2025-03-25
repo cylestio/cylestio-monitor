@@ -17,7 +17,7 @@ This example demonstrates how to build a conversational chatbot using LangChain 
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.12+
 - Anthropic API key
 - Cylestio Monitor package
 - LangChain and related packages

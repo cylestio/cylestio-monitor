@@ -14,7 +14,7 @@ The [`multi_framework_monitoring.py`](./multi_framework_monitoring.py) script de
 
 To run the examples, you'll need:
 
-- Python 3.11+
+- Python 3.12+
 - An Anthropic API key
 - The Cylestio Monitor package installed
 
