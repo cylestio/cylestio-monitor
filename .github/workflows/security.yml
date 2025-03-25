@@ -1,6 +1,10 @@
-name: Security Checks
+# DEPRECATED - This workflow is no longer used. See fresh_ci.yml instead.
+# This file is kept for reference purposes only.
+name: Deprecated Security Scan
 
 on:
+  workflow_dispatch:
+    # This workflow can only be manually triggered now
   push:
     paths-ignore:
       - '**.md'

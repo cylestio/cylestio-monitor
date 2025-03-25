@@ -1,6 +1,10 @@
-name: Publish to PyPI
+# DEPRECATED - This workflow is no longer used. See fresh_ci.yml instead.
+# This file is kept for reference purposes only.
+name: Deprecated Publish Package
 
 on:
+  workflow_dispatch:
+    # This workflow can only be manually triggered now
   release:
     types: [created]
 

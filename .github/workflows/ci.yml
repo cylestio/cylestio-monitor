@@ -1,10 +1,14 @@
-name: CI
+# DEPRECATED - This workflow is no longer used. See fresh_ci.yml instead.
+# This file is kept for reference purposes only.
+name: Deprecated CI
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    # This workflow can only be manually triggered now
 
 jobs:
   test:

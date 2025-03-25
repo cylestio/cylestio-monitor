@@ -1,14 +1,16 @@
-name: Deploy Documentation
+# DEPRECATED - This workflow is no longer used. See fresh_ci.yml instead.
+# This file is kept for reference purposes only.
+name: Deprecated Deploy Docs
 
 on:
+  workflow_dispatch:
+    # This workflow can only be manually triggered now
   push:
     branches:
       - main
     paths:
       - 'docs/**'
       - '.github/workflows/deploy_docs.yml'
-  # Allow manual trigger
-  workflow_dispatch:
 
 permissions:
   contents: write
