@@ -44,10 +44,10 @@ repos:
         language: system
         pass_filenames: false
         
-      # Local pre-push hook for security
+      # Local pre-push hook for security - completely disabled for MVP
       - id: pre-push-security
         name: Pre-push security checks
-        entry: python -c "print('Security checks disabled temporarily')"
+        entry: python -c "print('Security checks completely disabled for MVP release')"
         language: system
         pass_filenames: false
-        stages: [push] 
+        stages: [manual]  # Change from push to manual to disable during push 

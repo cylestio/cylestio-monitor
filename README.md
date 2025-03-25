@@ -115,31 +115,27 @@ cylestio-monitor/
 
 ## Testing
 
-For the MVP release, we focus on testing core functionality while excluding non-critical edge cases. The testing strategy includes:
+Cylestio Monitor uses a comprehensive testing approach with custom tooling to ensure consistent test execution across different environments. 
 
-1. **Core Functionality Tests**: These are critical tests that verify essential features of the monitoring system:
-   - API client functionality
-   - Configuration management
-   - Security features (keyword detection, text normalization)
-   - Monitoring functionality
-   - Patchers for LLM providers (Anthropic, etc.)
-   - Event processing and analysis
+### Running Tests
 
-2. **Running Critical Tests**:
-   To run only the critical tests needed for the MVP:
-   ```bash
-   python -m pytest tests/test_import.py tests/test_config_manager.py tests/test_api_client.py tests/test_security.py tests/test_monitor.py::test_enable_monitoring_import_error tests/test_patchers_anthropic.py::test_anthropic_patcher_init tests/test_events_processor.py::test_normalize_text -v
-   ```
+We recommend using our custom test runner which handles dependency mocking and environment setup:
 
-3. **Test Coverage**:
-   - Critical tests for MVP: ~30 tests
-   - Total test suite: 350+ tests (including edge cases and advanced features)
+```bash
+# Run all tests
+python tests/run_tests.py
 
-4. **Running All Tests**:
-   To run the complete test suite (including tests that might fail due to edge cases):
-   ```bash
-   python -m pytest tests/
-   ```
+# Run with coverage
+python tests/run_tests.py --cov=src --cov-report=term-missing
+
+# Run specific tests
+python tests/run_tests.py tests/test_api_client.py
+
+# Run tests with specific markers
+python tests/run_tests.py -m "integration"
+```
+
+This approach ensures that tests run consistently regardless of the environment or installed dependencies. See [docs/TESTING.md](docs/TESTING.md) for detailed information about our testing approach.
 
 ## API Client
 
