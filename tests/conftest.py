@@ -11,47 +11,9 @@ import pytest
 from cylestio_monitor.api_client import ApiClient
 
 
-# Create a mock DB module to handle imports
-class MockDBImportHook:
-    """Import hook that creates mock modules for db-related imports."""
-    
-    def __init__(self):
-        self.modules = {}
-    
-    def find_spec(self, fullname, path, target=None):
-        if fullname.startswith('cylestio_monitor.db'):
-            return self
-    
-    def create_module(self, spec):
-        name = spec.name
-        if name not in self.modules:
-            module = types.ModuleType(name)
-            self.modules[name] = module
-            # Add DBManager class to db_manager module
-            if name == 'cylestio_monitor.db.db_manager':
-                class MockDBManager:
-                    def __init__(self):
-                        pass
-                    def _get_connection(self):
-                        return MagicMock()
-                module.DBManager = MockDBManager
-            # Add utils module
-            elif name == 'cylestio_monitor.db.utils':
-                module.log_to_db = MagicMock(return_value=None)
-            sys.modules[name] = module
-        return sys.modules[name]
-    
-    def exec_module(self, module):
-        pass
-
-
 @pytest.fixture(scope="session", autouse=True)
 def setup_mock_imports():
     """Set up mock imports for missing modules."""
-    # Install the db import hook
-    db_import_hook = MockDBImportHook()
-    sys.meta_path.insert(0, db_import_hook)
-    
     # Add langchain mocks
     if 'langchain' not in sys.modules:
         mock_langchain = types.ModuleType('langchain')
@@ -87,9 +49,7 @@ def setup_mock_imports():
     
     yield
     
-    # Clean up
-    if db_import_hook in sys.meta_path:
-        sys.meta_path.remove(db_import_hook)
+    # No cleanup needed
 
 
 @pytest.fixture(autouse=True)

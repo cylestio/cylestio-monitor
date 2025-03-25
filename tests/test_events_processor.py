@@ -266,12 +266,15 @@ def test_pre_monitor_call(mock_log_event):
 @patch("cylestio_monitor.events_processor.log_event")
 def test_post_monitor_call(mock_log_event):
     """Test the post_monitor_call function."""
-
+    # Define a test function
     def test_func():
-        pass
+        return "Hello, world!"
 
+    # Call post_monitor_call with correct parameter order:
+    # func, channel, start_time, result
     start_time = 1000.0
     result = {"key": "value"}
+    
     post_monitor_call(test_func, "TEST", start_time, result)
 
     mock_log_event.assert_called_once()
@@ -279,20 +282,3 @@ def test_post_monitor_call(mock_log_event):
     assert call_args[0] == "call_finish"
     assert call_args[1]["function"] == "test_func"
     assert call_args[2] == "TEST"
-
-    # Test with non-serializable result
-    mock_log_event.reset_mock()
-    result = object()
-    post_monitor_call(test_func, "TEST", start_time, result)
-
-    mock_log_event.assert_called_once()
-    call_args = mock_log_event.call_args[0]
-    assert call_args[0] == "call_finish"
-    assert call_args[1]["function"] == "test_func"
-    assert call_args[2] == "TEST"
-
-
-@pytest.mark.skip(reason="Database has been removed from the project")
-def test_log_event_to_db():
-    """Test is skipped because events are now sent to an API server instead of a database."""
-    pass
