@@ -106,6 +106,8 @@ markers = [
     "integration: marks tests as integration tests",
     "security: marks tests that verify security requirements",
 ]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
