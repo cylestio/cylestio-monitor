@@ -41,7 +41,7 @@ class ApiClient:
             self.endpoint = os.environ.get("CYLESTIO_API_ENDPOINT")
         if not self.endpoint:
             # Set default endpoint if not provided anywhere else - use 127.0.0.1:8000
-            self.endpoint = "http://127.0.0.1:8000/"
+            self.endpoint = "http://127.0.0.1:8000/api/v1/telemetry/"
             logger.info(f"Using default API endpoint: {self.endpoint}")
             
         # Try to get HTTP method from parameters, then config, then default to POST
