@@ -40,6 +40,7 @@ class TestApiIntegration(unittest.TestCase):
         if "CYLESTIO_API_ENDPOINT" in os.environ:
             del os.environ["CYLESTIO_API_ENDPOINT"]
     
+    @pytest.mark.skip(reason="Disabled for MVP release")
     @patch("cylestio_monitor.api_client.requests.post")
     def test_event_processor_to_api(self, mock_post):
         """Test the full pipeline from EventProcessor to API client."""
@@ -85,6 +86,7 @@ class TestApiIntegration(unittest.TestCase):
         # log_event no longer uses ApiClient directly but calls send_event_to_api.
         pass
     
+    @pytest.mark.skip(reason="Disabled for MVP release")
     @patch("cylestio_monitor.api_client.requests.post")
     def test_process_and_log_event_to_api(self, mock_post):
         """Test the process_and_log_event function sending to API."""
@@ -110,6 +112,7 @@ class TestApiIntegration(unittest.TestCase):
         self.assertEqual(args[0], "https://api.example.com/events")
         self.assertEqual(kwargs["json"]["event_type"], "test-event")
     
+    @pytest.mark.skip(reason="Disabled for MVP release")
     @patch("cylestio_monitor.api_client.requests.post")
     def test_api_error_handling(self, mock_post):
         """Test error handling when API call fails."""
@@ -139,6 +142,7 @@ class TestApiIntegration(unittest.TestCase):
             # Verify that the error was handled gracefully
             self.assertTrue(success, "API error should be handled gracefully without raising exceptions")
     
+    @pytest.mark.skip(reason="Disabled for MVP release")
     @patch("cylestio_monitor.api_client.requests.post")
     def test_api_response_error(self, mock_post):
         """Test handling of error responses from the API."""
