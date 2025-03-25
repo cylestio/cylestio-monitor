@@ -1,0 +1,71 @@
+name: Simple CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  test-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+          pip install safety bandit
+      
+      - name: Run tests
+        run: |
+          # List test files (excluding deleted tests)
+          echo "Test files:"
+          find tests -name "test_*.py" | grep -v "test_events_processor.py" | grep -v "test_patchers_anthropic.py"
+          
+          # Run pytest with explicit ignores
+          python -m pytest \
+            --ignore=tests/test_events_processor.py \
+            --ignore=tests/test_patchers_anthropic.py
+      
+      - name: Run security scans
+        run: |
+          # Basic security scans
+          bandit -r src/ -ll
+          safety check
+  
+  publish:
+    needs: test-and-scan
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: python -m build
+      
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: twine upload dist/* 
