@@ -18,11 +18,7 @@ def setup_mock_imports():
     """Set up mock imports for missing modules."""
     # Set up mocks before any real imports happen
     
-    # Mock DB-related modules that might be imported indirectly
-    sys.modules['sqlalchemy'] = MagicMock()
-    sys.modules['sqlite3'] = MagicMock()
-    
-    # Add more comprehensive langchain mocks
+    # Add comprehensive langchain mocks
     if 'langchain' not in sys.modules:
         mock_langchain = types.ModuleType('langchain')
         
