@@ -60,7 +60,7 @@ jobs:
       run: |
         # Force collection of tests without actually running them
         echo "Regenerating pytest cache with current test files only..."
-        python -m pytest --collect-only -v
+        python -m pytest --collect-only -v || true
         
     - name: Verify dependencies
       run: |
@@ -142,7 +142,7 @@ jobs:
       run: |
         # Force collection of tests without actually running them
         echo "Regenerating pytest cache with current test files only..."
-        python -m pytest --collect-only -m "integration" -v
+        python -m pytest --collect-only -m "integration" -v || true
         
     - name: Run integration tests
       env:
