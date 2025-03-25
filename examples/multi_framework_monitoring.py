@@ -64,7 +64,7 @@ def test_direct_anthropic(api_key: str):
     # Enable monitoring with this client
     start_monitoring(
         agent_id="direct-anthropic-example",
-        log_file=os.path.join(create_output_dir(), "anthropic_logs"),
+        config={"log_file": os.path.join(create_output_dir(), "anthropic_logs")},
     )
     
     # Make a direct API call
@@ -131,7 +131,7 @@ Your answer:"""
     # Enable monitoring
     start_monitoring(
         agent_id="langchain-example",
-        log_file=os.path.join(create_output_dir(), "langchain_logs"),
+        config={"log_file": os.path.join(create_output_dir(), "langchain_logs")},
     )
     
     # Run the chain
@@ -225,7 +225,7 @@ Your answer:"""
     # Enable monitoring
     start_monitoring(
         agent_id="langgraph-example",
-        log_file=os.path.join(create_output_dir(), "langgraph_logs"),
+        config={"log_file": os.path.join(create_output_dir(), "langgraph_logs")},
     )
     
     # Run the graph
