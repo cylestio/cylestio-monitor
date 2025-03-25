@@ -25,7 +25,7 @@ The RAG agent follows this process:
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - [Anthropic API key](https://console.anthropic.com/)
 
 ### Installation

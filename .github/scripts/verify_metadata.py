@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 """
-Script to verify package metadata from pyproject.toml
-This script works with both tomli (Python < 3.11) and tomllib (Python >= 3.11)
+Verify that package metadata in pyproject.toml is consistent.
+This script works with tomllib (Python >= 3.12)
 """
 import sys
 from pathlib import Path
 
-# Try to import tomllib (Python 3.11+), fall back to tomli
-try:
-    import tomllib as tomli
-    print("Using built-in tomllib")
-except ImportError:
-    import tomli
-    print("Using installed tomli")
+# Use tomllib (Python 3.12+)
+import tomllib
 
 def verify_field(config, section, field, message=None):
     """Verify that a field exists and has a value."""
@@ -44,7 +39,7 @@ def verify_field_value(config, section, field, expected_value, message=None):
 try:
     # Load the TOML file
     with Path('pyproject.toml').open('rb') as f:
-        config = tomli.load(f)
+        config = tomllib.load(f)
     
     # Verify required fields
     all_valid = True

@@ -32,7 +32,7 @@ Yes, Cylestio Monitor is designed for production use. However, as with any monit
 
 Cylestio Monitor requires:
 
-- Python 3.11 or higher
+- Python 3.12 or higher
 - Requests library for API communication
 - Sufficient disk space for JSON logs (if enabled)
 
@@ -250,7 +250,7 @@ Yes, Cylestio Monitor can be used with serverless functions. However, keep in mi
 Yes, you can use Cylestio Monitor with Docker. Make sure your Dockerfile includes the necessary dependencies:
 
 ```dockerfile
-FROM python:3.11
+FROM python:3.12
 
 # Install Cylestio Monitor
 RUN pip install cylestio-monitor requests

@@ -20,7 +20,7 @@ The agent allows users to have natural conversations about weather conditions an
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.12+
 - Anthropic API key
 - Cylestio Monitor
 

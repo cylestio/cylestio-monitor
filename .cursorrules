@@ -3,7 +3,7 @@
 
 [general]
 max_line_length = 100
-python_version = "3.11"
+python_version = "3.12"
 enforce_type_hints = true
 enforce_docstrings = true
 

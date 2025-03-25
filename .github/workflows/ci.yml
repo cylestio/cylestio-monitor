@@ -16,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        clean: true
+        fetch-depth: 0
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -29,10 +32,20 @@ jobs:
         find . -type f -name "*.pyc" -delete
         find . -type f -name "*.pyo" -delete
         find . -type f -name "*.pyd" -delete
+        
+        # Delete pytest cache directories and explicit nodeids file
         find . -type d -name ".pytest_cache" -exec rm -rf {} +
+        find . -name "nodeids" -delete
+        find . -name "lastfailed" -delete
+        
         find . -type d -name ".coverage" -exec rm -rf {} +
         find . -type d -name ".ruff_cache" -exec rm -rf {} +
         find . -type d -name ".mypy_cache" -exec rm -rf {} +
+        
+        # List test files to verify deleted files are gone
+        echo "Current test files in repository:"
+        find tests -name "test_*.py" | sort
+        
         echo "Cache cleanup complete"
         
     - name: Install dependencies
@@ -42,12 +55,19 @@ jobs:
         
         # Install the package with all dependencies
         python -m pip install -e ".[dev,test]"
+    
+    - name: Regenerate pytest cache
+      run: |
+        # Force collection of tests without actually running them
+        echo "Regenerating pytest cache with current test files only..."
+        python -m pytest --collect-only -v
         
     - name: Verify dependencies
       run: |
         # Verify installation of critical dependencies
         echo "Checking installed packages..."
         pip list
+        python --version
         
     - name: Run linters and formatters
       run: |
@@ -82,6 +102,9 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        clean: true
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -95,8 +118,18 @@ jobs:
         find . -type f -name "*.pyc" -delete
         find . -type f -name "*.pyo" -delete
         find . -type f -name "*.pyd" -delete
+        
+        # Delete pytest cache directories and explicit nodeids file
         find . -type d -name ".pytest_cache" -exec rm -rf {} +
+        find . -name "nodeids" -delete
+        find . -name "lastfailed" -delete
+        
         find . -type d -name ".coverage" -exec rm -rf {} +
+        
+        # List test files to verify deleted files are gone
+        echo "Current test files in repository:"
+        find tests -name "test_*.py" | sort
+        
         echo "Cache cleanup complete"
         
     - name: Install dependencies
@@ -104,6 +137,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev,test]"
         pip install pytest-asyncio
+        
+    - name: Regenerate pytest cache
+      run: |
+        # Force collection of tests without actually running them
+        echo "Regenerating pytest cache with current test files only..."
+        python -m pytest --collect-only -m "integration" -v
         
     - name: Run integration tests
       env:
