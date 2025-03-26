@@ -19,11 +19,9 @@ class TestApiClientUnit(unittest.TestCase):
     def setUp(self):
         """Set up test environment."""
         # Clear environment variable to ensure clean test environment
+        self.original_endpoint = os.environ.get("CYLESTIO_API_ENDPOINT")
         if "CYLESTIO_API_ENDPOINT" in os.environ:
-            self.old_endpoint = os.environ["CYLESTIO_API_ENDPOINT"]
             del os.environ["CYLESTIO_API_ENDPOINT"]
-        else:
-            self.old_endpoint = None
         
         # Reset global client instance
         import cylestio_monitor.api_client
@@ -32,8 +30,8 @@ class TestApiClientUnit(unittest.TestCase):
     def tearDown(self):
         """Clean up after tests."""
         # Restore environment variable if it existed
-        if self.old_endpoint is not None:
-            os.environ["CYLESTIO_API_ENDPOINT"] = self.old_endpoint
+        if self.original_endpoint is not None:
+            os.environ["CYLESTIO_API_ENDPOINT"] = self.original_endpoint
         elif "CYLESTIO_API_ENDPOINT" in os.environ:
             del os.environ["CYLESTIO_API_ENDPOINT"]
     
@@ -57,7 +55,7 @@ class TestApiClientUnit(unittest.TestCase):
             
         client = ApiClient()
         # Default local endpoint is now expected instead of None
-        self.assertEqual(client.endpoint, "http://127.0.0.1:8000/")
+        self.assertEqual(client.endpoint, "http://127.0.0.1:8000/api/v1/telemetry/")
     
     @patch("cylestio_monitor.api_client.requests.post")
     def test_send_event_success(self, mock_post):

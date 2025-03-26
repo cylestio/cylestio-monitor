@@ -2,6 +2,7 @@
 import json
 import logging
 import time
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 import os
@@ -41,6 +42,58 @@ def contains_dangerous(text: str) -> bool:
     normalized = normalize_text(text)
     dangerous_keywords = config_manager.get_dangerous_keywords()
     return any(keyword in normalized for keyword in dangerous_keywords)
+
+
+# Function to mask sensitive data
+def mask_sensitive_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Masks sensitive data like API keys and tokens.
+    
+    Args:
+        data: The data dictionary that may contain sensitive information
+        
+    Returns:
+        Dict: A copy of the data with sensitive information masked
+    """
+    # Create a deep copy to avoid modifying the original
+    import copy
+    masked_data = copy.deepcopy(data)
+    
+    # Keys that might contain sensitive information
+    sensitive_keys = ['api_key', 'key', 'secret', 'password', 'token', 'auth_token', 
+                      'authorization', 'access_token', 'refresh_token']
+    
+    # Regular expressions for common API key and token formats
+    api_key_patterns = [
+        r'sk-[a-zA-Z0-9]{20,}',  # OpenAI API key format
+        r'Bearer\s+[a-zA-Z0-9\._\-]+',  # Bearer token format
+        r'eyJ[a-zA-Z0-9\._\-]{10,}',  # JWT token format
+    ]
+    
+    def _mask_value(value, key_name=''):
+        """Recursively mask sensitive values."""
+        if isinstance(value, dict):
+            return {k: _mask_value(v, k) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [_mask_value(item) for item in value]
+        elif isinstance(value, str):
+            # Check if this is a sensitive key
+            if any(sensitive_key in key_name.lower() for sensitive_key in sensitive_keys):
+                if len(value) > 8:
+                    return value[:4] + '*' * (len(value) - 8) + value[-4:]
+                else:
+                    return '********'
+            
+            # Check for sensitive patterns in the string regardless of key name
+            masked = value
+            for pattern in api_key_patterns:
+                masked = re.sub(pattern, lambda m: m.group(0)[:4] + '*' * (len(m.group(0)) - 8) + m.group(0)[-4:] 
+                                if len(m.group(0)) > 8 else '********', masked)
+            return masked
+        return value
+    
+    # Apply masking
+    return _mask_value(masked_data)
 
 
 # Helper function to generate a unique event identifier
@@ -345,6 +398,31 @@ def log_event(
             data["response_alert"] = alert
             record["response_alert"] = alert
     
+    # Set alert level in the event of dangerous or suspicious content
+    alert = None
+    
+    # Check data values for suspicious or dangerous content
+    for key, value in data.items():
+        if isinstance(value, str):
+            if contains_dangerous(value):
+                alert = "dangerous"
+                break
+            elif alert != "dangerous" and contains_suspicious(value):
+                alert = "suspicious"
+    
+    if alert:
+        data["alert"] = alert
+        # Elevate log level for dangerous content
+        if alert == "dangerous":
+            record["level"] = "WARNING"
+            level = "warning"
+    
+    # Mask sensitive data like API keys before recording
+    masked_data = mask_sensitive_data(data)
+    
+    # Add the data to the record
+    record["data"] = masked_data
+    
     # Log to file
     log_file = config_manager.get("monitoring.log_file")
     if log_file:
@@ -358,7 +436,7 @@ def log_event(
         send_event_to_api(
             agent_id=agent_id or "unknown",
             event_type=event_type,
-            data=data,
+            data=masked_data,
             channel=channel,
             level=level,
             direction=direction

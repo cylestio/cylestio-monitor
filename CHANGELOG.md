@@ -7,15 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.4] - 2024-03-24
-
 ### Security
-- Updated dependencies to fix vulnerabilities
-- Added additional security checks in pre-commit hooks
-
-### Changed
-- Enhanced documentation for release process
-- Improved code quality and test coverage
+- Enhanced sensitive data masking for API keys and tokens
+- Implemented security scanning in CI/CD pipeline
+- Added security tests for sensitive data handling
+- Activated Bandit and Safety checks in pre-commit hooks
 
 ## [0.1.3] - 2024-03-21
 
