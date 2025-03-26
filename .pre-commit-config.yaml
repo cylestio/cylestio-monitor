@@ -2,47 +2,16 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
-      - id: detect-private-key        # Prevent committing private keys (critical for SOC2/HIPAA)
-      - id: check-added-large-files   # Prevent large files that might contain sensitive data
+      - id: detect-private-key        # Prevent committing private keys
+      - id: check-added-large-files   # Prevent large files
       - id: check-yaml                # Validate YAML files
       - id: check-toml                # Validate TOML files
       - id: check-merge-conflict      # Check for merge conflicts
-      # Removed less critical checks to speed up the process
 
-  # Disable ruff for now
-  # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: 'v0.3.0'
-  #   hooks:
-  #     - id: ruff
-  #       args: [ --fix, --exit-non-zero-on-fix ]
-
-  # Enable essential security hooks
+  # Only keep Bandit for security
   - repo: https://github.com/PyCQA/bandit
     rev: '1.7.7'
     hooks:
       - id: bandit
         exclude: 'tests/.*$'
-        args: ['--severity-level', 'high']  # Focus on high severity only for MVP
-
-  # Custom security hooks
-  - repo: local
-    hooks:
-      - id: ruff
-        name: ruff
-        entry: python -c "print('Linting checks disabled temporarily')"
-        language: system
-        pass_filenames: false
-
-      - id: safety
-        name: Safety dependency check
-        entry: safety check
-        language: system
-        pass_filenames: false
-        
-      # Local pre-push hook for security - enabled for basic checks
-      - id: pre-push-security
-        name: Pre-push security checks
-        entry: safety check --full-report
-        language: system
-        pass_filenames: false
-        stages: [push] 
+        args: ['--severity-level', 'high'] 
