@@ -103,3 +103,28 @@ def test_event_content_alerts(mock_config_manager):
         mock_send_event_to_api.reset_mock()
         log_event("test_event", {"value": "This is a safe message"}, "TEST")
         assert "alert" not in mock_send_event_to_api.call_args[1]["data"]
+
+
+@pytest.mark.security
+def test_sensitive_data_not_logged():
+    """Test that sensitive data like API keys are not logged in plain text."""
+    from cylestio_monitor.events_processor import log_event
+    
+    with patch("cylestio_monitor.events_processor.send_event_to_api") as mock_send_event_to_api, \
+         patch("cylestio_monitor.events_processor.log_to_file"):
+        
+        # API keys should be masked
+        api_key = "sk-1234567890abcdef"
+        log_event("api_request", {"api_key": api_key, "message": "Test"}, "TEST")
+        
+        # Check that the API key is not logged in plain text
+        sent_data = mock_send_event_to_api.call_args[1]["data"]
+        assert api_key not in str(sent_data)
+        
+        # Authentication tokens should be masked
+        auth_token = "Bearer eyJhbGciOiJ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ikpva.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        log_event("user_login", {"auth_token": auth_token, "user": "test_user"}, "TEST")
+        
+        # Check that the token is not logged in plain text
+        sent_data = mock_send_event_to_api.call_args[1]["data"]
+        assert auth_token not in str(sent_data)

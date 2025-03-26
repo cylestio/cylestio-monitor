@@ -39,7 +39,7 @@ class TestApiClient(unittest.TestCase):
             
         client = ApiClient()
         # Default local endpoint is now expected instead of None
-        self.assertEqual(client.endpoint, "http://127.0.0.1:8000/")
+        self.assertEqual(client.endpoint, "http://127.0.0.1:8000/api/v1/telemetry/")
 
     @patch("cylestio_monitor.api_client.requests.post")
     def test_send_event_success(self, mock_post):
