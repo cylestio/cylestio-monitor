@@ -374,10 +374,10 @@ def log_event(
         elif contains_suspicious(content) and alert != "dangerous":
             alert = "suspicious"
     
-    # Set the alert if found
+    # Set the alert if found, but only in the data dictionary, not in the record
     if alert != "none":
         data["alert"] = alert
-        record["alert"] = alert
+        # Don't set alert at the record level to avoid duplication 
     
     # Keep existing specific field checks
     if "prompt" in data and isinstance(data["prompt"], str):
@@ -391,7 +391,7 @@ def log_event(
         
         if alert != "none":
             data["alert"] = alert
-            record["alert"] = alert
+            # Don't set alert at the record level to avoid duplication
     
     if "response" in data and isinstance(data["response"], str):
         alert = "none"
@@ -404,7 +404,7 @@ def log_event(
         
         if alert != "none":
             data["response_alert"] = alert
-            record["response_alert"] = alert
+            record["response_alert"] = alert  # Keep this as it's a different field
     
     # Set alert level in the event of dangerous or suspicious content
     alert = None
@@ -420,6 +420,7 @@ def log_event(
     
     if alert:
         data["alert"] = alert
+        # Don't set alert at the record level to avoid duplication
         # Elevate log level for dangerous content
         if alert == "dangerous":
             record["level"] = "WARNING"
