@@ -14,4 +14,12 @@ repos:
     hooks:
       - id: bandit
         exclude: 'tests/.*$'
-        args: ['--severity-level', 'high'] 
+        args: ['--severity-level', 'high']
+
+  # Add dependency vulnerability scanning as a pre-push hook
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.2
+    hooks:
+      - id: pip-audit
+        stages: [push]
+        args: ['--ignore-vuln', 'PVE-2022-42969']  # Ignore disputed vulnerability in pytest 
