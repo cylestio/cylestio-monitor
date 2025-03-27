@@ -296,3 +296,5 @@ demo/
 run_demo.sh
 generate_demo_data.sh
 deploy_docs.sh
+temp*/
+build_test*/

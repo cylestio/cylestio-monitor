@@ -20,7 +20,8 @@ except ImportError:
     from langchain.schema import BaseMessage
     from langchain.schema import LLMResult
 
-from ..events_processor import EventProcessor
+from ..utils.trace_context import TraceContext
+from ..utils.event_logging import log_event
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -28,14 +29,9 @@ logger = logging.getLogger(__name__)
 class LangChainMonitor(BaseCallbackHandler):
     """Monitor for LangChain events."""
 
-    def __init__(self, event_processor: EventProcessor):
-        """Initialize the LangChain monitor.
-        
-        Args:
-            event_processor: The event processor to handle monitored events.
-        """
+    def __init__(self):
+        """Initialize the LangChain monitor."""
         super().__init__()
-        self.event_processor = event_processor
         self._start_times: Dict[str, float] = {}
         self._chain_types: Dict[str, str] = {}
         self._session_id = f"langchain-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -60,7 +56,7 @@ class LangChainMonitor(BaseCallbackHandler):
         data: Dict[str, Any],
         *,
         direction: Optional[str] = None,
-        level: str = "info"
+        level: str = "INFO"
     ) -> None:
         """Create and process a LangChain event with enhanced metadata."""
         # Add LangChain-specific metadata
@@ -89,13 +85,11 @@ class LangChainMonitor(BaseCallbackHandler):
         # Convert UUID objects to strings to make them JSON serializable
         enhanced_data = self._make_json_serializable(enhanced_data)
         
-        # Process the event with correct channel
-        self.event_processor.process_event(
-            event_type=event_type,
-            data=enhanced_data,
-            channel="LANGCHAIN",  # Always use LANGCHAIN channel
-            level=level,
-            direction=direction
+        # Log the event
+        log_event(
+            name=f"langchain.{event_type}",
+            attributes=enhanced_data,
+            level=level
         )
     
     def _make_json_serializable(self, data):
@@ -660,13 +654,9 @@ class LangChainMonitor(BaseCallbackHandler):
             )
 
 
-def patch_langchain(event_processor: EventProcessor) -> None:
-    """Patch LangChain for monitoring.
-    
-    Args:
-        event_processor: Event processor instance
-    """
-    monitor = LangChainMonitor(event_processor)
+def patch_langchain() -> None:
+    """Patch LangChain for monitoring."""
+    monitor = LangChainMonitor()
     
     try:
         # First approach: Try to monkey patch all Runnable methods to include our callback
@@ -974,9 +964,9 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                             ChatAnthropic._stream_generate = patched_anthropic_stream
                         
                         # Log successful patch
-                        event_processor.process_event(
-                            event_type="framework_patch",
-                            data={
+                        log_event(
+                            name="langchain.framework_patch",
+                            attributes={
                                 "framework": {
                                     "name": "langchain",
                                     "component": "ChatAnthropic",
@@ -987,7 +977,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                                 "method": "ChatAnthropic._generate",
                                 "note": "Using simple wrapper approach to avoid internal method dependencies"
                             },
-                            channel="LANGCHAIN",
                             level="info"
                         )
                     except ImportError:
@@ -1014,21 +1003,20 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                         pass
             except Exception as e:
                 # Log but continue if we have at least patched Runnable
-                event_processor.process_event(
-                    event_type="framework_patch_warning",
-                    data={
+                log_event(
+                    name="langchain.framework_patch_warning",
+                    attributes={
                         "framework": "langchain",
                         "warning": f"Could not patch all classes: {str(e)}",
                         "warning_type": type(e).__name__
                     },
-                    channel="LANGCHAIN",
                     level="warning"
                 )
             
             # Log successful patch
-            event_processor.process_event(
-                event_type="framework_patch",
-                data={
+            log_event(
+                name="langchain.framework_patch",
+                attributes={
                     "framework": {
                         "name": "langchain",
                         "version": monitor._get_langchain_version(),
@@ -1038,7 +1026,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                     "patch_time": datetime.now().isoformat(),
                     "method": "Runnable.invoke"
                 },
-                channel="LANGCHAIN",
                 level="info"
             )
             return
@@ -1068,9 +1055,9 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                     set_callback_manager(new_manager)
                 
                 # Log successful patch
-                event_processor.process_event(
-                    event_type="framework_patch",
-                    data={
+                log_event(
+                    name="langchain.framework_patch",
+                    attributes={
                         "framework": {
                             "name": "langchain",
                             "version": monitor._get_langchain_version(),
@@ -1080,7 +1067,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                         "patch_time": datetime.now().isoformat(),
                         "method": "CallbackManager"
                     },
-                    channel="LANGCHAIN",
                     level="info"
                 )
                 return
@@ -1097,9 +1083,9 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                 callback_manager.add_handler(monitor)
                 
                 # Log successful patch
-                event_processor.process_event(
-                    event_type="framework_patch",
-                    data={
+                log_event(
+                    name="langchain.framework_patch",
+                    attributes={
                         "framework": {
                             "name": "langchain",
                             "version": monitor._get_langchain_version(),
@@ -1109,7 +1095,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                         "patch_time": datetime.now().isoformat(),
                         "method": "CallbackManager"
                     },
-                    channel="LANGCHAIN",
                     level="info"
                 )
                 return
@@ -1127,9 +1112,9 @@ def patch_langchain(event_processor: EventProcessor) -> None:
             callback_manager.add_handler(monitor)
             
             # Log successful patch
-            event_processor.process_event(
-                event_type="framework_patch",
-                data={
+            log_event(
+                name="langchain.framework_patch",
+                attributes={
                     "framework": {
                         "name": "langchain",
                         "version": monitor._get_langchain_version(),
@@ -1139,7 +1124,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                     "patch_time": datetime.now().isoformat(),
                     "method": "CallbackManager"
                 },
-                channel="LANGCHAIN",
                 level="info"
             )
             return
@@ -1152,9 +1136,9 @@ def patch_langchain(event_processor: EventProcessor) -> None:
             set_global_handlers([monitor])
             
             # Log successful patch
-            event_processor.process_event(
-                event_type="framework_patch",
-                data={
+            log_event(
+                name="langchain.framework_patch",
+                attributes={
                     "framework": {
                         "name": "langchain",
                         "version": monitor._get_langchain_version(),
@@ -1164,7 +1148,6 @@ def patch_langchain(event_processor: EventProcessor) -> None:
                     "patch_time": datetime.now().isoformat(),
                     "method": "set_global_handlers"
                 },
-                channel="LANGCHAIN",
                 level="info"
             )
             return
@@ -1173,15 +1156,26 @@ def patch_langchain(event_processor: EventProcessor) -> None:
         
     except Exception as e:
         # Log patch failure
-        event_processor.process_event(
-            event_type="framework_patch_error",
-            data={
+        log_event(
+            name="langchain.framework_patch_error",
+            attributes={
                 "framework": "langchain",
                 "error": str(e),
                 "error_type": type(e).__name__
             },
-            channel="LANGCHAIN",
             level="error"
         )
         # Don't raise the exception, just log it and continue
         # This allows the application to run even if LangChain monitoring fails 
+
+def unpatch_langchain():
+    """Remove monitoring patches from LangChain library.
+    
+    This function is called by stop_monitoring to restore original functionality.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Unpatching LangChain - restoring original callbacks")
+    
+    # Nothing specific to unpatch as we don't monkey-patch any LangChain methods
+    # We only add a callback handler which doesn't need explicit removal
+    pass 

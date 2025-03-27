@@ -21,5 +21,5 @@ repos:
     rev: v2.7.2
     hooks:
       - id: pip-audit
-        stages: [push]
+        stages: [pre-push]
         args: ['--ignore-vuln', 'PVE-2022-42969']  # Ignore disputed vulnerability in pytest 

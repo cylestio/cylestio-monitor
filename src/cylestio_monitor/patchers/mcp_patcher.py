@@ -5,7 +5,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from ..events_processor import log_event
+from ..utils.trace_context import TraceContext
+from ..utils.event_logging import log_event
 from .base import BasePatcher
 
 
@@ -40,7 +41,8 @@ class MCPPatcher(BasePatcher):
         async def wrapped_list_tools(*args, **kwargs):
             # Log request
             log_event(
-                "mcp_request", {"method": "list_tools", "args": str(args), "kwargs": kwargs}, "MCP"
+                name="mcp.request", 
+                attributes={"method": "list_tools", "args": str(args), "kwargs": kwargs}
             )
 
             try:
@@ -49,12 +51,11 @@ class MCPPatcher(BasePatcher):
 
                 # Log response
                 log_event(
-                    "mcp_response",
-                    {
+                    name="mcp.response",
+                    attributes={
                         "method": "list_tools",
                         "response": {"tools": [t.model_dump() for t in result.tools]},
-                    },
-                    "MCP",
+                    }
                 )
 
                 return result
@@ -62,7 +63,9 @@ class MCPPatcher(BasePatcher):
             except Exception as e:
                 # Log error
                 log_event(
-                    "mcp_error", {"method": "list_tools", "error": str(e)}, "MCP", level="error"
+                    name="mcp.error", 
+                    attributes={"method": "list_tools", "error": str(e)}, 
+                    level="ERROR"
                 )
                 raise
 
@@ -79,14 +82,13 @@ class MCPPatcher(BasePatcher):
                 # Log the call start
                 start_time = time.time()
                 log_event(
-                    "call_start",
-                    {
+                    name="mcp.call.start",
+                    attributes={
                         "method": "call_tool",
                         "tool": tool_name,
                         "args": str(tool_args),
                         "kwargs": str(kwargs),
-                    },
-                    "MCP",
+                    }
                 )
 
                 # Call the original method
@@ -96,24 +98,22 @@ class MCPPatcher(BasePatcher):
                     # Log the call finish
                     duration = time.time() - start_time
                     log_event(
-                        "call_finish",
-                        {
+                        name="mcp.call.finish",
+                        attributes={
                             "method": "call_tool",
                             "tool": tool_name,
                             "duration": duration,
                             "result": str(result),
-                        },
-                        "MCP",
+                        }
                     )
 
                     return result
                 except Exception as e:
                     # Log the error
                     log_event(
-                        "call_error",
-                        {"method": "call_tool", "tool": tool_name, "error": str(e)},
-                        "MCP",
-                        "error",
+                        name="mcp.call.error",
+                        attributes={"method": "call_tool", "tool": tool_name, "error": str(e)},
+                        level="ERROR"
                     )
                     raise
 
@@ -130,14 +130,13 @@ class MCPPatcher(BasePatcher):
                 # Log the call start
                 start_time = time.time()
                 log_event(
-                    "call_start",
-                    {
+                    name="mcp.call.start",
+                    attributes={
                         "method": "get_completion",
                         "context": str(context),
                         "args": str(args),
                         "kwargs": str(kwargs),
-                    },
-                    "MCP",
+                    }
                 )
 
                 # Call the original method
@@ -147,16 +146,21 @@ class MCPPatcher(BasePatcher):
                     # Log the call finish
                     duration = time.time() - start_time
                     log_event(
-                        "call_finish",
-                        {"method": "get_completion", "duration": duration, "result": str(result)},
-                        "MCP",
+                        name="mcp.call.finish",
+                        attributes={
+                            "method": "get_completion", 
+                            "duration": duration, 
+                            "result": str(result)
+                        }
                     )
 
                     return result
                 except Exception as e:
                     # Log the error
                     log_event(
-                        "call_error", {"method": "get_completion", "error": str(e)}, "MCP", "error"
+                        name="mcp.call.error", 
+                        attributes={"method": "get_completion", "error": str(e)},
+                        level="ERROR"
                     )
                     raise
 
@@ -177,3 +181,64 @@ class MCPPatcher(BasePatcher):
 
         self.is_patched = False
         self.logger.info("Removed MCP monitoring patches")
+
+
+def patch_mcp():
+    """Patch MCP for monitoring.
+    
+    This function applies global patching to the MCP module to intercept all
+    ClientSession instances created after this function is called.
+    """
+    logger = logging.getLogger("CylestioMonitor.MCP")
+    
+    try:
+        # Import MCP and related classes
+        from mcp import ClientSession
+        
+        # Store original methods for restoration
+        original_init = ClientSession.__init__
+        
+        # Define patched initialization method
+        @functools.wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            # Call original init first
+            original_init(self, *args, **kwargs)
+            
+            # Then patch this instance
+            logger.debug(f"Auto-patching new MCP ClientSession instance")
+            patcher = MCPPatcher(client=self)
+            patcher.patch()
+        
+        # Apply the patch
+        ClientSession.__init__ = patched_init
+        
+        logger.info("Applied global MCP module patches")
+        
+    except ImportError:
+        logger.warning("MCP module not found. MCP monitoring not enabled.")
+    except Exception as e:
+        logger.error(f"Error patching MCP: {e}")
+
+
+def unpatch_mcp():
+    """Remove MCP monitoring patches.
+    
+    This function removes the global patching applied to the MCP module.
+    """
+    logger = logging.getLogger("CylestioMonitor.MCP")
+    
+    try:
+        # Import MCP and restore original methods
+        from mcp import ClientSession
+        
+        # Check if we have access to the original method
+        if hasattr(ClientSession.__init__, "__wrapped__"):
+            ClientSession.__init__ = ClientSession.__init__.__wrapped__
+            logger.info("Removed global MCP module patches")
+        else:
+            logger.warning("Could not restore original MCP ClientSession.__init__")
+        
+    except ImportError:
+        logger.debug("MCP module not found during unpatch")
+    except Exception as e:
+        logger.error(f"Error unpatching MCP: {e}")

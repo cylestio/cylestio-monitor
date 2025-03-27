@@ -7,6 +7,7 @@ import traceback
 import json
 import sys
 from typing import Any, Dict, Optional
+from datetime import datetime
 
 # Try to import Anthropic but don't fail if not available
 try:
@@ -15,7 +16,8 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-from ..events_processor import log_event
+from ..utils.trace_context import TraceContext
+from ..utils.event_logging import log_event
 from .base import BasePatcher
 
 # Track patched clients to prevent duplicate patching
@@ -81,16 +83,63 @@ class AnthropicPatcher(BasePatcher):
                         # Fall back to string representation
                         prompt_data = str(prompt_data)
                     
-                    # Log the request
+                    # Check for suspicious or dangerous content
+                    alert_level = "none"
+                    suspicious_keywords = ["hack", "exploit", "bomb", "terrorist", "illegal", "attack", "drop", "destroy", "delete", "backdoor", "exploit", "virus", "malware"]
+                    dangerous_keywords = ["how to make a bomb", "how to steal", "how to hack", "assassinate", "kill", "build a bomb", "drop a bomb"]
+                    
+                    # Convert prompt to string for checking keywords
+                    prompt_str = str(prompt_data).lower()
+                    
+                    # Check for dangerous content first (more severe)
+                    for keyword in dangerous_keywords:
+                        if keyword in prompt_str:
+                            alert_level = "dangerous"
+                            self.logger.warning(f"SECURITY ALERT: Dangerous content detected in LLM request: '{keyword}'")
+                            # Log as a dedicated security event too
+                            log_event(
+                                name="security.content.dangerous",
+                                attributes={
+                                    "method": "messages.create",
+                                    "keyword": keyword,
+                                    "content_sample": prompt_str[:100] + "..." if len(prompt_str) > 100 else prompt_str
+                                },
+                                level="ERROR"
+                            )
+                            break
+                            
+                    # If not dangerous, check if suspicious
+                    if alert_level == "none":
+                        for keyword in suspicious_keywords:
+                            if keyword in prompt_str:
+                                alert_level = "suspicious"
+                                self.logger.warning(f"SECURITY WARNING: Suspicious content detected in LLM request: '{keyword}'")
+                                # Log as a dedicated security event too
+                                log_event(
+                                    name="security.content.suspicious",
+                                    attributes={
+                                        "method": "messages.create",
+                                        "keyword": keyword,
+                                        "content_sample": prompt_str[:100] + "..." if len(prompt_str) > 100 else prompt_str
+                                    },
+                                    level="WARNING"
+                                )
+                                break
+                    
+                    # Log the request with security information
                     self.logger.debug("About to log LLM_call_start event")
                     log_event(
-                        "LLM_call_start",
-                        {
+                        name="llm.call.start",
+                        attributes={
                             "method": "messages.create",
                             "prompt": prompt_data,
-                            "alert": "none"  # Could add content filtering here
+                            "alert": alert_level,
+                            "security": {
+                                "alert": alert_level,
+                                "detection_time": datetime.now().isoformat()
+                            } if alert_level != "none" else {}
                         },
-                        "LLM"
+                        level="INFO"
                     )
                 except Exception as e:
                     # If logging fails, just log the error and continue
@@ -108,12 +157,12 @@ class AnthropicPatcher(BasePatcher):
                         response_data = self._extract_response_data(result)
                         self.logger.debug("About to log LLM_call_finish event")
                         log_event(
-                            "LLM_call_finish",  # Changed from LLM_call_end to LLM_call_finish
-                            {
+                            name="llm.call.finish",
+                            attributes={
                                 "method": "messages.create",
                                 "response": response_data
                             },
-                            "LLM"
+                            level="INFO"
                         )
                     except Exception as e:
                         # If response logging fails, just log the error and continue
@@ -127,14 +176,13 @@ class AnthropicPatcher(BasePatcher):
                         error_message = f"{type(e).__name__}: {str(e)}"
                         self.logger.debug("About to log LLM_call_blocked event")
                         log_event(
-                            "LLM_call_blocked",  # Changed from LLM_call_error to LLM_call_blocked
-                            {
+                            name="llm.call.blocked",
+                            attributes={
                                 "method": "messages.create",
                                 "error": error_message,
                                 "error_type": type(e).__name__
                             },
-                            "LLM",
-                            level="error"
+                            level="ERROR"
                         )
                     except Exception as log_error:
                         # If error logging fails, log the error and continue
