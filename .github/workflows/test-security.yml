@@ -51,8 +51,12 @@ jobs:
           echo "Checking that the package is installed correctly:"
           python -c "import cylestio_monitor; print(cylestio_monitor.__file__)"
           
-          echo "Checking security module path:"
-          python -c "try: from cylestio_monitor.events.processing import security; print('New path:', security.__file__); except ImportError: print('Failed to import from new path'); try: import cylestio_monitor.events_processor; print('Old path exists'); except ImportError: print('Old path does not exist')"
+          echo "Running comprehensive import diagnostics:"
+          python tests/check_imports.py
+      
+      - name: Run minimal security test
+        run: |
+          pytest tests/test_minimal_security.py -v
       
       - name: Run security tests with verbose output
         run: |
