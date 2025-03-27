@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch
 
 from cylestio_monitor.config.config_manager import ConfigManager
-from cylestio_monitor.events_processor import (
+from cylestio_monitor.events.processing.security import (
     contains_dangerous,
     contains_suspicious,
     normalize_text,
@@ -30,7 +30,7 @@ def reset_singleton():
 @pytest.fixture
 def mock_config_manager():
     """Create a mock config manager."""
-    with patch("cylestio_monitor.events_processor.config_manager") as mock_cm:
+    with patch("cylestio_monitor.events.processing.security.config_manager") as mock_cm:
         mock_cm.get_suspicious_keywords.return_value = ["HACK", "BOMB", "REMOVE"]
         mock_cm.get_dangerous_keywords.return_value = ["DROP", "RM -RF", "EXEC(", "FORMAT"]
         yield mock_cm
@@ -80,10 +80,10 @@ def test_text_normalization():
 @pytest.mark.security
 def test_event_content_alerts(mock_config_manager):
     """Test that events with dangerous or suspicious content trigger alerts."""
-    from cylestio_monitor.events_processor import log_event
+    from cylestio_monitor.utils.event_logging import log_event
     
-    with patch("cylestio_monitor.events_processor.process_and_log_event") as mock_process_log_event, \
-         patch("cylestio_monitor.events_processor.log_to_file"):
+    with patch("cylestio_monitor.events.processing.processor.process_and_log_event") as mock_process_log_event, \
+         patch("cylestio_monitor.events.processing.logger.log_to_file"):
         
         # Test with dangerous content in different fields
         log_event("test_event", {"content": "DROP TABLE users"}, "TEST")
@@ -110,10 +110,10 @@ def test_event_content_alerts(mock_config_manager):
 @pytest.mark.security
 def test_sensitive_data_not_logged():
     """Test that sensitive data like API keys are not logged in plain text."""
-    from cylestio_monitor.events_processor import log_event
+    from cylestio_monitor.utils.event_logging import log_event
     
-    with patch("cylestio_monitor.events_processor.process_and_log_event") as mock_process_log_event, \
-         patch("cylestio_monitor.events_processor.log_to_file"):
+    with patch("cylestio_monitor.events.processing.processor.process_and_log_event") as mock_process_log_event, \
+         patch("cylestio_monitor.events.processing.logger.log_to_file"):
         
         # API keys should be masked
         api_key = "sk-1234567890abcdef"
