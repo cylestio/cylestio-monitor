@@ -211,3 +211,9 @@ For complete documentation, including detailed guides, API reference, and best p
 ## License
 
 MIT
+
+## CI Status
+
+![CI/CD](https://github.com/cylestio/cylestio-monitor/workflows/CI/CD/badge.svg)
+
+Security test fixes have been applied to ensure compatibility with the new module structure.

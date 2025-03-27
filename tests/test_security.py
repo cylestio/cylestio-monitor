@@ -1,5 +1,6 @@
 """Security tests for the Cylestio Monitor package."""
 
+# CI fix - ensuring this file is updated in the test environment
 import pytest
 from unittest.mock import patch
 
