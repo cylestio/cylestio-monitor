@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.event_logger import log_to_file, process_and_log_event, log_console_message
+from cylestio_monitor.utils.event_logging import log_event as log_event_to_utils
 from cylestio_monitor.utils.otel import get_or_create_agent_trace_context, create_child_span
 from cylestio_monitor.events.processing.security import mask_sensitive_data, check_security_concerns
 from cylestio_monitor.events.schema import StandardizedEvent
@@ -254,11 +254,48 @@ def log_event(
     
     # Log to file if log_file is set
     if log_file:
-        log_to_file(event, log_file)
+        log_event_to_utils(event, log_file)
     
     # Log to console
     if config_manager.get("monitoring.console_logging", False):
-        log_console_message(f"{otel_name}: {json.dumps(masked_attributes)[:100]}...")
+        log_event_to_utils(f"{otel_name}: {json.dumps(masked_attributes)[:100]}...")
     
     # Call process_and_log_event to handle additional processing
-    process_and_log_event(event) 
+    process_and_log_event(otel_name, masked_attributes, level)
+
+def log_to_file(event: Dict[str, Any], log_file: str) -> None:
+    """Write event to log file.
+    
+    Args:
+        event: The event to write
+        log_file: Path to the log file
+    """
+    try:
+        with open(log_file, 'a') as f:
+            f.write(json.dumps(event) + '\n')
+    except Exception as e:
+        monitor_logger.error(f"Failed to write to log file: {e}")
+
+def log_console_message(message: str) -> None:
+    """Log a message to the console.
+    
+    Args:
+        message: The message to log
+    """
+    monitor_logger.info(message)
+
+def process_and_log_event(event_name: str, data: Dict[str, Any], level: str = "info") -> None:
+    """Process and log an event.
+    
+    Args:
+        event_name: Name of the event
+        data: Event data
+        level: Log level
+    """
+    # Use the new unified logging function
+    attributes = data.copy()
+    log_event_to_utils(
+        name=event_name,
+        attributes=attributes,
+        level=level
+    ) 
