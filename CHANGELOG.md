@@ -7,11 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2024-03-27
+
 ### Security
 - Enhanced sensitive data masking for API keys and tokens
 - Implemented security scanning in CI/CD pipeline
 - Added security tests for sensitive data handling
 - Activated Bandit and Safety checks in pre-commit hooks
+- Fixed security warnings by adding usedforsecurity=False to MD5 hash functions
+
+### Added
+- Added OpenTelemetry-compliant schema for events
+- Improved documentation for OpenTelemetry integration
+- Added tracing context and span support
+- Enhanced API for distributed tracing
+
+### Changed
+- Updated documentation to reflect OpenTelemetry-compliant API changes
+- Standardized event schema to align with OpenTelemetry specifications
 
 ## [0.1.3] - 2024-03-21
 
