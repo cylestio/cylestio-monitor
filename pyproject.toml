@@ -34,6 +34,7 @@ dependencies = [
     "requests>=2.31.0",
     "langchain>=0.1.0",
     "langchain-core>=0.1.0",
+    "setuptools>=68.0.0",  # Required for pkg_resources
 ]
 
 [project.urls]

@@ -11,6 +11,9 @@ from datetime import datetime
 from typing import Dict, Optional, Any
 
 from cylestio_monitor.utils.trace_context import TraceContext
+from cylestio_monitor.utils.context_attributes import get_all_context, get_environment_context, get_library_versions
+from cylestio_monitor.utils.schema import get_current_schema_version, validate_event_schema
+from cylestio_monitor.utils.event_context import enrich_event_with_context, get_session_id
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.api_client import send_event_to_api
 
@@ -24,7 +27,10 @@ def log_event(
     level: str = "INFO", 
     span_id: Optional[str] = None, 
     trace_id: Optional[str] = None, 
-    parent_span_id: Optional[str] = None
+    parent_span_id: Optional[str] = None,
+    include_context: bool = True,
+    context_type: str = "minimal",
+    add_thread_context: bool = True
 ) -> Dict[str, Any]:
     """Log an event with OpenTelemetry-compliant structure.
     
@@ -35,6 +41,9 @@ def log_event(
         span_id: Optional span ID (uses current context if None)
         trace_id: Optional trace ID (uses current context if None)
         parent_span_id: Optional parent span ID (uses current context if None)
+        include_context: Whether to include environmental context attributes
+        context_type: Type of context to include ("minimal", "standard", or "full")
+        add_thread_context: Whether to add thread-local context from event_context
         
     Returns:
         Dict: The created event record
@@ -45,10 +54,15 @@ def log_event(
     span_id = span_id or context.get("span_id")
     agent_id = context.get("agent_id")
     
+    # Get parent_span_id from context if not provided
+    if parent_span_id is None and span_id is not None:
+        parent_span_id = context.get("parent_span_id") or TraceContext.get_parent_span_id(span_id)
+    
     # Create the event record
     timestamp = datetime.now().isoformat()
     
     event = {
+        "schema_version": get_current_schema_version(),  # Add schema version
         "timestamp": timestamp,
         "trace_id": trace_id,
         "span_id": span_id,
@@ -61,6 +75,36 @@ def log_event(
     # Add agent_id if available
     if agent_id:
         event["agent_id"] = agent_id
+    
+    # Add session_id to attributes
+    event["attributes"]["session.id"] = get_session_id()
+    
+    # Add environmental context attributes if enabled
+    if include_context:
+        env_attributes = {}
+        
+        # Add context based on the specified level
+        if name == "monitoring.start" or context_type == "full":
+            # Full context for monitoring.start events or if explicitly requested
+            env_attributes.update({f"env.{k}": v for k, v in get_all_context().items()})
+        elif context_type == "standard":
+            # Standard context includes environment and library versions
+            env_attributes.update({f"env.{k}": v for k, v in get_environment_context().items()})
+            env_attributes.update({f"env.{k}": v for k, v in get_library_versions().items()})
+        elif context_type == "minimal":
+            # Minimal context includes only essential environment info
+            env_attributes.update({f"env.{k}": v for k, v in get_environment_context().items()})
+        
+        # Add context attributes to the event
+        event["attributes"].update(env_attributes)
+    
+    # Add thread-local context if enabled
+    if add_thread_context:
+        event = enrich_event_with_context(event)
+    
+    # Validate the event schema before writing/sending
+    if not validate_event_schema(event):
+        logger.warning(f"Event failed schema validation: {name}")
     
     # Write to log file
     _write_to_log_file(event)

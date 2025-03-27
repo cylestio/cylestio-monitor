@@ -14,7 +14,7 @@ from . import langchain_patcher
 from .base import BasePatcher
 from .anthropic import AnthropicPatcher
 from .mcp_patcher import MCPPatcher
-from .langchain_patcher import LangChainMonitor
+from .langchain_patcher import LangChainPatcher
 
 # Expose the patching functions for all supported frameworks
 from .mcp_patcher import patch_mcp, unpatch_mcp
@@ -52,7 +52,7 @@ __all__ = [
     "BasePatcher",
     "AnthropicPatcher",
     "MCPPatcher",
-    "LangChainMonitor",
+    "LangChainPatcher",
     "LangGraphPatcher",
     
     # Patching functions

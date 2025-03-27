@@ -17,6 +17,7 @@ from .config import ConfigManager
 from .api_client import get_api_client, ApiClient
 from .utils.trace_context import TraceContext
 from .utils.event_logging import log_event
+from .patchers.mcp_patcher import patch_mcp, unpatch_mcp
 
 # Configure root logger
 logging.basicConfig(
@@ -135,20 +136,21 @@ def start_monitoring(
     try:
         # Step 1: Patch MCP if available and enabled
         try:
-            # Try patching using ClientSession approach first (working method from main branch)
-            from mcp import ClientSession
+            # Apply MCP patcher directly using our imported function
+            patch_result = patch_mcp()
             
-            # Patch ClientSession.call_tool method
-            from .patchers.mcp_patcher import patch_mcp
-            patch_mcp()
-            
-            # Log the patch
-            logger.info("MCP patched for monitoring")
-            monitor_logger.info("MCP integration enabled")
+            if patch_result:
+                logger.info("MCP patched for monitoring")
+                monitor_logger.info("MCP integration enabled")
+            else:
+                logger.warning("Failed to patch MCP. MCP monitoring will not be available.")
             
         except ImportError:
             # MCP not installed or available
-            pass
+            logger.debug("MCP not available, skipping patch")
+            
+        except Exception as e:
+            logger.error(f"Error patching MCP: {e}")
             
         # Step 2: Apply global module patching for Anthropic (new approach)
         try:
@@ -222,6 +224,19 @@ def stop_monitoring() -> None:
         name="monitoring.stop",
         attributes={"agent.id": agent_id} if agent_id else {}
     )
+    
+    # Unpatch MCP if it was patched
+    try:
+        unpatch_mcp()
+    except Exception as e:
+        logger.warning(f"Error while unpatching MCP: {e}")
+    
+    # Stop the background API thread
+    try:
+        from cylestio_monitor.api_client import stop_background_thread
+        stop_background_thread()
+    except Exception as e:
+        logger.warning(f"Error stopping background API thread: {e}")
     
     # Reset the trace context
     TraceContext.reset()
