@@ -1,6 +1,6 @@
 # Cylestio Monitor
 
-A comprehensive security and monitoring solution for AI agents. Cylestio Monitor provides lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP) and popular LLM providers.
+A comprehensive security and monitoring solution for AI agents with OpenTelemetry-compliant telemetry. Cylestio Monitor provides lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP), LangChain, LangGraph, and popular LLM providers.
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
@@ -8,7 +8,7 @@ A comprehensive security and monitoring solution for AI agents. Cylestio Monitor
 
 ## Overview
 
-Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents. While it works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced user experience and additional security and monitoring capabilities across your entire agentic workforce.
+Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents with OpenTelemetry-compliant telemetry. While it works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced user experience and additional security and monitoring capabilities across your entire agentic workforce.
 
 **For full documentation, visit [https://docs.cylestio.com](https://docs.cylestio.com)**
 
@@ -42,11 +42,12 @@ from anthropic import Anthropic
 # Create your LLM client
 client = Anthropic()
 
-# Enable monitoring with a remote API endpoint
+# Start monitoring with a remote API endpoint
 start_monitoring(
     agent_id="my_agent",
     config={
-        "api_endpoint": "https://your-api-endpoint.com/events"
+        "api_endpoint": "https://your-api-endpoint.com/events",
+        "log_file": "output/monitoring.json"  # Optional local JSON logging
     }
 )
 
@@ -62,21 +63,69 @@ from cylestio_monitor import stop_monitoring
 stop_monitoring()
 ```
 
+## OpenTelemetry-Compliant Event Structure
+
+Cylestio Monitor generates events following OpenTelemetry standards:
+
+```json
+{
+    "timestamp": "2024-03-27T15:31:40.622017",
+    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595", 
+    "span_id": "96d8c2be667e4c78",
+    "parent_span_id": "f1490a668d69d1dc",
+    "name": "llm.call.start",
+    "level": "INFO",
+    "attributes": {
+        "method": "messages.create",
+        "prompt": "Hello, world!",
+        "model": "claude-3-sonnet-20240229"
+    },
+    "agent_id": "my-agent"
+}
+```
+
 ## Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP)
+- **OpenTelemetry compliance**: Generate structured telemetry with trace context for distributed tracing
+- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP), LangChain, and LangGraph
+- **Hierarchical operation tracking**: Understand relationships between operations with spans and trace context
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses 
-- **Security monitoring**: Detects and blocks dangerous prompts
+- **Security monitoring**: Detects and flags suspicious or dangerous content
 - **Performance tracking**: Monitors call durations and response times
 - **Flexible storage options**: Events can be sent to a remote API endpoint or stored locally in JSON files
 
+## Trace Context Management
+
+Cylestio Monitor automatically manages trace context following OpenTelemetry standards:
+
+```python
+from cylestio_monitor.utils.trace_context import TraceContext
+from cylestio_monitor.utils.event_logging import log_event
+
+# Start a custom span for an operation
+span_info = TraceContext.start_span("data-processing")
+
+try:
+    # Perform some operation
+    result = process_data()
+    
+    # Log an event within this span
+    log_event(
+        name="custom.processing.complete",
+        attributes={"records_processed": 100}
+    )
+finally:
+    # Always end the span
+    TraceContext.end_span()
+```
+
 ## Security Features
 
-- **Prompt injection detection**: Identify and block malicious prompt injection attempts
+- **Content safety monitoring**: Identify potentially suspicious or dangerous content
 - **PII detection**: Detect and redact personally identifiable information
-- **Content filtering**: Filter out harmful or inappropriate content
-- **Security rules**: Define custom security rules for your specific use case
+- **Content filtering**: Flag harmful or inappropriate content
+- **Security classification**: Events are automatically classified by security risk level
 
 ## Framework Support
 
@@ -100,7 +149,7 @@ cylestio-monitor/
 │       ├── patchers/          # Framework-specific patchers (Anthropic, MCP, etc.)
 │       ├── events/            # Event definitions and processing
 │       ├── config/            # Configuration management
-│       └── utils/             # Utility functions
+│       └── utils/             # Utility functions and trace context management
 ├── examples/                  # Example implementations
 │   └── agents/                # Various agent examples demonstrating integration
 ├── tests/                     # Test suite
@@ -139,11 +188,12 @@ This approach ensures that tests run consistently regardless of the environment 
 
 ## API Client
 
-The Cylestio Monitor now uses a lightweight REST API client to send telemetry events to a remote endpoint instead of storing them in a local database. This approach offers several advantages:
+The Cylestio Monitor uses a lightweight REST API client to send OpenTelemetry-compliant telemetry events to a remote endpoint. This approach offers several advantages:
 
 - **Centralized Event Storage**: All events from different agents can be collected in a central location
 - **Real-time Monitoring**: Events are sent in real-time to the API for immediate analysis
 - **Minimal Storage Requirements**: No local database maintenance required
+- **Distributed Tracing**: Trace context propagation enables end-to-end visibility
 - **Scalability**: Easily scale monitoring across multiple agents and applications
 
 The API client can be configured by providing an endpoint URL either through the `api_endpoint` configuration parameter or by setting the `CYLESTIO_API_ENDPOINT` environment variable.
