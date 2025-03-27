@@ -32,7 +32,7 @@ from cylestio_monitor.utils.instrumentation import instrument_function, instrume
 # Import the API client module to make it available
 from . import api_client
 
-__version__ = "0.2.0"
+__version__ = "0.1.5"
 
 __all__ = [
     "start_monitoring",
