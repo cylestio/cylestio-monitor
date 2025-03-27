@@ -24,21 +24,25 @@ stop_monitoring()
 ```
 """
 
-from .events_processor import log_event
-from .monitor import stop_monitoring, start_monitoring, get_api_endpoint, log_to_file_and_api
+from cylestio_monitor.monitor import stop_monitoring, start_monitoring, get_api_endpoint
+from cylestio_monitor.utils.event_logging import log_event, log_error
+from cylestio_monitor.utils.trace_context import TraceContext
+from cylestio_monitor.utils.instrumentation import instrument_function, instrument_method, Span
 
 # Import the API client module to make it available
 from . import api_client
-from . import event_logger
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 
 __all__ = [
     "start_monitoring",
     "stop_monitoring",
     "log_event",
+    "log_error",
+    "TraceContext",
+    "instrument_function",
+    "instrument_method",
+    "Span",
     "get_api_endpoint",
-    "log_to_file_and_api",
     "api_client",
-    "event_logger",
 ]

@@ -75,7 +75,7 @@ class MonitoredChatbot:
         api_key = validate_environment()
         
         # Enable monitoring with minimal parameters
-        start_monitoring(agent_id="chatbot-agent", config={"log_file":"output/chatbot_monitoring.json"})
+        start_monitoring(agent_id="chatbot-agent", config={"log_file":"output/chatbot_monitoring-new.json"})
         
         # Initialize the LLM
         self.llm = ChatAnthropic(

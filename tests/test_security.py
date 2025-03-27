@@ -82,27 +82,29 @@ def test_event_content_alerts(mock_config_manager):
     """Test that events with dangerous or suspicious content trigger alerts."""
     from cylestio_monitor.events_processor import log_event
     
-    with patch("cylestio_monitor.events_processor.send_event_to_api") as mock_send_event_to_api, \
+    with patch("cylestio_monitor.events_processor.process_and_log_event") as mock_process_log_event, \
          patch("cylestio_monitor.events_processor.log_to_file"):
         
         # Test with dangerous content in different fields
         log_event("test_event", {"content": "DROP TABLE users"}, "TEST")
-        assert mock_send_event_to_api.call_args[1]["data"]["alert"] == "dangerous"
-        assert mock_send_event_to_api.call_args[1]["level"] == "warning"
+        # Check alert in the data passed to process_and_log_event
+        assert mock_process_log_event.call_args[1]["data"]["alert"] == "dangerous"
+        # Check level is elevated
+        assert mock_process_log_event.call_args[1]["level"] == "warning"
         
-        mock_send_event_to_api.reset_mock()
+        mock_process_log_event.reset_mock()
         log_event("test_event", {"message": "The server will rm -rf by mistake"}, "TEST")
-        assert mock_send_event_to_api.call_args[1]["data"]["alert"] == "dangerous"
+        assert mock_process_log_event.call_args[1]["data"]["alert"] == "dangerous"
         
         # Test with suspicious content
-        mock_send_event_to_api.reset_mock()
+        mock_process_log_event.reset_mock()
         log_event("test_event", {"text": "Someone might BOMB the server"}, "TEST")
-        assert mock_send_event_to_api.call_args[1]["data"]["alert"] == "suspicious"
+        assert mock_process_log_event.call_args[1]["data"]["alert"] == "suspicious"
         
         # Test with safe content
-        mock_send_event_to_api.reset_mock()
+        mock_process_log_event.reset_mock()
         log_event("test_event", {"value": "This is a safe message"}, "TEST")
-        assert "alert" not in mock_send_event_to_api.call_args[1]["data"]
+        assert "alert" not in mock_process_log_event.call_args[1]["data"]
 
 
 @pytest.mark.security
@@ -110,7 +112,7 @@ def test_sensitive_data_not_logged():
     """Test that sensitive data like API keys are not logged in plain text."""
     from cylestio_monitor.events_processor import log_event
     
-    with patch("cylestio_monitor.events_processor.send_event_to_api") as mock_send_event_to_api, \
+    with patch("cylestio_monitor.events_processor.process_and_log_event") as mock_process_log_event, \
          patch("cylestio_monitor.events_processor.log_to_file"):
         
         # API keys should be masked
@@ -118,7 +120,7 @@ def test_sensitive_data_not_logged():
         log_event("api_request", {"api_key": api_key, "message": "Test"}, "TEST")
         
         # Check that the API key is not logged in plain text
-        sent_data = mock_send_event_to_api.call_args[1]["data"]
+        sent_data = mock_process_log_event.call_args[1]["data"]
         assert api_key not in str(sent_data)
         
         # Authentication tokens should be masked
@@ -126,5 +128,5 @@ def test_sensitive_data_not_logged():
         log_event("user_login", {"auth_token": auth_token, "user": "test_user"}, "TEST")
         
         # Check that the token is not logged in plain text
-        sent_data = mock_send_event_to_api.call_args[1]["data"]
+        sent_data = mock_process_log_event.call_args[1]["data"]
         assert auth_token not in str(sent_data)

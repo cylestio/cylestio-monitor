@@ -1,33 +1,29 @@
 # Monitor Module
 
-The Monitor Module is the core component of Cylestio Monitor, providing the main functions for enabling and configuring monitoring of AI agents.
+The Monitor Module is the core component of Cylestio Monitor, providing the main functions for enabling and configuring monitoring of AI agents with OpenTelemetry-compliant telemetry.
 
 ## Core Functions
 
-### `enable_monitoring`
+### `start_monitoring`
 
-Enables monitoring for an AI agent.
+Initializes monitoring for an AI agent.
 
 ```python
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring
 
 # Basic usage
-enable_monitoring(agent_id="my-agent")
-
-# With an LLM client
-enable_monitoring(
-    agent_id="my-agent",
-    llm_client=client
-)
+start_monitoring(agent_id="my-agent")
 
 # With additional configuration
-enable_monitoring(
+start_monitoring(
     agent_id="my-agent",
-    llm_client=client,
-    block_dangerous=True,
-    security_level="high",
-    log_file="/path/to/logs/monitoring.json",
-    development_mode=False
+    config={
+        "debug_level": "INFO",
+        "log_file": "/path/to/logs/monitoring.json",
+        "api_endpoint": "https://api.example.com/events",
+        "development_mode": False,
+        "enable_framework_patching": True
+    }
 )
 ```
 
@@ -36,25 +32,26 @@ enable_monitoring(
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `agent_id` | string | Unique identifier for the agent being monitored |
-| `llm_client` | object | (Optional) LLM client instance to monitor |
-| `block_dangerous` | boolean | (Optional) Whether to block dangerous prompts |
-| `security_level` | string | (Optional) Security level: "low", "medium", "high" |
-| `log_file` | string | (Optional) Path to log file or directory |
-| `development_mode` | boolean | (Optional) Enable additional debug information |
+| `config` | dict | (Optional) Configuration dictionary with the following options: |
+| - `debug_level` | string | Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
+| - `log_file` | string | Path to log file or directory for telemetry events |
+| - `api_endpoint` | string | URL of the remote API endpoint to send events to |
+| - `development_mode` | boolean | Enable additional development features like detailed logging |
+| - `enable_framework_patching` | boolean | Whether to automatically patch frameworks like LangChain, LangGraph, etc. |
 
 #### Returns
 
 None
 
-### `disable_monitoring`
+### `stop_monitoring`
 
-Disables monitoring and cleans up resources.
+Stops monitoring and cleans up resources.
 
 ```python
-from cylestio_monitor import disable_monitoring
+from cylestio_monitor import stop_monitoring
 
-# Disable monitoring
-disable_monitoring()
+# Stop monitoring
+stop_monitoring()
 ```
 
 #### Parameters
@@ -65,16 +62,16 @@ None
 
 None
 
-### `get_database_path`
+### `get_api_endpoint`
 
-Gets the path to the monitoring database.
+Gets the configured API endpoint for sending events.
 
 ```python
-from cylestio_monitor import get_database_path
+from cylestio_monitor import get_api_endpoint
 
-# Get database path
-db_path = get_database_path()
-print(f"Database path: {db_path}")
+# Get API endpoint
+endpoint = get_api_endpoint()
+print(f"API endpoint: {endpoint}")
 ```
 
 #### Parameters
@@ -83,103 +80,109 @@ None
 
 #### Returns
 
-string: Path to the monitoring database
+string: URL of the configured API endpoint
 
-### `setup_periodic_reporting`
+## Trace Context
 
-Sets up periodic reporting of monitoring data.
+The Monitor Module automatically manages trace context following OpenTelemetry standards:
 
 ```python
-from cylestio_monitor import setup_periodic_reporting
+from cylestio_monitor.utils.trace_context import TraceContext
 
-# Setup periodic reporting
-setup_periodic_reporting(
-    hours=24,
-    report_path="/path/to/reports/",
-    include_security=True,
-    include_performance=True
-)
+# Get current trace context
+context = TraceContext.get_current_context()
+print(f"Trace ID: {context['trace_id']}")
+print(f"Span ID: {context['span_id']}")
 ```
 
-#### Parameters
+### Trace Context Fields
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `hours` | int | Hours between reports |
-| `report_path` | string | Path to store reports |
-| `include_security` | boolean | Include security information |
-| `include_performance` | boolean | Include performance information |
-
-#### Returns
-
-None
+| Field | Description |
+|-------|-------------|
+| `trace_id` | 32-character hex string identifying the entire trace |
+| `span_id` | 16-character hex string identifying the current operation |
+| `parent_span_id` | ID of the parent span, establishing hierarchical relationships |
+| `agent_id` | Identifier of the agent associated with this trace |
 
 ## Examples
 
 ### Basic Monitoring
 
 ```python
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring, stop_monitoring
 from anthropic import Anthropic
 
 # Create LLM client
 client = Anthropic()
 
-# Enable monitoring
-enable_monitoring(
+# Start monitoring
+start_monitoring(
     agent_id="my-agent",
-    llm_client=client
+    config={
+        "log_file": "output/monitoring.json"
+    }
 )
 
-# Use client as normal
-response = client.messages.create(
-    model="claude-3-sonnet-20240229",
-    max_tokens=1000,
-    messages=[{"role": "user", "content": "Hello, Claude!"}]
-)
-
-# Disable monitoring when done
-from cylestio_monitor import disable_monitoring
-disable_monitoring()
+try:
+    # Use client as normal
+    response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=1000,
+        messages=[{"role": "user", "content": "Hello, Claude!"}]
+    )
+finally:
+    # Always stop monitoring when done
+    stop_monitoring()
 ```
 
-### Production Monitoring
+### Production Monitoring with API Endpoint
 
 ```python
-from cylestio_monitor import enable_monitoring
+from cylestio_monitor import start_monitoring
 
 # Enable production-grade monitoring
-enable_monitoring(
+start_monitoring(
     agent_id="production-agent",
-    llm_client=client,
-    block_dangerous=True,
-    security_level="high",
-    log_file="/var/log/cylestio/monitoring.json"
+    config={
+        "api_endpoint": "https://api.example.com/events",
+        "log_file": "/var/log/cylestio/monitoring.json"
+    }
 )
 ```
 
-### `cleanup_old_events`
+### Monitoring with Framework Patching
+
+Cylestio Monitor automatically detects and patches supported frameworks:
 
 ```python
-def cleanup_old_events(days: int = 30) -> int:
+from cylestio_monitor import start_monitoring
+import langchain
+import langgraph
+
+# Start monitoring with framework patching enabled
+start_monitoring(
+    agent_id="ai-agent",
+    config={
+        "log_file": "output/monitoring.json",
+        "enable_framework_patching": True  # This is the default
+    }
+)
+
+# LangChain and LangGraph operations will be automatically monitored
 ```
 
-Deletes events older than the specified number of days.
-
-#### Parameters
-
-- `days` (int, optional): Number of days to keep. Events older than this will be deleted.
-
-#### Returns
-
-- int: Number of deleted events
-
-#### Example
+## Using API Client Directly
 
 ```python
-from cylestio_monitor import cleanup_old_events
+from cylestio_monitor.api_client import send_event_to_api
 
-# Delete events older than 30 days
-deleted_count = cleanup_old_events(days=30)
-print(f"Deleted {deleted_count} old events")
+# Send custom event to API
+event = {
+    "name": "custom.event",
+    "level": "INFO",
+    "attributes": {
+        "custom_field": "custom_value"
+    }
+}
+send_event_to_api(event)
 ``` 

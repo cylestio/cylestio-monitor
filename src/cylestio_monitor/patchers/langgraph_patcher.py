@@ -7,6 +7,7 @@ including graph node executions, data source interactions, and state transitions
 import time
 from typing import Any, Dict, List, Optional, Union, Callable
 from datetime import datetime
+import logging
 
 from langgraph.graph import END, StateGraph
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -14,19 +15,15 @@ from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResu
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.runnables import RunnableConfig
 
-from ..events_processor import EventProcessor
+from ..utils.trace_context import TraceContext
+from ..utils.event_logging import log_event
 
 
 class LangGraphMonitor:
     """Monitor for LangGraph events."""
 
-    def __init__(self, event_processor: EventProcessor):
-        """Initialize the LangGraph monitor.
-        
-        Args:
-            event_processor: The event processor to handle monitored events.
-        """
-        self.event_processor = event_processor
+    def __init__(self):
+        """Initialize the LangGraph monitor."""
         self._start_times: Dict[str, float] = {}
         self._node_types: Dict[str, str] = {}
         self._session_id = f"langgraph-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -46,7 +43,7 @@ class LangGraphMonitor:
         data: Dict[str, Any],
         *,
         direction: Optional[str] = None,
-        level: str = "info"
+        level: str = "INFO"
     ) -> None:
         """Create and process a LangGraph event with enhanced metadata."""
         # Add LangGraph-specific metadata
@@ -74,13 +71,15 @@ class LangGraphMonitor:
         else:
             enhanced_data["session_id"] = self._session_id
         
-        # Process the event with correct channel
-        self.event_processor.process_event(
-            event_type=event_type,
-            data=enhanced_data,
-            channel="LANGGRAPH",  # Always use LANGGRAPH channel
-            level=level,
-            direction=direction
+        # Add direction if provided
+        if direction:
+            enhanced_data["direction"] = direction
+            
+        # Log the event
+        log_event(
+            name=f"langgraph.{event_type}",
+            attributes=enhanced_data,
+            level=level
         )
     
     def on_graph_start(self, graph_id: str, graph_config: Dict[str, Any], inputs: Dict[str, Any]) -> None:
@@ -320,13 +319,9 @@ class LangGraphMonitor:
         )
 
 
-def patch_langgraph(event_processor: EventProcessor) -> None:
-    """Patch LangGraph for monitoring.
-    
-    Args:
-        event_processor: Event processor instance
-    """
-    monitor = LangGraphMonitor(event_processor)
+def patch_langgraph() -> None:
+    """Patch LangGraph for monitoring."""
+    monitor = LangGraphMonitor()
     
     # Register the monitor with LangGraph
     try:
@@ -336,15 +331,14 @@ def patch_langgraph(event_processor: EventProcessor) -> None:
             set_global_handlers([monitor])
             
             # Log successful patch
-            event_processor.process_event(
-                event_type="framework_patch",
-                data={
+            log_event(
+                name="framework_patch",
+                attributes={
                     "framework": "langgraph",
                     "version": monitor._get_langgraph_version(),
                     "patch_time": datetime.now().isoformat(),
                     "method": "set_global_handlers"
                 },
-                channel="LANGGRAPH",
                 level="info"
             )
             return
@@ -358,16 +352,15 @@ def patch_langgraph(event_processor: EventProcessor) -> None:
             # Check if we can monkey patch the StateGraph class
             if hasattr(langgraph, "graph") and hasattr(langgraph.graph, "StateGraph"):
                 # Log that we're using monkey patching instead
-                event_processor.process_event(
-                    event_type="framework_patch",
-                    data={
+                log_event(
+                    name="framework_patch",
+                    attributes={
                         "framework": "langgraph",
                         "version": monitor._get_langgraph_version(),
                         "patch_time": datetime.now().isoformat(),
                         "method": "monkey_patch",
                         "note": "Using monkey patching as callbacks module is not available"
                     },
-                    channel="LANGGRAPH",
                     level="info"
                 )
                 return
@@ -379,15 +372,25 @@ def patch_langgraph(event_processor: EventProcessor) -> None:
         
     except Exception as e:
         # Log patch failure
-        event_processor.process_event(
-            event_type="framework_patch_error",
-            data={
+        log_event(
+            name="framework_patch_error",
+            attributes={
                 "framework": "langgraph",
                 "error": str(e),
                 "error_type": type(e).__name__
             },
-            channel="LANGGRAPH",
             level="error"
         )
         # Don't raise the exception, just log it and continue
         # This allows the application to run even if LangGraph monitoring fails 
+
+def unpatch_langgraph():
+    """Remove monitoring patches from LangGraph library.
+    
+    This function is called by stop_monitoring to restore original functionality.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Unpatching LangGraph - restoring original functionality")
+    
+    # Nothing specific to unpatch for now
+    pass 

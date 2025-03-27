@@ -15,9 +15,9 @@ import platformdirs
 
 from .config import ConfigManager
 from .api_client import get_api_client, ApiClient
-from .event_logger import log_console_message, process_and_log_event
-from .events_listener import monitor_call, monitor_llm_call
-from .events_processor import log_event, EventProcessor
+from .utils.trace_context import TraceContext
+from .utils.event_logging import log_event
+from .patchers.mcp_patcher import patch_mcp, unpatch_mcp
 
 # Configure root logger
 logging.basicConfig(
@@ -117,45 +117,46 @@ def start_monitoring(
             logger.info(f"API client initialized with endpoint: {api_client.endpoint}")
         else:
             logger.warning("API endpoint not configured. Events will only be logged to file.")
+
+    # Initialize trace context
+    trace_id = TraceContext.initialize_trace(agent_id)
     
-    # Initialize the event processor
-    event_processor = EventProcessor(agent_id=agent_id, config=config)
-    
-    # Get LLM provider info (will be updated by patchers when detected)
-    llm_provider = "Unknown"
+    # Log initialization event
+    log_event(
+        name="monitoring.start",
+        attributes={
+            "agent.id": agent_id,
+            "monitoring.version": "2.0.0"
+        }
+    )
     
     # Check if framework patching is enabled (default to True)
     enable_framework_patching = config.get("enable_framework_patching", True)
     
-    # Special case for weather-agent: disable framework patching
-    if agent_id == "weather-agent":
-        enable_framework_patching = False
-        logger.info(f"Framework patching disabled for agent: {agent_id}")
-    
     try:
         # Step 1: Patch MCP if available and enabled
         try:
-            # Try patching using ClientSession approach first (working method from main branch)
-            from mcp import ClientSession
+            # Apply MCP patcher directly using our imported function
+            patch_result = patch_mcp()
             
-            # Patch ClientSession.call_tool method
-            original_call_tool = ClientSession.call_tool
-            ClientSession.call_tool = monitor_call(original_call_tool, "MCP")
-            
-            # Log the patch
-            logger.info("MCP patched for monitoring")
-            monitor_logger.info("MCP integration enabled")
+            if patch_result:
+                logger.info("MCP patched for monitoring")
+                monitor_logger.info("MCP integration enabled")
+            else:
+                logger.warning("Failed to patch MCP. MCP monitoring will not be available.")
             
         except ImportError:
             # MCP not installed or available
-            pass
+            logger.debug("MCP not available, skipping patch")
+            
+        except Exception as e:
+            logger.error(f"Error patching MCP: {e}")
             
         # Step 2: Apply global module patching for Anthropic (new approach)
         try:
             # Import patcher module and apply global patch
             from .patchers.anthropic import patch_anthropic_module
             patch_anthropic_module()
-            llm_provider = "Anthropic (Auto-detected)"
             logger.info("Anthropic module patched for global monitoring")
             monitor_logger.info("Anthropic integration enabled (global module patching)")
         except ImportError:
@@ -172,12 +173,7 @@ def start_monitoring(
                 # Only import the LangChain patcher if LangChain is available
                 try:
                     from .patchers.langchain_patcher import patch_langchain
-                    
-                    # Create event processor for LangChain
-                    langchain_processor = EventProcessor(agent_id=agent_id, config=config)
-                    
-                    # Apply patches
-                    patch_langchain(langchain_processor)
+                    patch_langchain()
                     logger.info("LangChain patched for monitoring")
                     monitor_logger.info("LangChain integration enabled")
                 except Exception as e:
@@ -194,8 +190,6 @@ def start_monitoring(
                 # Only import the LangGraph patcher if LangGraph is available
                 try:
                     from .patchers.langgraph_patcher import patch_langgraph
-                    
-                    # Apply patches
                     patch_langgraph()
                     logger.info("LangGraph patched for monitoring")
                     monitor_logger.info("LangGraph integration enabled")
@@ -205,148 +199,62 @@ def start_monitoring(
             except ImportError:
                 # LangGraph not installed or available
                 pass
-        else:
-            logger.info("Framework patching is disabled. Skipping LangChain and LangGraph patching.")
-            
+                
     except Exception as e:
         logger.error(f"Error during monitoring setup: {e}")
-        monitor_logger.error(f"Error during monitoring setup: {e}")
         
-    # Log successful initialization
-    logger.info(f"Cylestio monitoring enabled for agent: {agent_id}")
-    monitor_logger.info(f"Monitoring initialized for agent: {agent_id}")
-    
-    # Log the initialization event
-    process_and_log_event(
-        agent_id=agent_id,
-        event_type="monitor_init",
-        data={
-            "timestamp": datetime.now().isoformat(),
-            "api_endpoint": os.environ.get("CYLESTIO_API_ENDPOINT", "Not configured"),
-            "log_file": log_file,
-            "llm_provider": llm_provider
-        },
-        channel="SYSTEM"
-    )
+    logger.info(f"Monitoring started for agent: {agent_id}")
 
 
 def stop_monitoring() -> None:
     """
-    Stop all monitoring and clean up resources.
+    Stop monitoring and clean up resources.
     
-    This will restore any patched functions to their original state.
+    This function should be called when the application is shutting down
+    to ensure proper cleanup of monitoring resources and flush pending logs.
     """
-    logger.info("Stopping Cylestio monitoring")
+    logger.info("Stopping monitoring...")
     
-    # Get agent_id from configuration
+    # Get agent ID from config for logging
     config_manager = ConfigManager()
     agent_id = config_manager.get("monitoring.agent_id")
     
-    # Log the monitoring finish event before unpatching everything
-    if agent_id:
-        process_and_log_event(
-            agent_id=agent_id,
-            event_type="monitor_finish",
-            data={
-                "timestamp": datetime.now().isoformat(),
-            },
-            channel="SYSTEM"
-        )
+    # Log monitoring stop event
+    log_event(
+        name="monitoring.stop",
+        attributes={"agent.id": agent_id} if agent_id else {}
+    )
     
-    # Try to unpatch module-level patches
+    # Unpatch MCP if it was patched
     try:
-        # Unpatch Anthropic module
-        from .patchers.anthropic import unpatch_anthropic_module
-        unpatch_anthropic_module()
-        logger.info("Anthropic module unpatched")
-    except ImportError:
-        logger.debug("Anthropic module not available for unpatching")
+        unpatch_mcp()
     except Exception as e:
-        logger.warning(f"Failed to unpatch Anthropic module: {e}")
+        logger.warning(f"Error while unpatching MCP: {e}")
     
-    # Try to unpatch LangChain if it was patched
+    # Stop the background API thread
     try:
-        # Import only if LangChain is available
-        import langchain
-        
-        try:
-            from .patchers.langchain_patcher import unpatch_langchain
-            unpatch_langchain()
-            logger.info("LangChain unpatched")
-        except Exception as e:
-            logger.warning(f"Error unpatching LangChain: {e}")
-            
-    except ImportError:
-        # LangChain not installed
-        pass
+        from cylestio_monitor.api_client import stop_background_thread
+        stop_background_thread()
+    except Exception as e:
+        logger.warning(f"Error stopping background API thread: {e}")
     
-    # Try to unpatch LangGraph if it was patched
-    try:
-        # Import only if LangGraph is available
-        import langgraph
-        
-        try:
-            from .patchers.langgraph_patcher import unpatch_langgraph
-            unpatch_langgraph()
-            logger.info("LangGraph unpatched")
-        except Exception as e:
-            logger.warning(f"Error unpatching LangGraph: {e}")
-            
-    except ImportError:
-        # LangGraph not installed
-        pass
+    # Reset the trace context
+    TraceContext.reset()
     
-    # Log the cleanup
-    logger.info("Cylestio monitoring stopped")
-
+    logger.info("Monitoring stopped")
+    monitor_logger = logging.getLogger("CylestioMonitor")
+    monitor_logger.info("Monitoring stopped")
+    
 
 def get_api_endpoint() -> str:
     """
-    Get the API endpoint URL.
+    Get the currently configured API endpoint.
     
     Returns:
-        str: API endpoint URL
+        str: The API endpoint URL or an empty string if not configured
     """
     api_client = get_api_client()
-    return api_client.endpoint or "Not configured"
+    return api_client.endpoint or ""
 
 
-def log_to_file_and_api(
-    event_type: str,
-    data: Dict[str, Any],
-    agent_id: Optional[str] = None,
-    log_file: Optional[str] = None,
-    channel: str = "APPLICATION",
-    level: str = "info",
-    direction: Optional[str] = None
-) -> None:
-    """
-    Log an event to file and API.
-    
-    Args:
-        event_type: Event type
-        data: Event data
-        agent_id: Agent ID (optional, uses configured agent_id if not provided)
-        log_file: Path to log file (optional, uses configured log_file if not provided)
-        channel: Event channel
-        level: Log level
-        direction: Event direction
-    """
-    # Get agent_id from configuration if not provided
-    if agent_id is None:
-        config_manager = ConfigManager()
-        agent_id = config_manager.get("monitoring.agent_id")
-        if not agent_id:
-            logger.error("No agent_id provided and none found in configuration")
-            return
-    
-    # Log the event
-    process_and_log_event(
-        agent_id=agent_id,
-        event_type=event_type,
-        data=data,
-        channel=channel,
-        level=level
-    )
-
-__all__ = ["start_monitoring", "stop_monitoring", "log_to_file_and_api", "get_api_endpoint"]
+__all__ = ["start_monitoring", "stop_monitoring", "get_api_endpoint"]

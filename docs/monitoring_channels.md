@@ -1,6 +1,6 @@
 # Monitoring Channels
 
-Monitoring channels provide a way to organize and route events in Cylestio Monitor. This allows for flexible event handling and integration with various systems.
+Monitoring channels provide a way to organize and route events in Cylestio Monitor, working alongside OpenTelemetry trace context to create a complete picture of your agent's activities.
 
 ## Overview
 
@@ -18,163 +18,109 @@ Cylestio Monitor includes several built-in channels:
 | Channel | Description |
 |---------|-------------|
 | `SYSTEM` | System-level events (startup, shutdown, configuration changes) |
-| `LLM` | Events related to LLM API calls |
-| `SECURITY` | Security-related events (alerts, blocks, warnings) |
+| `LLM` | Events related to LLM API calls (requests, responses) |
+| `SECURITY` | Security-related events (suspicious or dangerous content) |
 | `MCP` | Events related to Model Context Protocol operations |
-| `API` | General API call events |
-| `DATABASE` | Database-related events |
-| `CUSTOM` | Default channel for custom events |
+| `API` | API client events (event submission, connectivity) |
+| `FRAMEWORK` | Framework-specific events (LangChain, LangGraph) |
 
-## Using Channels
+## Event Names by Channel
 
-### Specifying Channels for Events
+Events follow a consistent naming pattern with prefixes indicating their channel:
 
-When emitting events, you can specify the channel:
+### LLM Channel
+- `llm.request` - LLM API request event
+- `llm.response` - LLM API response event
+- `llm.call.start` - Start of an LLM call
+- `llm.call.finish` - Completion of an LLM call
+
+### SYSTEM Channel
+- `monitoring.start` - Monitoring initialization
+- `monitoring.stop` - Monitoring shutdown
+- `framework.initialization` - Framework detection and initialization
+
+### SECURITY Channel
+- `security.content.suspicious` - Detection of suspicious content
+- `security.content.dangerous` - Detection of dangerous content
+
+### MCP Channel
+- `mcp.request` - MCP request event
+- `mcp.response` - MCP response event
+- `mcp.call.start` - Start of MCP tool call
+- `mcp.call.finish` - Completion of MCP tool call
+
+## Working with Channels
+
+### Event Logging with Channels
+
+When logging events, the channel is determined by the event name:
 
 ```python
-from cylestio_monitor import emit_event
+from cylestio_monitor.utils.event_logging import log_event
 
-emit_event(
-    event_type="custom",
-    agent_id="my_agent",
-    data={"action": "user_login"},
-    severity="info",
-    channel="USER_ACTIVITY"  # Custom channel
+# Log an event in the custom channel
+log_event(
+    name="custom.operation.start",
+    attributes={"operation_type": "data_processing"},
+    level="INFO"
 )
 ```
 
 ### Filtering Events by Channel
 
-You can filter events by channel when retrieving them:
+When analyzing logs, you can filter events by their name prefix:
 
-```python
-from cylestio_monitor import get_events
+```bash
+# Filter logs for security events
+grep "security" monitoring.json
 
-# Get only security events
-security_events = get_events(channel="SECURITY")
+# Filter logs for LLM events
+grep "llm" monitoring.json
 ```
 
-### Channel-specific Handlers
+## Channel and Trace Context
 
-You can register handlers for specific channels:
+Channels work alongside trace context to provide a complete picture:
 
-```python
-from cylestio_monitor import register_channel_handler
+- **Channels** - Categorize events by type or subsystem
+- **Trace Context** - Connect related events hierarchically, regardless of channel
 
-def security_handler(event):
-    # Process security events
-    if event.severity == "high":
-        send_alert(event)
-    return True
+This combination allows you to both:
+1. Group similar events (via channels)
+2. Track operational flows and relationships (via trace context)
 
-register_channel_handler(
-    channel="SECURITY",
-    handler=security_handler
-)
-```
+## Channel Output Configuration
 
-## Custom Channels
+You can configure how events from different channels are handled:
 
-You can define your own custom channels for specific use cases:
+### Configuration via API Endpoint
 
-```python
-from cylestio_monitor import register_channel
+When using the API endpoint, all events are sent to the same endpoint, but can be filtered server-side based on channel.
 
-# Register a custom channel
-register_channel(
-    name="AUDIT",
-    description="Audit-related events",
-    config={
-        "retention_days": 365,  # Keep audit events for a year
-        "encryption": True      # Encrypt audit events
-    }
-)
-```
+### Configuration via Log File
 
-## Channel Configuration
-
-Each channel can have its own configuration:
-
-```python
-from cylestio_monitor import configure_channel
-
-# Configure the SECURITY channel
-configure_channel(
-    name="SECURITY",
-    config={
-        "alert_threshold": "medium",
-        "notify_admin": True,
-        "log_level": "debug"
-    }
-)
-```
-
-## Channel Outputs
-
-Channels can be configured to output events to different destinations:
-
-### File Output
-
-```python
-from cylestio_monitor import add_channel_output
-
-# Send security events to a dedicated log file
-add_channel_output(
-    channel="SECURITY",
-    output_type="file",
-    config={
-        "path": "/var/log/cylestio/security.log",
-        "format": "json",
-        "rotation": "daily"
-    }
-)
-```
-
-### Webhook Output
-
-```python
-from cylestio_monitor import add_channel_output
-
-# Send security events to a webhook
-add_channel_output(
-    channel="SECURITY",
-    output_type="webhook",
-    config={
-        "url": "https://security.example.com/webhook",
-        "headers": {"Authorization": "Bearer token123"},
-        "retry_count": 3
-    }
-)
-```
-
-### Database Output
-
-All events are stored in the database by default, but you can configure specific database settings per channel:
-
-```python
-from cylestio_monitor import configure_channel_database
-
-# Configure database settings for the AUDIT channel
-configure_channel_database(
-    channel="AUDIT",
-    config={
-        "table": "audit_events",
-        "retention_days": 365,
-        "encryption": True
-    }
-)
-```
+When using log file output, all events are written to the same log file. You can use log analysis tools to filter by channel as needed.
 
 ## Best Practices
 
-- Use channels to logically separate different types of events
-- Create custom channels for specific business domains
-- Configure appropriate retention policies for each channel
-- Use channel-specific handlers for specialized processing
-- Consider security and compliance requirements when configuring channels
+- Use consistent naming patterns for custom events (e.g., `custom.category.operation`)
+- Leverage trace context and spans for tracking operation flows
+- Use appropriate log levels for different types of events:
+  - `DEBUG` - Detailed debugging information
+  - `INFO` - Normal operational events
+  - `WARNING` - Issues that might need attention
+  - `ERROR` - Errors that prevent normal operation
+  - `CRITICAL` - Critical failures requiring immediate attention
+
+## Integrating with Log Analysis Tools
+
+The OpenTelemetry-compliant event structure makes it easy to integrate with log analysis tools:
+
+- **Trace ID** and **Span ID** fields enable distributed tracing visualization
+- **Channel** prefixes in event names allow for logical grouping
+- **Attributes** provide detailed filtering capabilities
 
 ## Next Steps
 
 - Learn about the [Events System](sdk-reference/events.md)
-- Explore [Custom Integrations](advanced-topics/custom-integrations.md)
-- See [Security Features](user-guide/security-features.md) for security-related channels 
+- Explore [Trace Context](sdk-reference/monitor.md#trace-context) for connecting related events 
