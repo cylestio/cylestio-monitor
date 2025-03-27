@@ -1,0 +1,59 @@
+name: Security Tests
+
+on:
+  push:
+    branches: [ main, ci-* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      
+      - name: Check Python version
+        run: |
+          python --version
+          which python
+      
+      - name: Clean cached packages
+        run: |
+          # Remove any cached packages that might cause issues
+          pip cache purge
+      
+      - name: Debug repository files
+        run: |
+          echo "Security test file content:"
+          cat tests/test_security.py
+
+          echo "\nSecurity module file structure:"
+          find src/cylestio_monitor -type f -name "*security*" | sort
+      
+      - name: Install package in development mode
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test,security]"
+          pip list
+      
+      - name: Debug installed packages
+        run: |
+          echo "Checking that the package is installed correctly:"
+          python -c "import cylestio_monitor; print(cylestio_monitor.__file__)"
+          
+          echo "Checking security module path:"
+          python -c "try: from cylestio_monitor.events.processing import security; print('New path:', security.__file__); except ImportError: print('Failed to import from new path'); try: import cylestio_monitor.events_processor; print('Old path exists'); except ImportError: print('Old path does not exist')"
+      
+      - name: Run security tests with verbose output
+        run: |
+          pytest tests/test_security.py -v 
