@@ -49,7 +49,7 @@ def _get_event_id(name: str, attributes: Dict[str, Any], timestamp: Optional[dat
         serialized_data += timestamp.isoformat()
     
     # Create a hash of the event name and serialized data
-    return hashlib.md5(f"{name}:{serialized_data}".encode()).hexdigest()
+    return hashlib.md5(f"{name}:{serialized_data}".encode(), usedforsecurity=False).hexdigest()
 
 
 def create_standardized_event(
@@ -381,7 +381,7 @@ class EventProcessor:
             Dict with execution_id and other context
         """
         # Generate execution ID
-        execution_id = hashlib.md5(f"{chain_name}:{json.dumps(inputs, sort_keys=True, default=str)}".encode()).hexdigest()
+        execution_id = hashlib.md5(f"{chain_name}:{json.dumps(inputs, sort_keys=True, default=str)}".encode(), usedforsecurity=False).hexdigest()
         
         # Prepare attributes
         attributes = {

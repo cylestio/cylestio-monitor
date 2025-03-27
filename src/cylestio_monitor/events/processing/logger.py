@@ -70,7 +70,7 @@ def _get_event_id(event_name: str, data: Dict[str, Any]) -> str:
     serialized_data = json.dumps(data, sort_keys=True, default=str)
     
     # Create a hash of the event type and serialized data
-    return hashlib.md5(f"{event_name}:{serialized_data}".encode()).hexdigest()
+    return hashlib.md5(f"{event_name}:{serialized_data}".encode(), usedforsecurity=False).hexdigest()
 
 
 def create_standardized_event(
