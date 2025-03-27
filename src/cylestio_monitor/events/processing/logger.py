@@ -25,12 +25,42 @@ monitor_logger = logging.getLogger("CylestioMonitor")
 # Track processed events to prevent duplicates
 _processed_events: Set[str] = set()
 
+# OpenTelemetry name mapping for standardization
+EVENT_NAME_MAPPING = {
+    # LLM events
+    "LLM_call_start": "llm.request",
+    "LLM_call_finish": "llm.response",
+    "LLM_call_blocked": "llm.error",
+    # Framework events
+    "framework_patch": "framework.initialization",
+    # Model events
+    "model_request": "llm.chain.request",
+    "model_response": "llm.chain.response",
+    # Tool events
+    "tool_start": "tool.execution",
+    "tool_finish": "tool.result",
+    "tool_error": "tool.error",
+    # Chain events
+    "chain_start": "chain.start",
+    "chain_end": "chain.end",
+    # Graph events
+    "graph_node_start": "graph.node.start",
+    "graph_node_end": "graph.node.end",
+    "graph_edge": "graph.edge.traversal",
+    # Other events
+    "retrieval_query": "retrieval.query",
+    "retrieval_result": "retrieval.result",
+    # MCP events
+    "mcp_call": "mcp.call",
+    "mcp_response": "mcp.response"
+}
 
-def _get_event_id(event_type: str, data: Dict[str, Any]) -> str:
+
+def _get_event_id(event_name: str, data: Dict[str, Any]) -> str:
     """Generate a unique identifier for events to track duplicates.
     
     Args:
-        event_type: The type of event
+        event_name: The name of event
         data: Event data
         
     Returns:
@@ -40,28 +70,30 @@ def _get_event_id(event_type: str, data: Dict[str, Any]) -> str:
     serialized_data = json.dumps(data, sort_keys=True, default=str)
     
     # Create a hash of the event type and serialized data
-    return hashlib.md5(f"{event_type}:{serialized_data}".encode()).hexdigest()
+    return hashlib.md5(f"{event_name}:{serialized_data}".encode()).hexdigest()
 
 
 def create_standardized_event(
     agent_id: str,
-    event_type: str,
-    data: Dict[str, Any],
-    channel: str = "SYSTEM",
+    name: str,
+    attributes: Dict[str, Any],
     level: str = "info",
     timestamp: Optional[datetime] = None,
-    direction: Optional[str] = None
+    trace_id: Optional[str] = None,
+    span_id: Optional[str] = None,
+    parent_span_id: Optional[str] = None
 ) -> StandardizedEvent:
     """Create a standardized event object.
     
     Args:
         agent_id: ID of the agent
-        event_type: Type of event
-        data: Event data
-        channel: Event channel
+        name: Name of event (OpenTelemetry convention)
+        attributes: Event attributes following OpenTelemetry conventions
         level: Log level
         timestamp: Optional timestamp for the event
-        direction: Optional direction for the event
+        trace_id: Optional trace ID
+        span_id: Optional span ID
+        parent_span_id: Optional parent span ID
         
     Returns:
         A StandardizedEvent object
@@ -73,49 +105,56 @@ def create_standardized_event(
     # Create the standardized event
     return StandardizedEvent(
         agent_id=agent_id,
-        event_type=event_type,
-        data=data,
-        channel=channel.upper(),
+        name=name,
+        attributes=attributes,
         level=level.upper(),
         timestamp=timestamp.isoformat(),
-        direction=direction
+        trace_id=trace_id,
+        span_id=span_id,
+        parent_span_id=parent_span_id
     )
 
 
 def log_event(
-    event_type: str, 
-    data: Dict[str, Any], 
-    channel: str = "SYSTEM", 
+    name: str, 
+    attributes: Dict[str, Any], 
     level: str = "info",
+    channel: Optional[str] = None,
     direction: Optional[str] = None
 ) -> None:
-    """Log a structured JSON event with uniform schema.
+    """Log a structured JSON event with OpenTelemetry-compliant schema.
     
     Args:
-        event_type: The type of event (e.g., "chat_exchange", "llm_call")
-        data: Event data dictionary
-        channel: Event channel (e.g., "SYSTEM", "LLM", "LANGCHAIN", "LANGGRAPH")
+        name: The name of event following OpenTelemetry conventions
+        attributes: Event attributes dictionary
         level: Log level (e.g., "info", "warning", "error")
-        direction: Message direction for chat events ("incoming" or "outgoing")
+        channel: Optional legacy channel parameter
+        direction: Optional legacy direction parameter
     """
-    # Debug logging for LLM call events
-    if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
+    # Debug logging
+    if name in ["llm.request", "llm.response", "llm.error"] or name.startswith("llm."):
         logger = logging.getLogger("CylestioMonitor")
-        logger.debug(f"log_event: Processing LLM call event: {event_type}")
+        logger.debug(f"log_event: Processing LLM event: {name}")
+    
+    # Map legacy event_type names to OpenTelemetry names if needed
+    otel_name = name
+    if name in EVENT_NAME_MAPPING:
+        otel_name = EVENT_NAME_MAPPING[name]
+        monitor_logger.debug(f"Mapped legacy event name '{name}' to OpenTelemetry name '{otel_name}'")
     
     # Check if this is a framework_patch event for the weather agent
     config_manager = ConfigManager()
     config_agent_id = config_manager.get("monitoring.agent_id", "unknown")
-    if config_agent_id == "weather-agent" and event_type == "framework_patch":
-        monitor_logger.debug(f"Skipping framework_patch event for weather-agent")
+    if config_agent_id == "weather-agent" and (otel_name == "framework.initialization" or name == "framework_patch"):
+        monitor_logger.debug(f"Skipping framework initialization event for weather-agent")
         return
     
     # Generate event ID for duplicate detection
-    event_id = _get_event_id(event_type, data)
+    event_id = _get_event_id(otel_name, attributes)
     
     # Check if we've already processed this event recently
     if event_id in _processed_events:
-        monitor_logger.debug(f"Skipping duplicate event: {event_type}")
+        monitor_logger.debug(f"Skipping duplicate event: {otel_name}")
         return
     
     # Add to processed events set
@@ -129,102 +168,97 @@ def log_event(
         except KeyError:
             pass
     
-    # Get agent_id from data if available
-    agent_id = data.get("agent_id")
+    # Get agent_id from attributes if available
+    agent_id = attributes.get("agent_id")
     if not agent_id:
-        # Only log warning if both data agent_id and config agent_id are missing
+        # Only log warning if both attributes agent_id and config agent_id are missing
         if not config_agent_id or config_agent_id == "unknown":
             logger = logging.getLogger("CylestioMonitor")
-            logger.warning(f"log_event: Missing agent_id for event: {event_type}")
+            logger.warning(f"log_event: Missing agent_id for event: {otel_name}")
         agent_id = config_agent_id or "unknown"
     
+    # Extract trace context from attributes if present
+    trace_id = attributes.get("trace_id")
+    span_id = attributes.get("span_id")
+    parent_span_id = attributes.get("parent_span_id")
+    
+    # Remove these from attributes if present since they'll be top-level fields
+    if "trace_id" in attributes:
+        del attributes["trace_id"]
+    if "span_id" in attributes:
+        del attributes["span_id"]
+    if "parent_span_id" in attributes:
+        del attributes["parent_span_id"]
+    if "agent_id" in attributes:
+        del attributes["agent_id"]
+    
     # Add OpenTelemetry trace and span IDs if not present
-    if not data.get("trace_id") and not data.get("span_id"):
+    if not trace_id or not span_id:
         # Generate a new trace context or get existing one based on agent
         trace_context = get_or_create_agent_trace_context(agent_id)
         
-        data["trace_id"] = trace_context["trace_id"]
-        data["span_id"] = trace_context["span_id"]
+        trace_id = trace_context["trace_id"]
+        span_id = trace_context["span_id"]
         if trace_context["parent_span_id"]:
-            data["parent_span_id"] = trace_context["parent_span_id"]
+            parent_span_id = trace_context["parent_span_id"]
         
         # For sequential events from the same agent (like LLM_call_start → LLM_call_finish),
         # create child spans to maintain relationship
-        if event_type.endswith("_finish") or event_type.endswith("_end") or event_type.endswith("_response"):
+        if otel_name.endswith(".response") or otel_name.endswith(".end") or otel_name.endswith(".result"):
             # This is a finish event, so we keep the same span ID
             pass
-        elif event_type.endswith("_start") or event_type.endswith("_begin") or event_type.endswith("_request"):
+        elif otel_name.endswith(".request") or otel_name.endswith(".start") or otel_name.endswith(".execution"):
             # For start events, we create a child span for subsequent events
             trace_id, span_id, parent_span_id = create_child_span(agent_id)
-            data["trace_id"] = trace_id
-            data["span_id"] = span_id
-            if parent_span_id:
-                data["parent_span_id"] = parent_span_id
+    
+    # If channel is provided, add it to attributes
+    if channel:
+        attributes["channel"] = channel.upper()
+    
+    # If direction is provided, add it to attributes
+    if direction:
+        attributes["direction"] = direction
     
     # Mask sensitive data before logging
-    masked_data = mask_sensitive_data(data)
+    masked_attributes = mask_sensitive_data(attributes)
     
     # Check for security concerns in the data
-    alert = check_security_concerns(masked_data)
+    alert = check_security_concerns(masked_attributes)
     
     # Adjust log level for security concerns
     if alert == "dangerous":
         level = "warning"
     
-    # Add alert to data if it's not "none"
+    # Add alert to attributes if it's not "none"
     if alert != "none":
-        masked_data["alert"] = alert
+        masked_attributes["security.alert"] = alert
     
-    # Construct the event object
+    # Create a standardized event with OpenTelemetry structure
     timestamp = datetime.now()
-    
-    # Create a standardized event record
     event = {
         "timestamp": timestamp.isoformat(),
         "level": level.upper(),
         "agent_id": agent_id,
-        "event_type": event_type,
-        "channel": channel.upper(),
-        "data": masked_data
+        "name": otel_name,
+        "trace_id": trace_id,
+        "span_id": span_id,
+        "attributes": masked_attributes
     }
     
-    # Add direction if provided
-    if direction:
-        event["direction"] = direction
+    # Add parent_span_id if available
+    if parent_span_id:
+        event["parent_span_id"] = parent_span_id
     
     # Get configured log file from the config manager
     log_file = config_manager.get("monitoring.log_file")
     
     # Log to file if log_file is set
     if log_file:
-        # Process the event through the standardized event pipeline
-        standardized_event = create_standardized_event(
-            agent_id=agent_id,
-            event_type=event_type,
-            data=masked_data,
-            channel=channel,
-            level=level,
-            timestamp=timestamp,
-            direction=direction
-        )
-        
-        # Log the standardized event
-        log_to_file(standardized_event.to_dict(), log_file)
+        log_to_file(event, log_file)
     
-    # Send the event to the API
-    process_and_log_event(
-        agent_id=agent_id, 
-        event_type=event_type, 
-        data=masked_data,
-        channel=channel,
-        level=level,
-        record=event
-    )
+    # Log to console
+    if config_manager.get("monitoring.console_logging", False):
+        log_console_message(f"{otel_name}: {json.dumps(masked_attributes)[:100]}...")
     
-    # Log security alerts to console
-    if alert != "none":
-        log_console_message(
-            message=f"Security Alert ({alert}): {event_type} event contains potentially {alert} content.",
-            level="warning" if alert == "suspicious" else "error",
-            channel="SECURITY"
-        ) 
+    # Call process_and_log_event to handle additional processing
+    process_and_log_event(event) 

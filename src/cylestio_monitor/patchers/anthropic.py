@@ -126,19 +126,28 @@ class AnthropicPatcher(BasePatcher):
                                 )
                                 break
                     
-                    # Log the request with security information
-                    self.logger.debug("About to log LLM_call_start event")
+                    # Extract model information if available
+                    model = kwargs.get("model", "unknown")
+                    
+                    # Prepare attributes for the request event
+                    request_attributes = {
+                        "method": "messages.create",
+                        "llm.vendor": "anthropic",
+                        "llm.model": model,
+                        "llm.request.type": "completion",
+                        "llm.request.prompt": prompt_data,
+                        "security.alert": alert_level,
+                    }
+                    
+                    # Add security details if there's an alert
+                    if alert_level != "none":
+                        request_attributes["security.detection_time"] = datetime.now().isoformat()
+                    
+                    # Log the request
+                    self.logger.debug("About to log llm.call.start event")
                     log_event(
                         name="llm.call.start",
-                        attributes={
-                            "method": "messages.create",
-                            "prompt": prompt_data,
-                            "alert": alert_level,
-                            "security": {
-                                "alert": alert_level,
-                                "detection_time": datetime.now().isoformat()
-                            } if alert_level != "none" else {}
-                        },
+                        attributes=request_attributes,
                         level="INFO"
                     )
                 except Exception as e:
@@ -155,13 +164,45 @@ class AnthropicPatcher(BasePatcher):
                     try:
                         # Prepare response data without modifying the result
                         response_data = self._extract_response_data(result)
-                        self.logger.debug("About to log LLM_call_finish event")
+                        
+                        # Extract model and token usage if available
+                        model = response_data.get("model", model if "model" in locals() else "unknown")
+                        usage = response_data.get("usage", {})
+                        
+                        # Prepare attributes for the response event
+                        response_attributes = {
+                            "method": "messages.create",
+                            "response": response_data  # Store the entire response data
+                        }
+                        
+                        # Add usage statistics if available
+                        if usage:
+                            if "input_tokens" in usage:
+                                response_attributes["llm.usage.input_tokens"] = usage["input_tokens"]
+                            if "output_tokens" in usage:
+                                response_attributes["llm.usage.output_tokens"] = usage["output_tokens"]
+                        
+                        # Add a debug statement to check serializability
+                        try:
+                            json.dumps(response_attributes)
+                            self.logger.debug("Response data is JSON serializable")
+                        except (TypeError, ValueError) as e:
+                            self.logger.error(f"Response data is not JSON serializable: {e}")
+                            # Fallback to a more basic representation
+                            response_attributes = {
+                                "method": "messages.create",
+                                "response": {
+                                    "id": response_data.get("id", ""),
+                                    "model": model,
+                                    "role": "assistant",
+                                    "text_content": str(result)
+                                }
+                            }
+                        
+                        self.logger.debug("About to log llm.call.finish event")
                         log_event(
                             name="llm.call.finish",
-                            attributes={
-                                "method": "messages.create",
-                                "response": response_data
-                            },
+                            attributes=response_attributes,
                             level="INFO"
                         )
                     except Exception as e:
@@ -174,14 +215,20 @@ class AnthropicPatcher(BasePatcher):
                     # If the API call fails, log the error
                     try:
                         error_message = f"{type(e).__name__}: {str(e)}"
-                        self.logger.debug("About to log LLM_call_blocked event")
+                        
+                        # Prepare attributes for the error event
+                        error_attributes = {
+                            "method": "messages.create",
+                            "llm.vendor": "anthropic",
+                            "llm.model": model if "model" in locals() else "unknown",
+                            "error.type": type(e).__name__,
+                            "error.message": error_message
+                        }
+                        
+                        self.logger.debug("About to log llm.error event")
                         log_event(
-                            name="llm.call.blocked",
-                            attributes={
-                                "method": "messages.create",
-                                "error": error_message,
-                                "error_type": type(e).__name__
-                            },
+                            name="llm.call.error",
+                            attributes=error_attributes,
                             level="ERROR"
                         )
                     except Exception as log_error:
@@ -199,143 +246,164 @@ class AnthropicPatcher(BasePatcher):
             # Replace the method
             self.logger.debug("Replacing original messages.create with wrapped version")
             self.client.messages.create = wrapped_create
+            
+            # Mark as patched
             self.is_patched = True
-            
-            # Add client to patched clients set
             _patched_clients.add(client_id)
-            
-            self.logger.info("Applied Anthropic monitoring patches")
+            self.logger.info("Successfully patched Anthropic client")
         else:
-            self.logger.warning("Could not find messages.create method to patch")
+            self.logger.warning("Anthropic client doesn't have messages.create method, skipping patch")
 
     def _extract_response_data(self, result):
-        """Safely extract data from response without modifying the original."""
-        # First, just try to get a basic representation that won't affect the original
-        if hasattr(result, "model_dump"):
-            try:
-                # For Pydantic models (newer Anthropic client) - create a copy
-                return result.model_dump()
-            except Exception as e:
-                self.logger.debug(f"Could not use model_dump: {e}")
+        """Extract relevant response data for logging.
         
-        if hasattr(result, "dict"):
-            try:
-                # For objects with dict method
-                return result.dict()
-            except Exception as e:
-                self.logger.debug(f"Could not use dict method: {e}")
-        
-        if hasattr(result, "__dict__"):
-            try:
-                # For objects with __dict__ attribute
-                return {k: v for k, v in result.__dict__.items() if not k.startswith("_")}
-            except Exception as e:
-                self.logger.debug(f"Could not use __dict__: {e}")
-                
-        if isinstance(result, dict):
-            # For dictionary responses
-            return dict(result)
-        
-        # Fallback: convert to string for logging
+        Args:
+            result: Result from the API call
+            
+        Returns:
+            Dict with extracted data
+        """
         try:
-            return {"text": str(result)}
+            # Check if the result is a message object
+            if hasattr(result, "model"):
+                # It's probably a Message object, extract attributes
+                data = {
+                    "id": getattr(result, "id", ""),
+                    "model": getattr(result, "model", "unknown"),
+                    "role": getattr(result, "role", "assistant"),
+                    "stop_reason": getattr(result, "stop_reason", None),
+                }
+                
+                # Handle content specially to make it JSON serializable
+                content = getattr(result, "content", [])
+                if content:
+                    # Convert content objects to dictionaries
+                    serializable_content = []
+                    for item in content:
+                        if hasattr(item, "__dict__"):
+                            # Convert object to dict, excluding special attributes
+                            item_dict = {k: v for k, v in item.__dict__.items() 
+                                        if not k.startswith("_")}
+                            serializable_content.append(item_dict)
+                        elif hasattr(item, "to_dict"):
+                            # Use to_dict method if available
+                            serializable_content.append(item.to_dict())
+                        elif isinstance(item, dict):
+                            serializable_content.append(item)
+                        else:
+                            # Fallback to string representation
+                            serializable_content.append({"type": "text", "text": str(item)})
+                    data["content"] = serializable_content
+                
+                # Extract usage if available
+                if hasattr(result, "usage"):
+                    usage = result.usage
+                    data["usage"] = {
+                        "input_tokens": getattr(usage, "input_tokens", 0),
+                        "output_tokens": getattr(usage, "output_tokens", 0)
+                    }
+                
+                return data
+            elif isinstance(result, dict):
+                # It's already a dict, just return it
+                return result
+            else:
+                # Convert to string representation as fallback
+                return {"content": str(result)}
         except Exception as e:
-            self.logger.error(f"Could not convert response to string: {e}")
-            return {"text": "Unable to extract response data"}
+            self.logger.error(f"Error extracting response data: {e}")
+            return {"content": str(result)}
 
     def unpatch(self) -> None:
-        """Remove monitoring patches from Anthropic client."""
+        """Restore original methods."""
         if not self.is_patched:
             return
 
-        # Restore original functions
-        if "messages.create" in self.original_funcs:
-            self.client.messages.create = self.original_funcs["messages.create"]
-            del self.original_funcs["messages.create"]
-
-        self.is_patched = False
+        self.logger.debug("Unpatching Anthropic client...")
         
-        # Remove client from patched clients set
-        if self.client:
-            _patched_clients.discard(id(self.client))
-
-        self.logger.info("Removed Anthropic monitoring patches")
+        # Restore original methods
+        for name, original_func in self.original_funcs.items():
+            if name == "messages.create" and hasattr(self.client.messages, "create"):
+                self.client.messages.create = original_func
+        
+        # Clear stored functions
+        self.original_funcs = {}
+        
+        # Remove from patched clients
+        client_id = id(self.client)
+        if client_id in _patched_clients:
+            _patched_clients.remove(client_id)
+        
+        self.is_patched = False
+        self.logger.info("Successfully unpatched Anthropic client")
 
     @classmethod
     def patch_module(cls) -> None:
-        """Apply global patches to the Anthropic module.
-        
-        This enables automatic patching of all Anthropic clients created after
-        this method is called, without requiring explicit passing to enable_monitoring.
-        """
-        global _is_module_patched, _original_methods
-        
-        logger = logging.getLogger("CylestioMonitor.Anthropic")
-        
-        if _is_module_patched:
-            logger.debug("Anthropic module already patched")
-            return
+        """Patch the Anthropic module to intercept client creation."""
+        global _is_module_patched
         
         if not ANTHROPIC_AVAILABLE:
-            logger.debug("Anthropic module not available, skipping module patch")
             return
+            
+        if _is_module_patched:
+            return
+            
+        # Get the original __init__ method
+        original_init = Anthropic.__init__
         
-        try:
-            # Patch the Anthropic class constructor
-            original_init = Anthropic.__init__
+        # Store the original for unpatch
+        _original_methods["Anthropic.__init__"] = original_init
+        
+        @functools.wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            # Call original init
+            original_init(self, *args, **kwargs)
             
-            @functools.wraps(original_init)
-            def patched_init(self, *args, **kwargs):
-                # Call original init
-                original_init(self, *args, **kwargs)
-                
-                # Automatically patch this instance
-                logger.debug("Auto-patching new Anthropic instance")
-                patcher = AnthropicPatcher(client=self)
-                patcher.patch()
+            # Log the initialization as a framework initialization event
+            log_event(
+                name="framework.initialization",
+                attributes={
+                    "framework.name": "anthropic",
+                    "framework.type": "llm_provider",
+                    "api_key_present": bool(kwargs.get("api_key") or hasattr(self, "api_key")),
+                    "auth_present": bool(kwargs.get("auth_token") or hasattr(self, "auth_token")),
+                },
+                level="info"
+            )
             
-            # Save original method for later restoration
-            _original_methods['Anthropic.__init__'] = original_init
-            
-            # Apply the patched init
-            Anthropic.__init__ = patched_init
-            
-            _is_module_patched = True
-            logger.info("Applied global Anthropic module patches")
-            
-        except Exception as e:
-            logger.error(f"Failed to apply global Anthropic patches: {e}")
+            # Patch the new instance
+            patcher = cls(self)
+            patcher.patch()
+        
+        # Replace the method
+        Anthropic.__init__ = patched_init
+        
+        _is_module_patched = True
+        logger = logging.getLogger("CylestioMonitor.Anthropic")
+        logger.info("Patched Anthropic module")
 
     @classmethod
     def unpatch_module(cls) -> None:
-        """Remove global patches from the Anthropic module."""
+        """Restore original Anthropic module methods."""
         global _is_module_patched
         
+        if not ANTHROPIC_AVAILABLE or not _is_module_patched:
+            return
+            
+        # Restore the original __init__ method
+        if "Anthropic.__init__" in _original_methods:
+            Anthropic.__init__ = _original_methods["Anthropic.__init__"]
+            del _original_methods["Anthropic.__init__"]
+        
+        _is_module_patched = False
         logger = logging.getLogger("CylestioMonitor.Anthropic")
-        
-        if not _is_module_patched:
-            return
-        
-        if not ANTHROPIC_AVAILABLE:
-            return
-        
-        try:
-            # Restore original methods
-            if 'Anthropic.__init__' in _original_methods:
-                Anthropic.__init__ = _original_methods['Anthropic.__init__']
-                del _original_methods['Anthropic.__init__']
-            
-            _is_module_patched = False
-            logger.info("Removed global Anthropic module patches")
-            
-        except Exception as e:
-            logger.error(f"Failed to remove global Anthropic patches: {e}")
+        logger.info("Unpatched Anthropic module")
 
-# Simplified functions for use from outside the class
+
 def patch_anthropic_module():
-    """Apply global patches to the Anthropic module."""
+    """Patch the Anthropic module."""
     AnthropicPatcher.patch_module()
 
 def unpatch_anthropic_module():
-    """Remove global patches from the Anthropic module."""
+    """Unpatch the Anthropic module."""
     AnthropicPatcher.unpatch_module()
