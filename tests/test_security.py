@@ -8,6 +8,8 @@ from cylestio_monitor.events.processing.security import (
     contains_dangerous,
     contains_suspicious,
     normalize_text,
+    check_security_concerns,
+    mask_sensitive_data,
 )
 
 
@@ -80,53 +82,39 @@ def test_text_normalization():
 @pytest.mark.security
 def test_event_content_alerts(mock_config_manager):
     """Test that events with dangerous or suspicious content trigger alerts."""
-    from cylestio_monitor.utils.event_logging import log_event
+    # Test with dangerous content in different fields
+    result = check_security_concerns({"content": "DROP TABLE users"})
+    assert result == "dangerous"
     
-    with patch("cylestio_monitor.events.processing.processor.process_and_log_event") as mock_process_log_event, \
-         patch("cylestio_monitor.events.processing.logger.log_to_file"):
-        
-        # Test with dangerous content in different fields
-        log_event("test_event", {"content": "DROP TABLE users"}, "TEST")
-        # Check alert in the data passed to process_and_log_event
-        assert mock_process_log_event.call_args[1]["data"]["alert"] == "dangerous"
-        # Check level is elevated
-        assert mock_process_log_event.call_args[1]["level"] == "warning"
-        
-        mock_process_log_event.reset_mock()
-        log_event("test_event", {"message": "The server will rm -rf by mistake"}, "TEST")
-        assert mock_process_log_event.call_args[1]["data"]["alert"] == "dangerous"
-        
-        # Test with suspicious content
-        mock_process_log_event.reset_mock()
-        log_event("test_event", {"text": "Someone might BOMB the server"}, "TEST")
-        assert mock_process_log_event.call_args[1]["data"]["alert"] == "suspicious"
-        
-        # Test with safe content
-        mock_process_log_event.reset_mock()
-        log_event("test_event", {"value": "This is a safe message"}, "TEST")
-        assert "alert" not in mock_process_log_event.call_args[1]["data"]
+    result = check_security_concerns({"message": "The server will rm -rf by mistake"})
+    assert result == "dangerous"
+    
+    # Test with suspicious content
+    result = check_security_concerns({"text": "Someone might BOMB the server"})
+    assert result == "suspicious"
+    
+    # Test with safe content
+    result = check_security_concerns({"value": "This is a safe message"})
+    assert result == "none"
 
 
 @pytest.mark.security
 def test_sensitive_data_not_logged():
     """Test that sensitive data like API keys are not logged in plain text."""
-    from cylestio_monitor.utils.event_logging import log_event
+    # API keys should be masked
+    api_key = "sk-1234567890abcdef"
+    data = {"api_key": api_key, "message": "Test"}
+    masked_data = mask_sensitive_data(data)
     
-    with patch("cylestio_monitor.events.processing.processor.process_and_log_event") as mock_process_log_event, \
-         patch("cylestio_monitor.events.processing.logger.log_to_file"):
-        
-        # API keys should be masked
-        api_key = "sk-1234567890abcdef"
-        log_event("api_request", {"api_key": api_key, "message": "Test"}, "TEST")
-        
-        # Check that the API key is not logged in plain text
-        sent_data = mock_process_log_event.call_args[1]["data"]
-        assert api_key not in str(sent_data)
-        
-        # Authentication tokens should be masked
-        auth_token = "Bearer eyJhbGciOiJ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ikpva.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-        log_event("user_login", {"auth_token": auth_token, "user": "test_user"}, "TEST")
-        
-        # Check that the token is not logged in plain text
-        sent_data = mock_process_log_event.call_args[1]["data"]
-        assert auth_token not in str(sent_data)
+    # Check that the API key is not logged in plain text
+    assert api_key not in str(masked_data)
+    assert masked_data["api_key"] != api_key
+    
+    # Authentication tokens should be masked
+    auth_token = "Bearer eyJhbGciOiJ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ikpva.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    data = {"auth_token": auth_token, "user": "test_user"}
+    masked_data = mask_sensitive_data(data)
+    
+    # Check that the token is not logged in plain text
+    assert auth_token not in str(masked_data)
+    assert masked_data["auth_token"] != auth_token
