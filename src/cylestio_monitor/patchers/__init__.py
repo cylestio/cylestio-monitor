@@ -10,6 +10,12 @@ from . import mcp_patcher
 from . import anthropic
 from . import langchain_patcher
 
+# Expose patcher classes
+from .base import BasePatcher
+from .anthropic import AnthropicPatcher
+from .mcp_patcher import MCPPatcher
+from .langchain_patcher import LangChainMonitor
+
 # Expose the patching functions for all supported frameworks
 from .mcp_patcher import patch_mcp, unpatch_mcp
 from .anthropic import patch_anthropic_module, unpatch_anthropic_module
@@ -21,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Try to import LangGraph patcher if available
 try:
     from . import langgraph_patcher
-    from .langgraph_patcher import patch_langgraph, unpatch_langgraph
+    from .langgraph_patcher import patch_langgraph, unpatch_langgraph, LangGraphPatcher
     logger.debug("LangGraph patcher imported successfully")
 except ImportError:
     logger.debug("LangGraph not available, skipping patcher import")
@@ -31,9 +37,25 @@ except ImportError:
     
     def unpatch_langgraph():
         logger.warning("LangGraph is not available, unpatch_langgraph has no effect")
+    
+    # Define a placeholder class
+    class LangGraphPatcher(BasePatcher):
+        def patch(self):
+            logger.warning("LangGraph is not available, patch method has no effect")
+        
+        def unpatch(self):
+            logger.warning("LangGraph is not available, unpatch method has no effect")
 
 # Define what's available via imports
 __all__ = [
+    # Patcher classes
+    "BasePatcher",
+    "AnthropicPatcher",
+    "MCPPatcher",
+    "LangChainMonitor",
+    "LangGraphPatcher",
+    
+    # Patching functions
     "patch_mcp", 
     "unpatch_mcp",
     "patch_anthropic_module", 
