@@ -7,6 +7,7 @@ import os
 import pytest
 import tempfile
 import yaml
+from pathlib import Path
 
 from cylestio_monitor.config.config_manager import ConfigManager
 
@@ -28,26 +29,33 @@ def reset_config_manager():
 
 
 @pytest.fixture
-def temp_config_file():
-    """Create a temporary config file for testing."""
-    config_data = {
-        "log_level": "DEBUG",
-        "suspicious_keywords": ["TEST", "SUSPICIOUS"],
-        "dangerous_keywords": ["DANGEROUS", "CRITICAL"],
-        "api": {
-            "base_url": "https://test-api.example.com",
-            "timeout_seconds": 10
+def temp_config_dir():
+    """Create a temporary config directory for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a simple config file
+        config_data = {
+            "security": {
+                "suspicious_keywords": ["TEST", "SUSPICIOUS"],
+                "dangerous_keywords": ["DANGEROUS", "CRITICAL"]
+            },
+            "monitoring": {
+                "agent_id": "test-agent",
+                "log_level": "DEBUG"
+            },
+            "api": {
+                "base_url": "https://test-api.example.com",
+                "timeout_seconds": 10
+            }
         }
-    }
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
-        yaml.dump(config_data, temp_file)
-        temp_path = temp_file.name
-    
-    yield temp_path
-    
-    # Clean up after test
-    os.unlink(temp_path)
+        
+        config_path = Path(temp_dir) / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config_data, f)
+        
+        # Patch platformdirs to use our temp directory
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("platformdirs.user_config_dir", lambda **kwargs: temp_dir)
+            yield temp_dir
 
 
 def test_config_manager_is_singleton(reset_config_manager):
@@ -61,18 +69,24 @@ def test_config_manager_loads_defaults(reset_config_manager):
     """Test that ConfigManager loads default values."""
     cm = ConfigManager()
     # Check that some default values are loaded
-    assert cm.get_log_level() is not None
-    assert cm.get_suspicious_keywords() is not None
-    assert cm.get_dangerous_keywords() is not None
+    assert cm.get("security.suspicious_keywords") is not None
+    assert cm.get("security.dangerous_keywords") is not None
 
 
-def test_config_manager_custom_file(reset_config_manager, temp_config_file):
-    """Test that ConfigManager can load a custom config file."""
-    cm = ConfigManager(config_file=temp_config_file)
+def test_config_manager_get_set(reset_config_manager, temp_config_dir):
+    """Test getting and setting config values."""
+    cm = ConfigManager()
     
-    # Check that values from the custom file are loaded
-    assert cm.get_log_level() == "DEBUG"
+    # Test getting values
     assert "TEST" in cm.get_suspicious_keywords()
     assert "DANGEROUS" in cm.get_dangerous_keywords()
-    assert cm.get_api_config()["base_url"] == "https://test-api.example.com"
-    assert cm.get_api_config()["timeout_seconds"] == 10 
+    assert cm.get("api.base_url") == "https://test-api.example.com"
+    assert cm.get("api.timeout_seconds") == 10
+    
+    # Test setting a value
+    cm.set("monitoring.log_level", "INFO")
+    assert cm.get("monitoring.log_level") == "INFO"
+    
+    # Test setting a nested value that doesn't exist yet
+    cm.set("new.nested.value", "test")
+    assert cm.get("new.nested.value") == "test" 
