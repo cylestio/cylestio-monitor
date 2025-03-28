@@ -13,13 +13,12 @@ import os
 from contextlib import AsyncExitStack
 from typing import Optional
 
+# Import our monitoring SDK
+import cylestio_monitor
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
-# Import our monitoring SDK
-from cylestio_monitor import stop_monitoring, start_monitoring
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +29,10 @@ logger = logging.getLogger("Weather AI Agent")
 
 # Load environment variables from .env file
 load_dotenv()
+
+cylestio_monitor.start_monitoring(
+    agent_id="weather-agent", config={"log_file": "output/weather_monitoring.json"}
+)
 
 
 class WeatherAIAgent:
@@ -43,14 +46,7 @@ class WeatherAIAgent:
 
         # Enable monitoring with our SDK - no need to pass llm_client anymore
         # The SDK will automatically detect and patch Anthropic instances
-        start_monitoring(
-            agent_id="weather-agent", 
-            config={
-                "log_file": "output/weather_monitoring.json"
-            }
-        )
-        logger.info("Monitoring enabled for Weather AI Agent")
-        
+
         # Create Anthropic client - it will be automatically patched
         self.anthropic = Anthropic()
         logger.info("Created Anthropic client instance")
@@ -120,10 +116,10 @@ class WeatherAIAgent:
                 messages=messages,
                 tools=available_tools,
             )
-            
+
             # Debug the response type
             logger.info(f"Claude API response type: {type(response)}")
-            
+
             # Process response and handle tool calls
             tool_results = []
             final_text = []
@@ -145,13 +141,13 @@ class WeatherAIAgent:
                     # Fallback to string representation
                     final_text.append(str(response))
                 return "\n".join(final_text)
-                
+
             # Process content items from the Anthropic response
             assistant_message_content = []
             for content in response.content:
                 # Debug each content item
                 logger.info(f"Processing content item type: {getattr(content, 'type', 'unknown')}")
-                
+
                 if hasattr(content, "type") and content.type == "text":
                     final_text.append(content.text)
                     assistant_message_content.append(content)
@@ -161,7 +157,7 @@ class WeatherAIAgent:
 
                     # Don't log tool arguments as they may contain sensitive information
                     logger.info(f"Calling tool: {tool_name}")
-                    
+
                     # Execute tool call
                     result = await self.session.call_tool(tool_name, tool_args)
                     tool_results.append({"call": tool_name, "result": result})
@@ -205,11 +201,12 @@ class WeatherAIAgent:
 
             logger.info("Query processing completed")
             return "\n".join(final_text)
-            
+
         except Exception as e:
             # Log the error details (safely)
             logger.error(f"Error in process_query: {type(e).__name__}: {str(e)}")
             import traceback
+
             logger.error(f"Stack trace: {traceback.format_exc()}")
             raise
 
@@ -241,7 +238,7 @@ class WeatherAIAgent:
         """Clean up resources and disable monitoring."""
         logger.info("Cleaning up resources")
         await self.exit_stack.aclose()
-        stop_monitoring()
+        cylestio_monitor.stop_monitoring()
         logger.info("Monitoring stopped")
 
 

@@ -1,6 +1,92 @@
-# Quick Start Guide for AI Agent Developers
+# Quick Start Guide
 
-This guide will help you quickly integrate Cylestio Monitor into your AI agent project to gain comprehensive security and performance monitoring with OpenTelemetry-compliant telemetry.
+## Installation
+
+```bash
+pip install cylestio-monitor
+```
+
+## Basic Usage
+
+Integrate Cylestio Monitor with just two lines of code:
+
+```python
+# At the start of your application
+import cylestio_monitor
+cylestio_monitor.start_monitoring(agent_id="my-agent")
+
+# At the end of your application
+cylestio_monitor.stop_monitoring()
+```
+
+## Complete Example with Anthropic
+
+```python
+import cylestio_monitor
+from anthropic import Anthropic
+
+# Start monitoring
+cylestio_monitor.start_monitoring(
+    agent_id="my-chatbot",
+    config={"log_file": "output/monitoring.json"}
+)
+
+# Create Anthropic client - automatically patched by Cylestio Monitor
+client = Anthropic()
+
+# Use the client as normal
+response = client.messages.create(
+    model="claude-3-haiku-20240307",
+    max_tokens=1000,
+    messages=[{"role": "user", "content": "Hello, Claude!"}]
+)
+
+print(response.content[0].text)
+
+# Stop monitoring
+cylestio_monitor.stop_monitoring()
+```
+
+## Configuration Options
+
+The `start_monitoring` function supports these configuration options:
+
+```python
+cylestio_monitor.start_monitoring(
+    agent_id="my-agent",  # Required: unique identifier
+    config={  # Optional: configuration dictionary
+        # Logging options
+        "debug_level": "INFO",  # Logging level (DEBUG, INFO, WARNING, ERROR)
+        "log_file": "output/logs.json",  # Path for local JSON logs
+
+        # API options
+        "api_endpoint": "https://api.example.com/events",  # Remote endpoint
+
+        # Development options
+        "development_mode": False  # Enable development features
+    }
+)
+```
+
+## Local Logging
+
+When the `log_file` option is provided, Cylestio Monitor logs events to a JSON file:
+
+```python
+cylestio_monitor.start_monitoring(
+    agent_id="weather-agent",
+    config={"log_file": "output/weather_monitoring.json"}
+)
+```
+
+## Framework Support
+
+Cylestio Monitor automatically detects and instruments:
+
+- **Anthropic Claude SDK** (all versions)
+- **MCP (Model Context Protocol)**
+- **LangChain**
+- **LangGraph**
 
 ## Common Use Cases
 
@@ -10,50 +96,13 @@ This guide will help you quickly integrate Cylestio Monitor into your AI agent p
 - **Performance Analysis**: Track response times and resource usage
 - **Operational Visibility**: Understand the flow of requests through your system with trace context
 
-## Basic Setup
-
-```python
-from cylestio_monitor import start_monitoring
-from anthropic import Anthropic
-
-# Create your LLM client
-client = Anthropic()
-
-# Start monitoring with API endpoint
-start_monitoring(
-    agent_id="my_agent",
-    config={
-        "api_endpoint": "https://api.example.com/events"
-    }
-)
-
-# Use your client as normal - monitoring happens automatically
-response = client.messages.create(
-    model="claude-3-sonnet-20240229",
-    max_tokens=1000,
-    messages=[{"role": "user", "content": "Hello, Claude!"}]
-)
-
-# Stop monitoring when done
-from cylestio_monitor import stop_monitoring
-stop_monitoring()
-```
-
-With just these few lines of code, Cylestio Monitor will:
-
-- Track all AI interactions with trace context
-- Log request and response data
-- Monitor for security threats
-- Record performance metrics
-- Send OpenTelemetry-compliant events to the configured API endpoint
-
 ## Monitoring with JSON Logging
 
 If you prefer to also log events to JSON files for local backup:
 
 ```python
 # Start monitoring with API and JSON logging
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="my_agent",
     config={
         "api_endpoint": "https://api.example.com/events",
@@ -62,7 +111,7 @@ start_monitoring(
 )
 
 # Or log to a directory (a timestamped file will be created)
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="my_agent",
     config={
         "api_endpoint": "https://api.example.com/events",
@@ -79,10 +128,7 @@ For [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction)
 
 ```python
 from mcp import ClientSession
-from cylestio_monitor import start_monitoring
-
-# Start monitoring before creating your MCP session
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="mcp-project",
     config={
         "api_endpoint": "https://api.example.com/events",
@@ -102,10 +148,7 @@ Cylestio Monitor can automatically detect and patch LangChain and LangGraph fram
 ```python
 import langchain
 from langchain.chat_models import ChatAnthropic
-from cylestio_monitor import start_monitoring
-
-# Start monitoring with framework patching enabled (default)
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="langchain-agent",
     config={
         "log_file": "output/monitoring.json",
@@ -125,7 +168,7 @@ Cylestio Monitor generates events following OpenTelemetry standards:
 ```json
 {
     "timestamp": "2024-03-27T15:31:40.622017",
-    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595", 
+    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",
     "name": "llm.call.start",
@@ -153,7 +196,7 @@ span_info = TraceContext.start_span("data-processing")
 try:
     # Perform some operation
     result = process_data()
-    
+
     # Log an event within this span
     log_event(
         name="custom.processing.complete",
@@ -176,7 +219,7 @@ log_event(
     name="custom.event",
     attributes={
         "custom_field": "custom value",
-        "operation": "user_login" 
+        "operation": "user_login"
     },
     level="INFO"
 )
@@ -198,4 +241,4 @@ print(f"Sending events to: {endpoint}")
 
 - Learn about [configuration options](configuration.md)
 - Explore the [security features](../advanced-topics/security.md)
-- Check out the [SDK reference](../sdk-reference/overview.md) 
+- Check out the [SDK reference](../sdk-reference/overview.md)

@@ -1,195 +1,101 @@
 # Cylestio Monitor Examples
 
-This directory contains examples demonstrating how to use Cylestio Monitor with various LLM frameworks and direct API calls.
+This directory contains examples of integrating Cylestio Monitor into different AI agent architectures.
 
-## Multi-Framework Monitoring Example
+## Simple Usage Pattern
 
-The [`multi_framework_monitoring.py`](./multi_framework_monitoring.py) script demonstrates how Cylestio Monitor can track LLM interactions across different frameworks:
-
-1. **Direct API Calls**: Monitoring Anthropic Claude API calls directly
-2. **LangChain**: Monitoring LangChain chains with Anthropic backend  
-3. **LangGraph**: Monitoring LangGraph agents with Anthropic backend
-
-### Prerequisites
-
-To run the examples, you'll need:
-
-- Python 3.12+
-- An Anthropic API key
-- The Cylestio Monitor package installed
-
-```bash
-# Install required packages
-pip install cylestio-monitor anthropic
-# Optional frameworks
-pip install langchain langchain-anthropic
-pip install langgraph
-```
-
-### Running the Example
-
-You can provide your Anthropic API key in two ways:
-
-1. Set the `ANTHROPIC_API_KEY` environment variable:
-   ```bash
-   export ANTHROPIC_API_KEY=your-api-key-here
-   python examples/multi_framework_monitoring.py
-   ```
-
-2. Create an `api_key.txt` file in the root directory with just your API key.
-
-### What the Example Demonstrates
-
-The example shows how Cylestio Monitor:
-
-- Intercepts and logs LLM calls across different frameworks
-- Extracts prompts and responses consistently
-- Detects potential security issues
-- Formats data uniformly regardless of the source
-- Saves events to both a SQLite database and JSON files
-
-### Output
-
-After running the example, check the `examples/output/` directory for the following log files:
-
-- `anthropic_logs.json`: Logs from direct Anthropic API calls
-- `langchain_logs.json`: Logs from LangChain interactions
-- `langgraph_logs.json`: Logs from LangGraph agents
-
-You can also query the SQLite database using the Cylestio Monitor CLI:
-
-```bash
-cylestio-monitor query --last 10
-```
-
-## Understanding the Logs
-
-The logs contain standardized events with the following structure:
-
-```json
-{
-  "timestamp": "2023-01-01T12:34:56.789012",
-  "level": "INFO",
-  "agent_id": "example-agent",
-  "event_type": "LLM_call_finish",
-  "channel": "LLM",
-  "data": {
-    "duration": 1.23,
-    "response": "The AI's response text...",
-    "alert": "none",
-    "framework": {
-      "name": "langchain",
-      "version": "0.3.0"
-    }
-  }
-}
-```
-
-Key fields to observe:
-
-- **event_type**: Indicates what happened (e.g., `LLM_call_start`, `LLM_call_finish`)
-- **channel**: Shows which framework/system generated the event
-- **data**: Contains the actual prompt/response and metadata
-- **alert**: Indicates if any security concerns were detected
-
-## Customizing Monitoring
-
-You can customize Cylestio Monitor for your specific needs:
-
-### Adding Custom Security Checks
-
-Edit your configuration to add custom keywords to check:
+All examples follow the same basic pattern:
 
 ```python
-from cylestio_monitor.config import ConfigManager
+# 1. Import the SDK
+import cylestio_monitor
 
-config = ConfigManager()
-config.set("monitoring.suspicious_words", ["keyword1", "keyword2"])
-config.set("monitoring.dangerous_words", ["dangerous1", "dangerous2"])
-config.save()
-```
-
-### Logging Custom Events
-
-Use the `log_to_file_and_db` function to log your own events:
-
-```python
-from cylestio_monitor import log_to_file_and_db
-
-log_to_file_and_db(
-    event_type="my_custom_event",
-    data={
-        "key1": "value1",
-        "key2": "value2"
-    },
-    channel="MY_SYSTEM",
-    level="info"
+# 2. Start monitoring at the beginning of your application
+cylestio_monitor.start_monitoring(
+    agent_id="your-agent-id",
+    config={"log_file": "path/to/output.json"}  # Optional
 )
+
+# 3. Use your AI frameworks as normal
+# The SDK automatically detects and patches supported libraries
+
+# 4. Stop monitoring when your application is finished
+cylestio_monitor.stop_monitoring()
 ```
-
-## Additional Resources
-
-- [Cylestio Monitor Documentation](../docs/): Full documentation
-- [Advanced Integrations Guide](../docs/advanced-topics/custom-integrations.md): How to integrate with custom systems
 
 ## Available Examples
 
-The examples are organized by agent type/functionality rather than by framework. Each agent may use one or more frameworks including Anthropic, MCP, LangChain, or LangGraph.
+### Complete Agent Examples
 
-### Weather Agent
+The [agents](./agents) directory contains fully implemented AI agents:
 
-Located in: `examples/agents/weather_agent/`
+- **[Weather Agent](./agents/weather_agent)**: Uses MCP and Anthropic Claude
+- **[RAG Agent](./agents/rag_agent)**: Demonstrates retrieval-augmented generation
+- **[Chatbot](./agents/chatbot)**: Simple LLM-based chatbot
 
-A demonstration of an AI agent that:
-- Uses Anthropic's Claude API for LLM functionality
-- Implements Model Context Protocol (MCP) for tool use
-- Provides weather forecasts and conditions
-- Tracks all API activity with Cylestio Monitor
+### Individual Examples
 
-### RAG Agent
+- **[anthropic_enhanced_monitoring.py](./anthropic_enhanced_monitoring.py)**: Shows advanced monitoring features with Anthropic Claude
 
-Located in: `examples/agents/rag_agent/`
+## Running Examples
 
-A Retrieval-Augmented Generation (RAG) agent that:
-- Uses LangChain to orchestrate a retrieval workflow
-- Integrates LangGraph for complex agent workflows
-- Demonstrates how to monitor LLM API calls across a complex pipeline
-- Shows how to implement vectorstore integration with monitoring
+Each example includes its own `requirements.txt` file for dependencies:
 
-### Chatbot
+```bash
+# Navigate to an example directory
+cd examples/agents/weather_agent
 
-Located in: `examples/agents/chatbot/`
+# Install dependencies
+pip install -r requirements.txt
 
-A conversational AI assistant that:
-- Implements a simple LangChain-based conversational interface
-- Uses Anthropic's Claude as the underlying LLM
-- Demonstrates memory persistence with monitoring
-- Shows basic conversation patterns with security tracking
+# Run the example
+python weather_client.py
+```
 
-## Running the Examples
+## Key Integration Patterns
 
-Each example directory contains:
-- A README.md with specific setup instructions
-- Required code files for the agent
-- A requirements.txt file listing dependencies
+### 1. Anthropic Integration
 
-To run any example:
+```python
+import cylestio_monitor
+from anthropic import Anthropic
 
-1. Navigate to the specific example directory
-2. Create a virtual environment: `python -m venv venv`
-3. Activate the environment:
-   - Windows: `venv\Scripts\activate`
-   - MacOS/Linux: `source venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
-5. Follow the specific instructions in the example's README.md
+# Start monitoring
+cylestio_monitor.start_monitoring(agent_id="anthropic-example")
 
-## Framework Support
+# Create client - will be automatically patched
+client = Anthropic()
 
-The examples demonstrate integration with various LLM frameworks. Cylestio Monitor supports:
+# Use as normal - all monitoring is automatic
+response = client.messages.create(...)
+```
 
-- Anthropic Python SDK
-- Model Context Protocol (MCP)
-- LangChain
-- LangGraph
+### 2. MCP Integration
 
-Each example demonstrates best practices for security monitoring and logging when building AI agents. 
+```python
+import cylestio_monitor
+from mcp import ClientSession
+
+# Start monitoring
+cylestio_monitor.start_monitoring(agent_id="mcp-example")
+
+# Create MCP session - will be automatically patched
+session = ClientSession(...)
+
+# All tool calls are automatically monitored
+```
+
+### 3. LangChain Integration
+
+```python
+import cylestio_monitor
+from langchain.chat_models import ChatAnthropic
+
+# Start monitoring
+cylestio_monitor.start_monitoring(agent_id="langchain-example")
+
+# Create LangChain components - will be automatically patched
+llm = ChatAnthropic(...)
+
+# All chains and agents are automatically monitored
+```

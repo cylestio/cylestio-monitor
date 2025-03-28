@@ -15,6 +15,40 @@ pip install cylestio-monitor
 
 This command installs the core monitoring package with all essential dependencies.
 
+## Verifying Installation
+
+You can verify your installation by importing the package:
+
+```python
+import cylestio_monitor
+print(cylestio_monitor.__version__)  # Should print 0.1.5 or newer
+```
+
+## Basic Usage
+
+Once installed, you can start using Cylestio Monitor with just two lines of code:
+
+```python
+import cylestio_monitor
+
+# Start monitoring at the beginning of your application
+cylestio_monitor.start_monitoring(agent_id="my-agent")
+
+# Your application code here...
+# Use Anthropic, LangChain, MCP, etc. as normal
+
+# Stop monitoring at the end of your application
+cylestio_monitor.stop_monitoring()
+```
+
+## Next Steps
+
+Once installed, you can:
+
+1. Read the [Quick Start Guide](quick-start.md) for basic monitoring setup
+2. Check out our [examples](../../examples/agents/) for real-world implementations
+3. Learn about [Custom Integrations](../custom-integrations.md) for advanced use cases
+
 ## Development Installation
 
 If you plan to contribute to Cylestio Monitor, install the package with development dependencies:
@@ -25,32 +59,5 @@ git clone https://github.com/cylestio/cylestio-monitor.git
 cd cylestio-monitor
 
 # Install the package in development mode with extra dependencies
-pip install -e ".[dev,test,security]"
+pip install -e ".[dev,test]"
 ```
-
-## Verifying Installation
-
-You can verify your installation by importing the package:
-
-```python
-import cylestio_monitor
-print(cylestio_monitor.__version__)
-```
-
-## Next Steps
-
-Once installed, you can:
-
-1. [Get started](quick-start.md) with basic monitoring
-2. Review the [configuration options](configuration.md)
-3. Explore [advanced use cases](../monitoring_channels.md)
-
-## Dashboard Installation
-
-For visualization of your monitoring data, we recommend installing our separate [dashboard application](https://github.com/cylestio/cylestio-dashboard).
-
-```bash
-pip install cylestio-dashboard
-```
-
-The dashboard provides a web interface for viewing events, alerts, and performance metrics collected by Cylestio Monitor. 

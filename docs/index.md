@@ -1,75 +1,99 @@
 # Cylestio Monitor SDK
 
-Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents with OpenTelemetry-compliant telemetry. It offers lightweight, drop-in security monitoring for various frameworks, including Model Context Protocol (MCP) and popular LLM providers.
+Cylestio Monitor is a comprehensive security and monitoring solution for AI agents with OpenTelemetry-compliant telemetry. It provides lightweight, drop-in security monitoring for LLM clients and frameworks with just two lines of code.
 
 ## Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
-- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP), LangChain, and LangGraph
-- **OpenTelemetry compliance**: Generate structured telemetry with trace context for distributed tracing
+- **OpenTelemetry compliance**: Generate structured telemetry with trace context
+- **Multi-framework support**: Works with popular LLM clients and frameworks
 - **Security monitoring**: Detects and flags suspicious or dangerous content
 - **Performance tracking**: Monitors call durations and response times
-- **Hierarchical operation tracking**: Understand relationships between operations with spans and trace context
-- **Flexible logging**: Send events to a remote API endpoint with optional JSON file backup
+- **Hierarchical operation tracking**: Track relationships between operations
+- **Flexible logging**: Send events to API endpoints or store locally
 
-## Quick Start
+## Simple Integration
 
 ```python
-from cylestio_monitor import start_monitoring
-from anthropic import Anthropic
+# Start monitoring at application initialization
+import cylestio_monitor
+cylestio_monitor.start_monitoring(agent_id="my-agent")
 
-# Create your LLM client
-client = Anthropic()
-
-# Start monitoring with API endpoint
-start_monitoring(
-    agent_id="my_agent",
-    config={
-        "api_endpoint": "https://api.example.com/events",
-        "log_file": "output/monitoring.json"
-    }
-)
-
-# Use your client as normal
-response = client.messages.create(
-    model="claude-3-sonnet-20240229",
-    max_tokens=1000,
-    messages=[{"role": "user", "content": "Hello, Claude!"}]
-)
+# Your application code here...
+# The SDK automatically detects and monitors supported libraries
 
 # Stop monitoring when done
-from cylestio_monitor import stop_monitoring
-stop_monitoring()
+cylestio_monitor.stop_monitoring()
 ```
 
-## OpenTelemetry-Compliant Event Structure
+## Automatic Framework Detection
+
+Cylestio Monitor automatically detects and instruments supported libraries:
+
+- **Anthropic Claude SDK** - all versions
+- **MCP (Model Context Protocol)**
+- **LangChain**
+- **LangGraph**
+
+No additional configuration is required to monitor these frameworks.
+
+## Configuration Options
+
+The `start_monitoring` function accepts these optional configuration options:
+
+```python
+cylestio_monitor.start_monitoring(
+    agent_id="my-agent",
+    config={
+        "debug_level": "INFO",           # Logging level
+        "log_file": "output/logs.json",  # Path for local JSON logs
+        "api_endpoint": "https://api.example.com/events",  # Remote endpoint
+        "development_mode": False        # Extra development features
+    }
+)
+```
+
+## Event Structure
+
+All events follow OpenTelemetry standards with proper trace context:
 
 ```json
 {
     "timestamp": "2024-03-27T15:31:40.622017",
-    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595", 
+    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",
     "name": "llm.call.start",
-    "level": "INFO",
     "attributes": {
         "method": "messages.create",
-        "prompt": "Hello, world!",
-        "model": "claude-3-sonnet-20240229"
+        "model": "claude-3-haiku-20240307"
     },
-    "agent_id": "my-agent"
+    "agent_id": "weather-agent"
 }
 ```
 
-## Integration with Cylestio Ecosystem
+## Security Features
 
-While Cylestio Monitor works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced user experience and additional security and monitoring capabilities across your entire agentic workforce.
+- **Content safety monitoring**: Identify potentially suspicious content
+- **PII detection**: Detect and redact personally identifiable information
+- **Content filtering**: Flag harmful or inappropriate content
+- **Security classification**: Events are classified by security risk level
+
+## Examples
+
+The SDK includes several example agents in the [examples/agents](../examples/agents) directory:
+
+- **Weather Agent**: Demonstrates MCP and Anthropic Claude integration
+- **RAG Agent**: Shows retrieval-augmented generation monitoring
+- **Chatbot**: Simple LLM-based chatbot with monitoring
 
 ## Documentation Sections
 
-- [Getting Started](getting-started/quick-start.md): Basic setup and configuration
-- [SDK Reference](sdk-reference/overview.md): Detailed API documentation
-- [Security](security/best-practices.md): Security features and best practices
-- [Advanced Topics](advanced-topics/custom-integrations.md): Advanced usage and customization
-- [Development](development/contributing.md): Contributing to the project
-- [Troubleshooting](troubleshooting/common-issues.md): Common issues and solutions 
+- [Getting Started](getting-started/quick-start.md): Setup and configuration
+- [SDK Reference](sdk-reference/overview.md): API documentation
+  - [Monitor Module](sdk-reference/monitor.md): Core monitoring functionality
+  - [Events System](sdk-reference/events.md): Event processing
+  - [API Client](sdk-reference/api-client.md): API endpoints and logging
+  - [Trace Context](sdk-reference/tracing.md): Distributed tracing
+- [Custom Integrations](custom-integrations.md): Extending the SDK
+- [Troubleshooting](troubleshooting.md): Common issues and solutions
