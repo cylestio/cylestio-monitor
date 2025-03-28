@@ -30,7 +30,7 @@ from cylestio_monitor.utils.instrumentation import Span
 with Span("data-processing", attributes={"source": "database"}):
     # Your operation code here
     process_data()
-    
+
     # Additional events within the span
     log_event(
         name="data.processing.step",
@@ -105,14 +105,14 @@ try:
         name="custom.operation.start",
         attributes={"parameters": "value"}
     )
-    
+
     result = perform_operation()
-    
+
     log_event(
         name="custom.operation.complete",
         attributes={"result": "success"}
     )
-    
+
     return result
 except Exception as e:
     log_error(
@@ -131,4 +131,4 @@ finally:
 2. **Useful Attributes**: Include attributes that provide context about the operation
 3. **Proper Nesting**: Nest spans to reflect the hierarchical nature of operations
 4. **Error Handling**: Always log errors and ensure spans are properly ended
-5. **Security**: Be careful about logging sensitive information in attributes 
+5. **Security**: Be careful about logging sensitive information in attributes

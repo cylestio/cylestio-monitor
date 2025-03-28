@@ -60,7 +60,7 @@ All events follow OpenTelemetry standards with proper trace context:
 ```json
 {
     "timestamp": "2024-03-27T15:31:40.622017",
-    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595", 
+    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",
     "name": "llm.call.start",
@@ -90,10 +90,10 @@ The SDK includes several example agents in the [examples/agents](../examples/age
 ## Documentation Sections
 
 - [Getting Started](getting-started/quick-start.md): Setup and configuration
-- [SDK Reference](sdk-reference/overview.md): API documentation  
+- [SDK Reference](sdk-reference/overview.md): API documentation
   - [Monitor Module](sdk-reference/monitor.md): Core monitoring functionality
   - [Events System](sdk-reference/events.md): Event processing
   - [API Client](sdk-reference/api-client.md): API endpoints and logging
   - [Trace Context](sdk-reference/tracing.md): Distributed tracing
 - [Custom Integrations](custom-integrations.md): Extending the SDK
-- [Troubleshooting](troubleshooting.md): Common issues and solutions 
+- [Troubleshooting](troubleshooting.md): Common issues and solutions

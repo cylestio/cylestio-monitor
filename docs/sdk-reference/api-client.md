@@ -140,4 +140,4 @@ except Exception as e:
 - Include appropriate authentication in your production API endpoint
 - Monitor API client logs for connection issues
 - Implement rate limiting in your API endpoint
-- Consider adding a local queue or batch processing for high-volume applications 
+- Consider adding a local queue or batch processing for high-volume applications

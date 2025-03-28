@@ -204,4 +204,4 @@ with Span("database-query", attributes={
     result = db.execute_query(query, params)
 ```
 
-For more detailed information about event logging and spans, see the [Tracing](tracing.md) documentation. 
+For more detailed information about event logging and spans, see the [Tracing](tracing.md) documentation.

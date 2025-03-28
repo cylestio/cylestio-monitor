@@ -15,7 +15,7 @@ This guide covers common issues and their solutions when using Cylestio Monitor.
    # Make sure the directory exists
    import os
    os.makedirs("output", exist_ok=True)
-   
+
    # Then start monitoring
    cylestio_monitor.start_monitoring(
        agent_id="my-agent",
@@ -58,7 +58,7 @@ response = client.messages.create(...)
        agent_id="my-agent",
        config={"api_endpoint": "https://api.example.com/events"}
    )
-   
+
    # Verify the endpoint
    print(cylestio_monitor.get_api_endpoint())
    ```
@@ -97,7 +97,7 @@ This will output detailed debugging information to the console.
    ```python
    import cylestio_monitor
    cylestio_monitor.start_monitoring(agent_id="my-agent")
-   
+
    # Then import and use the framework
    from langchain.chat_models import ChatAnthropic
    ```
@@ -114,4 +114,4 @@ If you continue to experience issues:
 
 1. Check the [GitHub Issues](https://github.com/cylestio/cylestio-monitor/issues) for similar problems and solutions
 2. Contact support at support@cylestio.com
-3. Join our [Discord community](https://discord.gg/cylestio) for real-time help 
+3. Join our [Discord community](https://discord.gg/cylestio) for real-time help

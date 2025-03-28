@@ -39,7 +39,7 @@ with Span("custom-operation", attributes={"operation_type": "data_processing"}):
         name="custom.event",
         attributes={"key": "value"}
     )
-    
+
     # Your code here
     process_data()
 ```
@@ -51,4 +51,4 @@ Explore the specific module documentation for detailed information:
 - [Monitor Module](monitor.md): Main monitoring functionality
 - [Events System](events.md): Event processing and handling
 - [API Client](api-client.md): Remote API communication and local logging
-- [Trace Context](tracing.md): Distributed tracing and span management 
+- [Trace Context](tracing.md): Distributed tracing and span management

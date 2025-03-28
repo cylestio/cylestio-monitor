@@ -190,4 +190,4 @@ cylestio_monitor.start_monitoring(
 2. **Include Relevant Attributes**: Add data that helps with debugging and analysis
 3. **Handle Errors**: Log errors with sufficient context
 4. **Manage Trace Context**: Use spans to create proper hierarchical relationships
-5. **Avoid Sensitive Data**: Don't include PII or secrets in event attributes 
+5. **Avoid Sensitive Data**: Don't include PII or secrets in event attributes

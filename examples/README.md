@@ -98,4 +98,4 @@ cylestio_monitor.start_monitoring(agent_id="langchain-example")
 llm = ChatAnthropic(...)
 
 # All chains and agents are automatically monitored
-``` 
+```

@@ -60,4 +60,4 @@ cd cylestio-monitor
 
 # Install the package in development mode with extra dependencies
 pip install -e ".[dev,test]"
-``` 
+```

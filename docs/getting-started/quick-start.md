@@ -27,7 +27,7 @@ from anthropic import Anthropic
 
 # Start monitoring
 cylestio_monitor.start_monitoring(
-    agent_id="my-chatbot", 
+    agent_id="my-chatbot",
     config={"log_file": "output/monitoring.json"}
 )
 
@@ -58,10 +58,10 @@ cylestio_monitor.start_monitoring(
         # Logging options
         "debug_level": "INFO",  # Logging level (DEBUG, INFO, WARNING, ERROR)
         "log_file": "output/logs.json",  # Path for local JSON logs
-        
+
         # API options
         "api_endpoint": "https://api.example.com/events",  # Remote endpoint
-        
+
         # Development options
         "development_mode": False  # Enable development features
     }
@@ -74,7 +74,7 @@ When the `log_file` option is provided, Cylestio Monitor logs events to a JSON f
 
 ```python
 cylestio_monitor.start_monitoring(
-    agent_id="weather-agent", 
+    agent_id="weather-agent",
     config={"log_file": "output/weather_monitoring.json"}
 )
 ```
@@ -168,7 +168,7 @@ Cylestio Monitor generates events following OpenTelemetry standards:
 ```json
 {
     "timestamp": "2024-03-27T15:31:40.622017",
-    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595", 
+    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",
     "name": "llm.call.start",
@@ -196,7 +196,7 @@ span_info = TraceContext.start_span("data-processing")
 try:
     # Perform some operation
     result = process_data()
-    
+
     # Log an event within this span
     log_event(
         name="custom.processing.complete",
@@ -219,7 +219,7 @@ log_event(
     name="custom.event",
     attributes={
         "custom_field": "custom value",
-        "operation": "user_login" 
+        "operation": "user_login"
     },
     level="INFO"
 )
@@ -241,4 +241,4 @@ print(f"Sending events to: {endpoint}")
 
 - Learn about [configuration options](configuration.md)
 - Explore the [security features](../advanced-topics/security.md)
-- Check out the [SDK reference](../sdk-reference/overview.md) 
+- Check out the [SDK reference](../sdk-reference/overview.md)

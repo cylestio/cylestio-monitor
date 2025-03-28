@@ -75,12 +75,12 @@ from cylestio_monitor.utils.instrumentation import Span
 with Span("data-processing"):
     # Do some initial work
     prepare_data()
-    
+
     # Create a child span
     with Span("data-transformation"):
         # This operation is tracked as a child of "data-processing"
         transform_data()
-    
+
     # Create another child span
     with Span("data-validation"):
         # This is also a child of "data-processing"
@@ -124,4 +124,4 @@ agent_id = context.get("agent_id")
 2. **Use Meaningful Names**: Choose descriptive span names that indicate what operation is being performed
 3. **Hierarchical Spans**: Structure spans to represent the logical hierarchy of operations
 4. **Add Relevant Attributes**: Include attributes that will help with debugging and monitoring
-5. **Use Function Instrumentation**: For frequently called functions, use decorators for cleaner code 
+5. **Use Function Instrumentation**: For frequently called functions, use decorators for cleaner code
