@@ -8,7 +8,7 @@ This document describes the CI/CD pipeline setup for cylestio-monitor.
 
 Runs on push to main and on pull requests:
 - **Testing**: Runs pytest with coverage reporting
-- **Linting**: Checks code with isort, ruff, and mypy
+- **Linting**: Checks code with ruff and mypy
 - **Security**: Scans for security issues with bandit and safety
 
 ### Publish Workflow (publish.yml)
