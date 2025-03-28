@@ -9,17 +9,17 @@ The Monitor Module is the core component of Cylestio Monitor, providing the main
 Initializes monitoring for an AI agent.
 
 ```python
-from cylestio_monitor import start_monitoring
+import cylestio_monitor
 
 # Basic usage
-start_monitoring(agent_id="my-agent")
+cylestio_monitor.start_monitoring(agent_id="my-agent")
 
 # With additional configuration
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="my-agent",
     config={
         "debug_level": "INFO",
-        "log_file": "/path/to/logs/monitoring.json",
+        "log_file": "output/monitoring.json",
         "api_endpoint": "https://api.example.com/events",
         "development_mode": False,
         "enable_framework_patching": True
@@ -48,10 +48,10 @@ None
 Stops monitoring and cleans up resources.
 
 ```python
-from cylestio_monitor import stop_monitoring
+import cylestio_monitor
 
 # Stop monitoring
-stop_monitoring()
+cylestio_monitor.stop_monitoring()
 ```
 
 #### Parameters
@@ -67,10 +67,10 @@ None
 Gets the configured API endpoint for sending events.
 
 ```python
-from cylestio_monitor import get_api_endpoint
+import cylestio_monitor
 
 # Get API endpoint
-endpoint = get_api_endpoint()
+endpoint = cylestio_monitor.get_api_endpoint()
 print(f"API endpoint: {endpoint}")
 ```
 
@@ -91,8 +91,8 @@ from cylestio_monitor.utils.trace_context import TraceContext
 
 # Get current trace context
 context = TraceContext.get_current_context()
-print(f"Trace ID: {context['trace_id']}")
-print(f"Span ID: {context['span_id']}")
+print(f"Trace ID: {context.get('trace_id')}")
+print(f"Span ID: {context.get('span_id')}")
 ```
 
 ### Trace Context Fields
@@ -104,44 +104,58 @@ print(f"Span ID: {context['span_id']}")
 | `parent_span_id` | ID of the parent span, establishing hierarchical relationships |
 | `agent_id` | Identifier of the agent associated with this trace |
 
+## Event Logging
+
+For custom event logging, see the [Events System](events.md) documentation.
+
+```python
+from cylestio_monitor.utils.event_logging import log_event
+
+# Log a custom event
+log_event(
+    name="custom.operation.complete",
+    attributes={"records_processed": 100}
+)
+```
+
 ## Examples
 
 ### Basic Monitoring
 
 ```python
-from cylestio_monitor import start_monitoring, stop_monitoring
+import cylestio_monitor
 from anthropic import Anthropic
 
-# Create LLM client
-client = Anthropic()
-
 # Start monitoring
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="my-agent",
     config={
         "log_file": "output/monitoring.json"
     }
 )
 
+# Create Anthropic client - will be automatically patched
+client = Anthropic()
+
 try:
-    # Use client as normal
+    # Use client as normal - all calls are automatically monitored
     response = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-haiku-20240307",
         max_tokens=1000,
         messages=[{"role": "user", "content": "Hello, Claude!"}]
     )
 finally:
     # Always stop monitoring when done
-    stop_monitoring()
+    cylestio_monitor.stop_monitoring()
 ```
 
 ### Production Monitoring with API Endpoint
 
 ```python
-from cylestio_monitor import start_monitoring
+import cylestio_monitor
 
 # Enable production-grade monitoring
-start_monitoring(
+cylestio_monitor.start_monitoring(
     agent_id="production-agent",
     config={
         "api_endpoint": "https://api.example.com/events",
@@ -150,17 +164,15 @@ start_monitoring(
 )
 ```
 
-### Monitoring with Framework Patching
+### Automatic Framework Detection
 
 Cylestio Monitor automatically detects and patches supported frameworks:
 
 ```python
-from cylestio_monitor import start_monitoring
-import langchain
-import langgraph
+import cylestio_monitor
 
-# Start monitoring with framework patching enabled
-start_monitoring(
+# Start monitoring before importing any frameworks
+cylestio_monitor.start_monitoring(
     agent_id="ai-agent",
     config={
         "log_file": "output/monitoring.json",
@@ -168,21 +180,28 @@ start_monitoring(
     }
 )
 
-# LangChain and LangGraph operations will be automatically monitored
+# Now import and use frameworks - they will be automatically monitored
+import langchain
+from langchain.chat_models import ChatAnthropic
+
+# LangChain operations will be automatically monitored
+llm = ChatAnthropic()
 ```
 
-## Using API Client Directly
+## Creating Custom Spans
+
+For custom operation tracking, use the Span context manager:
 
 ```python
-from cylestio_monitor.api_client import send_event_to_api
+from cylestio_monitor.utils.instrumentation import Span
 
-# Send custom event to API
-event = {
-    "name": "custom.event",
-    "level": "INFO",
-    "attributes": {
-        "custom_field": "custom_value"
-    }
-}
-send_event_to_api(event)
-``` 
+# Create a span for a custom operation
+with Span("database-query", attributes={
+    "database.name": "users",
+    "database.operation": "select"
+}):
+    # Run the database query
+    result = db.execute_query(query, params)
+```
+
+For more detailed information about event logging and spans, see the [Tracing](tracing.md) documentation. 
