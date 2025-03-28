@@ -1,0 +1,11 @@
+name: "v0.1.5 - OTel Schema"
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This workflow has been disabled"

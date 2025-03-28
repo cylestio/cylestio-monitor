@@ -1,0 +1,14 @@
+name: Cleanup Old Workflows
+
+# This workflow explicitly disables any workflows that might be
+# still appearing in GitHub Actions despite not being in the repo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder to disable old workflows
+        run: echo "This workflow is used to disable old workflows appearing in GitHub Actions"
