@@ -43,9 +43,35 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ".[security]"
+          pip install safety bandit
 
       - name: Run bandit
         run: bandit -r src -s B110,B311
 
       - name: Check dependencies with safety
-        run: safety check
+        run: safety check --full-report
+
+      - name: Check for PyPI package name availability
+        run: |
+          pip install pip-api
+          python -c "import pip_api; print('Package name check passed' if 'cylestio-monitor' in pip_api.installed_distributions() or 'cylestio-monitor' not in pip_api.available_packages() else 'Package exists but not owned by you')"
+        continue-on-error: true
+
+      - name: Verify package can be installed
+        run: |
+          # Create a temporary directory for test installation
+          mkdir -p /tmp/package-test
+          cd /tmp/package-test
+
+          # Create virtual environment
+          python -m venv venv
+          source venv/bin/activate
+
+          # Try to install the package from local build
+          cd $GITHUB_WORKSPACE
+          pip install build
+          python -m build
+          pip install dist/*.whl
+
+          # Verify the package can be imported
+          python -c "import cylestio_monitor; print('Package installed successfully')"

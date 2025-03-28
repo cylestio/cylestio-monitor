@@ -18,3 +18,21 @@ jobs:
         uses: actions/dependency-review-action@v3
         with:
           fail-on-severity: high
+          deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check for vulnerable dependencies
+        run: |
+          pip install pip-audit
+          pip-audit -r pyproject.toml || echo "Vulnerabilities found but continuing"
+        continue-on-error: true
