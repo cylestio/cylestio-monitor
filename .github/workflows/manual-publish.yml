@@ -1,27 +1,22 @@
-name: Publish to PyPI
+name: Manual Publish to PyPI
 
 on:
-  release:
-    types: [published, released, created]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:  # Only trigger manually
 
 permissions:
   contents: read
-  id-token: write  # Needed for PyPI token
+  id-token: write
 
 jobs:
-  build-and-publish:
+  manual-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
 
       - name: Install build dependencies
         run: |
@@ -35,8 +30,7 @@ jobs:
         run: twine check dist/*
 
       - name: Publish to PyPI
-        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          verbose: true  # Add verbose output for debugging
+          verbose: true
