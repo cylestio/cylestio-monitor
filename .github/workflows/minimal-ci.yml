@@ -1,0 +1,29 @@
+name: Core-Tests-Only
+
+on:
+  push:
+    branches: [ main, develop, radical-fix ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+      
+      - name: Run core tests
+        run: |
+          # Run only the essential tests
+          cd tests && python -m pytest core_tests/ -v 
