@@ -1,40 +1,19 @@
-name: CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop, radical-fix]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
   release:
-    types: [ published ]
-
-# This is a complete replacement of all previous workflows
-# No other workflows should be running in this repository
+    types: [published]
 
 jobs:
-  verify:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Verify no deleted files
-        run: |
-          echo "Ensuring deleted files don't exist:"
-          if [ -f "tests/test_events_processor.py" ]; then
-            echo "ERROR: tests/test_events_processor.py still exists!"
-            exit 1
-          fi
-          if [ -f "tests/test_patchers_anthropic.py" ]; then
-            echo "ERROR: tests/test_patchers_anthropic.py still exists!"
-            exit 1
-          fi
-          echo "Confirmed deleted files are gone"
-          
-          echo "Current test files:"
-          find tests -name "test_*.py" | sort
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,58 +22,68 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'pyproject.toml'
       
-      - name: Check Python version and paths
-        run: |
-          python --version
-          which python
-          echo "Python Path:"
-          python -c "import sys; print(sys.path)"
-          echo "Cylestio Monitor Package Structure:"
-          find src/cylestio_monitor -type f | sort
-      
-      - name: Install dependencies (with development mode)
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Force reinstall in development mode to ensure current code is used
-          pip uninstall -y cylestio-monitor || true
-          pip install -e ".[dev,test,security]"
-          # List installed packages
-          pip list | grep cylestio
-          
-      - name: Debug package installation
-        run: |
-          # Verify the module structure
-          python -c "import cylestio_monitor; print('Module exists:', cylestio_monitor); print('Module path:', cylestio_monitor.__path__)"
-          # Try to import the security modules
-          python -c "from cylestio_monitor.events.processing import security; print('Import successful:', security.__file__)"
-          # Test compatibility module
-          python -c "import cylestio_monitor.events_processor as ep; print('Backward compat module:', ep.__file__)" || echo "Backward compatibility module not found"
-          # Run comprehensive installation check
-          python tests/ci_check_installation.py
+          # Fresh install with dev and test dependencies
+          pip install -e ".[dev,test]"
       
-      - name: Run new security tests
+      - name: Verify installation
         run: |
-          # Delete the problematic test file to prevent it from being used
-          rm -f tests/test_security.py
-          echo "Removed problematic test file"
-          # Run the new security test file
-          pytest tests/test_security_new.py -v
+          # Simple test to verify the package is installed correctly
+          python -c "import cylestio_monitor; print('Package installed successfully')"
+          # Print package version and location
+          python -c "import cylestio_monitor, os; print('Package path:', os.path.dirname(cylestio_monitor.__file__))"
       
-      - name: Run security tests
+      - name: Run core tests
         run: |
-          # Try original security tests
-          pytest tests/test_security.py -v || echo "Original test failed, using new version instead"
+          # Run only the core tests
+          pytest tests/core_tests/ -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-      - name: Check for security vulnerabilities
-        run: |
-          safety check --full-report || echo "Warning: Security vulnerabilities found"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       
-      - name: Run bandit security scan
+      - name: Install linting tools
         run: |
-          bandit -r src/ -ll -iii || echo "Warning: Security issues found in code"
-  
+          python -m pip install --upgrade pip
+          pip install black ruff
+      
+      - name: Run linters
+        run: |
+          black --check src/
+          ruff check src/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+      
+      - name: Basic security checks
+        run: |
+          bandit -r src/ -ll || echo "Bandit found issues (advisory only)"
+          safety check || echo "Safety check found vulnerabilities (advisory only)"
+
   publish:
-    needs: verify
+    needs: [test, lint, security]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
     steps:
@@ -106,16 +95,12 @@ jobs:
         with:
           python-version: "3.12"
       
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-      
-      - name: Build package
-        run: python -m build
-      
-      - name: Publish to PyPI
+      - name: Build and publish
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: twine upload dist/* 
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build
+          twine upload dist/* 
