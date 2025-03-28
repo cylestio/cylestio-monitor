@@ -8,7 +8,7 @@ This document describes the CI/CD pipeline setup for cylestio-monitor.
 
 Runs on push to main and on pull requests:
 - **Testing**: Runs pytest with coverage reporting
-- **Linting**: Checks code with black, isort, ruff, and mypy
+- **Linting**: Checks code with isort, ruff, and mypy
 - **Security**: Scans for security issues with bandit and safety
 
 ### Publish Workflow (publish.yml)
@@ -34,6 +34,12 @@ To enable automatic deployment to PyPI:
    - Go to your repository → Settings → Secrets → Actions
    - Create a new repository secret named `PYPI_API_TOKEN`
    - Paste your PyPI token as the value
+
+## Security Notes
+
+The current security checks skip the following low-severity issues:
+- B110: Try-except-pass patterns (these are used intentionally in specific error handling scenarios)
+- B311: Standard random generators (low-risk for our usage, but should be replaced with cryptographic random generators in future releases)
 
 ## Best Practices
 
