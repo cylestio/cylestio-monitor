@@ -1,19 +1,19 @@
-name: Core-Tests-Only
+name: v1-core-tests-20240328
 
 on:
   push:
-    branches: [ main, develop, radical-fix ]
+    branches: [ radical-fix ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 jobs:
-  test:
+  core-test-only:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -23,7 +23,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,test]"
       
+      - name: Verify package installation
+        run: |
+          python -c "import cylestio_monitor; print('Package installed successfully')"
+      
       - name: Run core tests
         run: |
-          # Run only the essential tests
-          cd tests && python -m pytest core_tests/ -v 
+          cd tests
+          python -m pytest core_tests/ -v 
