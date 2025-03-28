@@ -1,0 +1,106 @@
+name: Simple CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, radical-fix]
+  pull_request:
+    branches: [main, develop]
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Fresh install with dev and test dependencies
+          pip install -e ".[dev,test]"
+      
+      - name: Verify installation
+        run: |
+          # Simple test to verify the package is installed correctly
+          python -c "import cylestio_monitor; print('Package installed successfully')"
+          # Print package version and location
+          python -c "import cylestio_monitor, os; print('Package path:', os.path.dirname(cylestio_monitor.__file__))"
+      
+      - name: Run core tests
+        run: |
+          # Run only the core tests
+          pytest tests/core_tests/ -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black ruff
+      
+      - name: Run linters
+        run: |
+          black --check src/
+          ruff check src/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+      
+      - name: Basic security checks
+        run: |
+          bandit -r src/ -ll || echo "Bandit found issues (advisory only)"
+          safety check || echo "Safety check found vulnerabilities (advisory only)"
+
+  publish:
+    needs: [test, lint, security]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Build and publish
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build
+          twine upload dist/* 

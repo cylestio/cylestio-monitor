@@ -1,0 +1,1 @@
+"""Core tests package for essential functionality.""" 
