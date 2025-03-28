@@ -1,7 +1,0 @@
-security:
-  ignore-vulnerabilities:
-    # Py package ReDoS vulnerability (disputed by pytest developers)
-    # See: https://github.com/pytest-dev/pytest/issues/10392
-    51457:  # CVE-2022-42969
-      reason: "The vulnerability is disputed and not reproducible. The affected code is not used in pytest or any other relevant package."
-      expires: "2026-01-01" 
