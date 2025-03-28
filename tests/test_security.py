@@ -5,47 +5,16 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from cylestio_monitor.config.config_manager import ConfigManager
+from cylestio_monitor.events.processing.security import (
+    contains_dangerous,
+    contains_suspicious,
+    normalize_text,
+    check_security_concerns,
+    mask_sensitive_data,
+)
 
-# Try to import from new structure, fall back to old structure
-try:
-    from cylestio_monitor.events.processing.security import (
-        contains_dangerous,
-        contains_suspicious,
-        normalize_text,
-        check_security_concerns,
-        mask_sensitive_data,
-    )
-    # Use new path for patching
-    PATCH_PATH = "cylestio_monitor.events.processing.security.config_manager"
-except ImportError:
-    # Fall back to old structure
-    try:
-        from cylestio_monitor.events_processor import (
-            contains_dangerous,
-            contains_suspicious,
-            normalize_text,
-        )
-        # Define compatibility functions for old structure
-        def check_security_concerns(data):
-            return "dangerous" if any(contains_dangerous(str(v)) for v in data.values()) else \
-                   "suspicious" if any(contains_suspicious(str(v)) for v in data.values()) else "none"
-            
-        def mask_sensitive_data(data):
-            return {k: "***MASKED***" if k in ["api_key", "auth_token"] else v for k, v in data.items()}
-        
-        # Use old path for patching
-        PATCH_PATH = "cylestio_monitor.events_processor.config_manager"
-    except ImportError:
-        # If both fail, print warning and define mock functions
-        print("WARNING: Could not import security functions from either path. Using mock functions.")
-        contains_dangerous = lambda text: "DROP" in text.upper() or "RM -RF" in text.upper()
-        contains_suspicious = lambda text: "HACK" in text.upper() or "BOMB" in text.upper()
-        normalize_text = lambda text: text.upper().strip()
-        check_security_concerns = lambda data: "none"
-        mask_sensitive_data = lambda data: data
-        
-        # Use fallback path for patching
-        PATCH_PATH = "cylestio_monitor.config.config_manager"
+# Use new path for patching
+PATCH_PATH = "cylestio_monitor.events.processing.security.config_manager"
 
 
 @pytest.fixture(autouse=True)
