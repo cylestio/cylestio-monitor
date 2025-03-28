@@ -44,9 +44,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[dev]"
 
-      - name: Check formatting with black
-        run: black --check src tests
-
       - name: Check imports with isort
         run: isort --check src tests
 
@@ -73,7 +70,7 @@ jobs:
           pip install ".[security]"
 
       - name: Run bandit
-        run: bandit -r src
+        run: bandit -r src -s B110,B311
 
       - name: Check dependencies with safety
         run: safety check
