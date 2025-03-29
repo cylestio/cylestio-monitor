@@ -47,7 +47,7 @@ Cylestio Monitor works by automatically patching supported LLM clients and frame
 
 ### Supported Frameworks
 
-- **LLM Clients**: Anthropic Claude (all versions)
+- **LLM Clients**: Anthropic Claude (all versions), OpenAI (Chat Completions and Completions APIs)
 - **Agent Frameworks**: MCP (Model Context Protocol), LangChain, LangGraph
 
 ## Key Features
