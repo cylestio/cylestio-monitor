@@ -20,6 +20,11 @@ from .langchain_patcher import LangChainPatcher, patch_langchain, unpatch_langch
 # Expose the patching functions for all supported frameworks
 from .mcp_patcher import MCPPatcher, patch_mcp, unpatch_mcp
 from .openai_patcher import OpenAIPatcher, patch_openai_module, unpatch_openai_module
+from .structured_tool_patcher import (
+    StructuredToolPatcher,
+    patch_structured_tool,
+    unpatch_structured_tool,
+)
 from .tool_decorator_patcher import (
     ToolDecoratorPatcher,
     patch_tool_decorator,
@@ -66,6 +71,7 @@ __all__ = [
     "ToolDecoratorPatcher",
     "DecoratedToolsPatcher",
     "BaseToolPatcher",
+    "StructuredToolPatcher",
     # Patching functions
     "patch_mcp",
     "unpatch_mcp",
@@ -83,4 +89,6 @@ __all__ = [
     "unpatch_decorated_tools",
     "patch_base_tool",
     "unpatch_base_tool",
+    "patch_structured_tool",
+    "unpatch_structured_tool",
 ]

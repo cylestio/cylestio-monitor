@@ -231,6 +231,13 @@ def start_monitoring(
                     logger.info("LangChain BaseTool class patched for monitoring")
                     monitor_logger.info("BaseTool monitoring enabled")
                     
+                # Try to patch StructuredTool class (created by @tool decorator)
+                from .patchers.structured_tool_patcher import patch_structured_tool
+                structured_tool_patched = patch_structured_tool()
+                if structured_tool_patched:
+                    logger.info("LangChain StructuredTool class patched for monitoring")
+                    monitor_logger.info("StructuredTool monitoring enabled")
+                    
             except Exception as e:
                 logger.error(f"Failed to patch tool patchers: {e}")
 
@@ -305,6 +312,13 @@ def stop_monitoring() -> None:
         unpatch_base_tool()
     except Exception as e:
         logger.warning(f"Error while unpatching BaseTool: {e}")
+        
+    # Unpatch StructuredTool if it was patched
+    try:
+        from .patchers.structured_tool_patcher import unpatch_structured_tool
+        unpatch_structured_tool()
+    except Exception as e:
+        logger.warning(f"Error while unpatching StructuredTool: {e}")
         
     # Unpatch LangGraph if it was patched
     try:

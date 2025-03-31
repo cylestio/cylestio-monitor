@@ -55,7 +55,7 @@ Cylestio Monitor works by automatically patching supported LLM clients and frame
 - **Zero-configuration setup**: Import and enable with just two lines of code
 - **OpenTelemetry compliance**: Generate structured telemetry with trace context for distributed tracing
 - **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP), LangChain, and LangGraph
-- **Comprehensive tool monitoring**: Tracks all tool executions regardless of how they're created (BaseTool, @tool decorator, or standalone functions)
+- **Comprehensive tool monitoring**: Tracks all tool executions regardless of how they're created (BaseTool, StructuredTool from @tool decorator, or standalone function tools)
 - **Hierarchical operation tracking**: Understand relationships between operations with spans and trace context
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses
 - **Security monitoring**: Detects and flags suspicious or dangerous content
