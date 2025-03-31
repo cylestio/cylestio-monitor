@@ -9,11 +9,22 @@ from .anthropic import AnthropicPatcher, patch_anthropic_module, unpatch_anthrop
 
 # Expose patcher classes
 from .base import BasePatcher
+from .base_tool_patcher import BaseToolPatcher, patch_base_tool, unpatch_base_tool
+from .decorated_tools_patcher import (
+    DecoratedToolsPatcher,
+    patch_decorated_tools,
+    unpatch_decorated_tools,
+)
 from .langchain_patcher import LangChainPatcher, patch_langchain, unpatch_langchain
 
 # Expose the patching functions for all supported frameworks
 from .mcp_patcher import MCPPatcher, patch_mcp, unpatch_mcp
 from .openai_patcher import OpenAIPatcher, patch_openai_module, unpatch_openai_module
+from .tool_decorator_patcher import (
+    ToolDecoratorPatcher,
+    patch_tool_decorator,
+    unpatch_tool_decorator,
+)
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -52,6 +63,9 @@ __all__ = [
     "LangChainPatcher",
     "LangGraphPatcher",
     "OpenAIPatcher",
+    "ToolDecoratorPatcher",
+    "DecoratedToolsPatcher",
+    "BaseToolPatcher",
     # Patching functions
     "patch_mcp",
     "unpatch_mcp",
@@ -63,4 +77,10 @@ __all__ = [
     "unpatch_langgraph",
     "patch_openai_module",
     "unpatch_openai_module",
+    "patch_tool_decorator",
+    "unpatch_tool_decorator",
+    "patch_decorated_tools",
+    "unpatch_decorated_tools",
+    "patch_base_tool",
+    "unpatch_base_tool",
 ]

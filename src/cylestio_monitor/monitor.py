@@ -207,6 +207,32 @@ def start_monitoring(
             except ImportError:
                 # LangGraph not installed or available
                 pass
+            
+            # Apply tool patchers
+            try:
+                # Try to patch @tool decorator
+                from .patchers.tool_decorator_patcher import patch_tool_decorator
+                patch_result = patch_tool_decorator()
+                if patch_result:
+                    logger.info("LangChain @tool decorator patched for monitoring")
+                    monitor_logger.info("Tool decorator monitoring enabled")
+                    
+                # Try to patch already-decorated tools
+                from .patchers.decorated_tools_patcher import patch_decorated_tools
+                tools_patched = patch_decorated_tools()
+                if tools_patched:
+                    logger.info("Pre-existing tool functions patched for monitoring")
+                    monitor_logger.info("Decorated tools monitoring enabled")
+                    
+                # Try to patch BaseTool class
+                from .patchers.base_tool_patcher import patch_base_tool
+                base_tool_patched = patch_base_tool()
+                if base_tool_patched:
+                    logger.info("LangChain BaseTool class patched for monitoring")
+                    monitor_logger.info("BaseTool monitoring enabled")
+                    
+            except Exception as e:
+                logger.error(f"Failed to patch tool patchers: {e}")
 
     except Exception as e:
         logger.error(f"Error during monitoring setup: {e}")
@@ -251,6 +277,41 @@ def stop_monitoring() -> None:
         unpatch_openai_module()
     except Exception as e:
         logger.warning(f"Error while unpatching OpenAI: {e}")
+        
+    # Unpatch LangChain if it was patched
+    try:
+        from .patchers.langchain_patcher import unpatch_langchain
+        unpatch_langchain()
+    except Exception as e:
+        logger.warning(f"Error while unpatching LangChain: {e}")
+        
+    # Unpatch tool decorator if it was patched
+    try:
+        from .patchers.tool_decorator_patcher import unpatch_tool_decorator
+        unpatch_tool_decorator()
+    except Exception as e:
+        logger.warning(f"Error while unpatching tool decorator: {e}")
+        
+    # Unpatch decorated tools if they were patched
+    try:
+        from .patchers.decorated_tools_patcher import unpatch_decorated_tools
+        unpatch_decorated_tools()
+    except Exception as e:
+        logger.warning(f"Error while unpatching decorated tools: {e}")
+        
+    # Unpatch BaseTool if it was patched
+    try:
+        from .patchers.base_tool_patcher import unpatch_base_tool
+        unpatch_base_tool()
+    except Exception as e:
+        logger.warning(f"Error while unpatching BaseTool: {e}")
+        
+    # Unpatch LangGraph if it was patched
+    try:
+        from .patchers.langgraph_patcher import unpatch_langgraph
+        unpatch_langgraph()
+    except Exception as e:
+        logger.warning(f"Error while unpatching LangGraph: {e}")
 
     # Stop the background API thread
     try:

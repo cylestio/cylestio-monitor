@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Enhanced tool execution monitoring with comprehensive coverage:
+  - Added BaseToolPatcher for monitoring LangChain BaseTool class
+  - Standardized tool execution event names (tool.execution.start, tool.execution.end, tool.execution.error)
+  - Improved trace context propagation for tool executions
+  - Synchronized event format across all tool monitoring mechanisms
+- Added robust test coverage for tool execution monitoring
+
+### Changed
+- Unified monitoring approach for all tool types (BaseTool, @tool decorator, function tools)
+- Improved tool attribute capturing to include name, description, inputs, outputs, and duration
+- Enhanced documentation with tool execution monitoring examples
+
 ## [0.1.5] - 2024-03-27
 
 ### Security
