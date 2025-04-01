@@ -14,8 +14,8 @@ from cylestio_monitor.utils.trace_context import TraceContext
 from cylestio_monitor.utils.context_attributes import get_all_context, get_environment_context, get_library_versions
 from cylestio_monitor.utils.schema import get_current_schema_version, validate_event_schema
 from cylestio_monitor.utils.event_context import enrich_event_with_context, get_session_id
+from cylestio_monitor.utils.serialization import safe_event_serialize
 from cylestio_monitor.config import ConfigManager
-from cylestio_monitor.api_client import send_event_to_api
 
 # Configure logger
 logger = logging.getLogger("CylestioMonitor")
@@ -61,6 +61,9 @@ def log_event(
     # Create the event record
     timestamp = datetime.now().isoformat()
     
+    # Safely serialize the attributes first
+    safe_attributes = safe_event_serialize(attributes or {})
+    
     event = {
         "schema_version": get_current_schema_version(),  # Add schema version
         "timestamp": timestamp,
@@ -69,7 +72,7 @@ def log_event(
         "parent_span_id": parent_span_id,
         "name": name,
         "level": level.upper(),
-        "attributes": attributes or {},
+        "attributes": safe_attributes,
     }
     
     # Add agent_id if available
@@ -146,6 +149,8 @@ def _send_to_api(event: Dict[str, Any]) -> None:
         event: The event to send
     """
     try:
+        # Import here to avoid circular import
+        from cylestio_monitor.api_client import send_event_to_api
         send_event_to_api(event)
     except Exception as e:
         logger.error(f"Failed to send event to API: {e}")

@@ -7,6 +7,7 @@ for telemetry data collection.
 
 import logging
 from typing import Dict, Any, Optional, List, Callable, Union, Type
+import time
 
 from cylestio_monitor.utils.trace_context import TraceContext
 from cylestio_monitor.utils.event_logging import log_event, log_error
@@ -26,6 +27,7 @@ class LangChainPatcher(BasePatcher):
         self._llm_methods = {}
         self._retriever_methods = {}
         self._document_methods = {}
+        self._agent_methods = {}  # For AgentExecutor methods
         
     def apply(self) -> bool:
         """Apply the LangChain patches.
@@ -46,7 +48,7 @@ class LangChainPatcher(BasePatcher):
                     "patch.type": "monkey_patch",
                     "patch.components": [
                         "chains", "llms", "retrievers",
-                        "documents", "chat_models"
+                        "documents", "chat_models", "agent_executor"
                     ]
                 }
             )
@@ -57,6 +59,7 @@ class LangChainPatcher(BasePatcher):
             self._patch_retrievers()
             self._patch_chat_models()
             self._patch_documents()
+            self._patch_agent_executor()
             
             self._patched = True
             logger.info("Successfully patched LangChain")
@@ -419,6 +422,213 @@ class LangChainPatcher(BasePatcher):
         """Patch LangChain documents."""
         logger.debug("Document patching not implemented yet, skipping")
         pass 
+
+    def _patch_agent_executor(self) -> None:
+        """Patch LangChain AgentExecutor."""
+        try:
+            # Try to import AgentExecutor
+            try:
+                from langchain.agents import AgentExecutor
+            except ImportError:
+                # Try newer location
+                try:
+                    from langchain.agents.agent import AgentExecutor
+                except ImportError:
+                    logger.debug("AgentExecutor not found in langchain.agents or langchain.agents.agent")
+                    return
+            
+            # Store original methods
+            if not hasattr(AgentExecutor, '_run_tool'):
+                logger.debug("AgentExecutor doesn't have _run_tool method, skipping patch")
+                return
+            
+            original_run_tool = AgentExecutor._run_tool
+            self._agent_methods = {"_run_tool": original_run_tool}
+            
+            def instrumented_run_tool(self, tool_name, tool_input, color, **kwargs):
+                """Instrumented version of AgentExecutor._run_tool."""
+                # Start a span for this tool execution
+                span_id = TraceContext.start_span(f"agent_tool.{tool_name}")
+                start_time = time.time()
+                
+                # Create tool attributes dict
+                tool_attributes = {
+                    "tool.name": tool_name,
+                    "tool.executor": "AgentExecutor",
+                    "framework.name": "langchain",
+                    "framework.type": "agent_tool",
+                    "agent.name": getattr(self, "agent_name", "unknown"),
+                }
+                
+                # Add tool input to attributes
+                try:
+                    if isinstance(tool_input, str):
+                        tool_attributes["tool.input"] = tool_input
+                    elif isinstance(tool_input, dict):
+                        tool_attributes["tool.input"] = tool_input
+                    else:
+                        tool_attributes["tool.input"] = str(tool_input)
+                except Exception as e:
+                    logger.debug(f"Error serializing tool input: {e}")
+                    tool_attributes["tool.input_error"] = str(e)
+                
+                # Log tool start event
+                log_event(
+                    name="agent_tool.start",
+                    attributes=tool_attributes
+                )
+                
+                try:
+                    # Call the original method
+                    result = original_run_tool(self, tool_name, tool_input, color, **kwargs)
+                    
+                    # Calculate execution time
+                    execution_time = time.time() - start_time
+                    
+                    # Create result attributes
+                    result_attributes = tool_attributes.copy()
+                    result_attributes.update({
+                        "tool.status": "success",
+                        "tool.duration_ms": round(execution_time * 1000, 2)
+                    })
+                    
+                    # Try to include the result
+                    try:
+                        if result is not None:
+                            # Handle different result types
+                            if isinstance(result, (str, int, float, bool)):
+                                result_attributes["tool.output"] = result
+                            elif isinstance(result, dict):
+                                result_attributes["tool.output"] = result
+                            else:
+                                result_attributes["tool.output"] = str(result)
+                    except Exception as e:
+                        logger.debug(f"Error serializing tool result: {e}")
+                        result_attributes["tool.output_error"] = str(e)
+                    
+                    # Log tool end event
+                    log_event(
+                        name="agent_tool.end",
+                        attributes=result_attributes
+                    )
+                    
+                    return result
+                except Exception as e:
+                    # Calculate execution time
+                    execution_time = time.time() - start_time
+                    
+                    # Create error attributes
+                    error_attributes = tool_attributes.copy()
+                    error_attributes.update({
+                        "tool.status": "error",
+                        "tool.error": str(e),
+                        "tool.error_type": type(e).__name__,
+                        "tool.duration_ms": round(execution_time * 1000, 2)
+                    })
+                    
+                    # Log error event
+                    log_error(
+                        name="agent_tool.error",
+                        error=e,
+                        attributes=error_attributes
+                    )
+                    
+                    raise
+                finally:
+                    # End the span
+                    TraceContext.end_span()
+            
+            # Apply the patch
+            AgentExecutor._run_tool = instrumented_run_tool
+            logger.debug("Patched AgentExecutor._run_tool method")
+            
+        except ImportError:
+            logger.debug("AgentExecutor not available, skipping patch")
+        except Exception as e:
+            logger.warning(f"Error patching AgentExecutor: {e}")
+
+    def unpatch(self) -> bool:
+        """Unpatch LangChain components.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self._patched:
+            logger.warning("LangChain is not patched")
+            return False
+        
+        try:
+            # Unpatch all components
+            
+            # Unpatch chains
+            try:
+                from langchain.chains.base import Chain
+                for method_name, original_method in self._chain_methods.items():
+                    setattr(Chain, method_name, original_method)
+                logger.debug("Unpatched LangChain chains")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error unpatching LangChain chains: {e}")
+            
+            # Unpatch LLMs
+            try:
+                from langchain.llms.base import BaseLLM
+                for method_name, original_method in self._llm_methods.items():
+                    setattr(BaseLLM, method_name, original_method)
+                logger.debug("Unpatched LangChain LLMs")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error unpatching LangChain LLMs: {e}")
+            
+            # Unpatch retrievers
+            try:
+                from langchain.schema.retriever import BaseRetriever
+                for method_name, original_method in self._retriever_methods.items():
+                    setattr(BaseRetriever, method_name, original_method)
+                logger.debug("Unpatched LangChain retrievers")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error unpatching LangChain retrievers: {e}")
+            
+            # Unpatch documents
+            try:
+                from langchain.schema import Document
+                for method_name, original_method in self._document_methods.items():
+                    setattr(Document, method_name, original_method)
+                logger.debug("Unpatched LangChain documents")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error unpatching LangChain documents: {e}")
+            
+            # Unpatch AgentExecutor
+            try:
+                # First try to import AgentExecutor
+                try:
+                    from langchain.agents import AgentExecutor
+                except ImportError:
+                    # Try newer location
+                    from langchain.agents.agent import AgentExecutor
+                    
+                # Restore original methods
+                if hasattr(self, '_agent_methods'):
+                    for method_name, original_method in self._agent_methods.items():
+                        setattr(AgentExecutor, method_name, original_method)
+                    logger.debug("Unpatched LangChain AgentExecutor")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error unpatching LangChain AgentExecutor: {e}")
+            
+            self._patched = False
+            logger.info("Successfully unpatched LangChain")
+            return True
+        except Exception as e:
+            logger.error(f"Error unpatching LangChain: {e}")
+            return False
 
 # Global instance for module-level patching
 _langchain_patcher = None

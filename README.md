@@ -55,7 +55,6 @@ Cylestio Monitor works by automatically patching supported LLM clients and frame
 - **Zero-configuration setup**: Import and enable with just two lines of code
 - **OpenTelemetry compliance**: Generate structured telemetry with trace context for distributed tracing
 - **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP), LangChain, and LangGraph
-- **Comprehensive tool monitoring**: Tracks all tool executions regardless of how they're created (BaseTool, StructuredTool from @tool decorator, or standalone function tools)
 - **Hierarchical operation tracking**: Understand relationships between operations with spans and trace context
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses
 - **Security monitoring**: Detects and flags suspicious or dangerous content
@@ -105,26 +104,6 @@ All events follow OpenTelemetry standards with trace context:
     "attributes": {
         "method": "messages.create",
         "model": "claude-3-haiku-20240307"
-    },
-    "agent_id": "weather-agent"
-}
-```
-
-### Tool Execution Events
-
-Tool execution events are captured with detailed information:
-
-```json
-{
-    "timestamp": "2024-03-27T15:32:10.213454",
-    "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
-    "span_id": "87d9c3be667e4d79",
-    "parent_span_id": "f1490a668d69d1dc",
-    "name": "tool.execution.start",
-    "attributes": {
-        "tool.name": "get_weather",
-        "tool.description": "Gets the current weather for a location",
-        "tool.input": {"location": "San Francisco, CA"}
     },
     "agent_id": "weather-agent"
 }

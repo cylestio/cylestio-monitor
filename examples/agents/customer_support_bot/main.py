@@ -506,7 +506,7 @@ tools = [
 ]
 
 # Initialize the LLM
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(model="gpt-3.5-turbo")
 # Alternatively: llm = ChatAnthropic(model="claude-3-opus-20240229")
 
 # Part 1: Zero-shot Agent
@@ -1032,6 +1032,7 @@ if __name__ == "__main__":
     while True:
         user_input = input("User: ")
         if user_input.lower() == "exit":
+            cylestio_monitor.stop_monitoring()
             break
 
         # Add the user message to the conversation
