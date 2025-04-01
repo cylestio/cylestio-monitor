@@ -47,6 +47,18 @@ def start_monitoring(
     """
     config = config or {}
 
+    # Ensure essential typing modules are properly imported
+    # This prevents type-related errors when patching decorated functions
+    try:
+        # These imports ensure proper type resolution when patching tools
+        import inspect
+        import types
+        from typing import Annotated, Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+    except ImportError:
+        logger.debug(
+            "Failed to import some typing modules, type annotation compatibility may be limited"
+        )
+
     # Extract debug level from config
     debug_level = config.get("debug_level", "INFO")
 
@@ -125,7 +137,21 @@ def start_monitoring(
     # Check if framework patching is enabled (default to True)
     enable_framework_patching = config.get("enable_framework_patching", True)
 
+    # Check if safe mode is enabled for tool patching (default to True)
+    safe_tool_patching = config.get("safe_tool_patching", True)
+
     try:
+        # Ensure critical patching is done early for tool schema creation
+        # This must be done early to prevent type evaluation errors
+        try:
+            from .patchers.tool_decorator_patcher import patch_openai_function_schema_creation
+
+            schema_patched = patch_openai_function_schema_creation()
+            if schema_patched:
+                logger.info("OpenAI function schema creation patched for tool monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch OpenAI function schema creation: {e}")
+
         # Step 1: Patch MCP if available and enabled
         try:
             # Apply MCP patcher directly using our imported function
@@ -170,7 +196,21 @@ def start_monitoring(
         except Exception as e:
             logger.warning(f"Failed to apply global OpenAI patches: {e}")
 
-        # Step 4: Try to patch framework libraries if enabled
+        # Step 4: Apply tool patchers early to ensure all tools are intercepted
+        try:
+            # Patch @tool decorator BEFORE framework patches so all new tools get instrumented
+            from .patchers.tool_decorator_patcher import patch_tool_decorator
+
+            patch_result = patch_tool_decorator()
+            if patch_result:
+                logger.info("LangChain @tool decorator patched for monitoring")
+                monitor_logger.info("Tool decorator monitoring enabled")
+            else:
+                logger.debug("LangChain @tool decorator not available for patching")
+        except Exception as e:
+            logger.warning(f"Failed to patch @tool decorator: {e}")
+
+        # Step 5: Try to patch framework libraries if enabled
         if enable_framework_patching:
             # Try to patch LangChain if present
             try:
@@ -207,39 +247,27 @@ def start_monitoring(
             except ImportError:
                 # LangGraph not installed or available
                 pass
-            
-            # Apply tool patchers
+
+            # Step 6: Find and patch already-decorated tools (after framework patches)
             try:
-                # Try to patch @tool decorator
-                from .patchers.tool_decorator_patcher import patch_tool_decorator
-                patch_result = patch_tool_decorator()
-                if patch_result:
-                    logger.info("LangChain @tool decorator patched for monitoring")
-                    monitor_logger.info("Tool decorator monitoring enabled")
-                    
                 # Try to patch already-decorated tools
                 from .patchers.decorated_tools_patcher import patch_decorated_tools
-                tools_patched = patch_decorated_tools()
+
+                # Use safe mode by default to prevent type system errors
+                # In safe mode we only patch agent executors and don't modify tools directly
+                tools_patched = patch_decorated_tools(safe_mode=safe_tool_patching)
+
                 if tools_patched:
-                    logger.info("Pre-existing tool functions patched for monitoring")
-                    monitor_logger.info("Decorated tools monitoring enabled")
-                    
-                # Try to patch BaseTool class
-                from .patchers.base_tool_patcher import patch_base_tool
-                base_tool_patched = patch_base_tool()
-                if base_tool_patched:
-                    logger.info("LangChain BaseTool class patched for monitoring")
-                    monitor_logger.info("BaseTool monitoring enabled")
-                    
-                # Try to patch StructuredTool class (created by @tool decorator)
-                from .patchers.structured_tool_patcher import patch_structured_tool
-                structured_tool_patched = patch_structured_tool()
-                if structured_tool_patched:
-                    logger.info("LangChain StructuredTool class patched for monitoring")
-                    monitor_logger.info("StructuredTool monitoring enabled")
-                    
+                    if safe_tool_patching:
+                        logger.info("Agent executors patched for tool monitoring")
+                        monitor_logger.info("Agent monitoring enabled (safe mode)")
+                    else:
+                        logger.info("All tool functions patched directly")
+                        monitor_logger.info("Tool function monitoring enabled (invasive mode)")
+                else:
+                    logger.debug("No agent executors or tools found for patching")
             except Exception as e:
-                logger.error(f"Failed to patch tool patchers: {e}")
+                logger.warning(f"Failed to patch pre-existing tools: {e}")
 
     except Exception as e:
         logger.error(f"Error during monitoring setup: {e}")
@@ -284,45 +312,35 @@ def stop_monitoring() -> None:
         unpatch_openai_module()
     except Exception as e:
         logger.warning(f"Error while unpatching OpenAI: {e}")
-        
+
     # Unpatch LangChain if it was patched
     try:
         from .patchers.langchain_patcher import unpatch_langchain
+
         unpatch_langchain()
     except Exception as e:
         logger.warning(f"Error while unpatching LangChain: {e}")
-        
+
     # Unpatch tool decorator if it was patched
     try:
         from .patchers.tool_decorator_patcher import unpatch_tool_decorator
+
         unpatch_tool_decorator()
     except Exception as e:
         logger.warning(f"Error while unpatching tool decorator: {e}")
-        
+
     # Unpatch decorated tools if they were patched
     try:
         from .patchers.decorated_tools_patcher import unpatch_decorated_tools
+
         unpatch_decorated_tools()
     except Exception as e:
         logger.warning(f"Error while unpatching decorated tools: {e}")
-        
-    # Unpatch BaseTool if it was patched
-    try:
-        from .patchers.base_tool_patcher import unpatch_base_tool
-        unpatch_base_tool()
-    except Exception as e:
-        logger.warning(f"Error while unpatching BaseTool: {e}")
-        
-    # Unpatch StructuredTool if it was patched
-    try:
-        from .patchers.structured_tool_patcher import unpatch_structured_tool
-        unpatch_structured_tool()
-    except Exception as e:
-        logger.warning(f"Error while unpatching StructuredTool: {e}")
-        
+
     # Unpatch LangGraph if it was patched
     try:
         from .patchers.langgraph_patcher import unpatch_langgraph
+
         unpatch_langgraph()
     except Exception as e:
         logger.warning(f"Error while unpatching LangGraph: {e}")
