@@ -195,13 +195,13 @@ class OpenAIPatcher(BasePatcher):
                         if choices:
                             first_choice = choices[0]
                             if "message" in first_choice:
-                                response_attributes["llm.response.content"] = (
-                                    self._safe_serialize(first_choice["message"])
-                                )
+                                response_attributes[
+                                    "llm.response.content"
+                                ] = self._safe_serialize(first_choice["message"])
                             if "finish_reason" in first_choice:
-                                response_attributes["llm.response.stop_reason"] = (
-                                    first_choice["finish_reason"]
-                                )
+                                response_attributes[
+                                    "llm.response.stop_reason"
+                                ] = first_choice["finish_reason"]
 
                         # Add usage statistics if available
                         if usage:
@@ -429,13 +429,13 @@ class OpenAIPatcher(BasePatcher):
                         if choices:
                             first_choice = choices[0]
                             if "text" in first_choice:
-                                response_attributes["llm.response.content"] = (
-                                    self._safe_serialize(first_choice["text"])
-                                )
+                                response_attributes[
+                                    "llm.response.content"
+                                ] = self._safe_serialize(first_choice["text"])
                             if "finish_reason" in first_choice:
-                                response_attributes["llm.response.stop_reason"] = (
-                                    first_choice["finish_reason"]
-                                )
+                                response_attributes[
+                                    "llm.response.stop_reason"
+                                ] = first_choice["finish_reason"]
 
                         # Add usage statistics if available
                         if usage:

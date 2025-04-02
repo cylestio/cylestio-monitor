@@ -65,36 +65,36 @@ Create or modify these files:
 ```python
 class LangChainToolPatcher:
     """Patcher for LangChain tool execution monitoring."""
-    
+
     def __init__(self):
         self._original_tool_decorator = None
         self._original_base_tool_run = None
         self._original_base_tool_arun = None
         self._patched = False
-    
+
     def patch(self):
         """Apply patches to monitor tool execution."""
         if self._patched:
             logger.warning("LangChain tools are already patched")
             return False
-            
+
         try:
             import langchain.tools
-            
+
             # Store original references
             self._original_tool_decorator = langchain.tools.tool
             self._original_base_tool_run = langchain.tools.BaseTool._run
             self._original_base_tool_arun = langchain.tools.BaseTool._arun
-            
+
             # Apply patches
             langchain.tools.tool = self._create_patched_tool_decorator()
             langchain.tools.BaseTool._run = self._create_patched_run()
             langchain.tools.BaseTool._arun = self._create_patched_arun()
-            
+
             self._patched = True
             logger.info("Successfully patched LangChain tool execution")
             return True
-            
+
         except ImportError:
             logger.warning("LangChain is not available, tool patching has no effect")
             return False
@@ -102,51 +102,51 @@ class LangChainToolPatcher:
             logger.error(f"Failed to patch LangChain tools: {e}")
             self.unpatch()  # Revert any partial patches
             return False
-    
+
     def unpatch(self):
         """Remove patches and restore original functionality."""
         if not self._patched:
             return
-            
+
         try:
             import langchain.tools
-            
+
             # Restore original functions
             if self._original_tool_decorator:
                 langchain.tools.tool = self._original_tool_decorator
-                
+
             if self._original_base_tool_run:
                 langchain.tools.BaseTool._run = self._original_base_tool_run
-                
+
             if self._original_base_tool_arun:
                 langchain.tools.BaseTool._arun = self._original_base_tool_arun
-                
+
             self._patched = False
             logger.info("Successfully unpatched LangChain tool execution")
-            
+
         except Exception as e:
             logger.error(f"Failed to unpatch LangChain tools: {e}")
-    
+
     def _create_patched_tool_decorator(self):
         """Create a patched version of the @tool decorator."""
         original_tool = self._original_tool_decorator
-        
+
         def patched_tool(*args, **kwargs):
             original_decorator = original_tool(*args, **kwargs)
-            
+
             def wrapper(func):
                 wrapped_func = original_decorator(func)
-                
+
                 def monitored_func(*func_args, **func_kwargs):
                     # Generate a span ID for this tool execution
                     span_id = generate_span_id()
                     start_time = time.time()
-                    
+
                     # Get current trace context
                     context = TraceContext.get_current_context()
                     trace_id = context.get("trace_id")
                     parent_span_id = context.get("span_id")
-                    
+
                     # Log tool execution start
                     log_event(
                         name="tool.execution.start",
@@ -159,11 +159,11 @@ class LangChainToolPatcher:
                         trace_id=trace_id,
                         parent_span_id=parent_span_id
                     )
-                    
+
                     try:
                         # Execute the tool
                         result = wrapped_func(*func_args, **func_kwargs)
-                        
+
                         # Log tool execution end
                         log_event(
                             name="tool.execution.end",
@@ -178,9 +178,9 @@ class LangChainToolPatcher:
                             trace_id=trace_id,
                             parent_span_id=parent_span_id
                         )
-                        
+
                         return result
-                        
+
                     except Exception as e:
                         # Log tool execution error
                         log_event(
@@ -197,27 +197,27 @@ class LangChainToolPatcher:
                             parent_span_id=parent_span_id
                         )
                         raise
-                        
+
                 return monitored_func
-                
+
             return wrapper
-            
+
         return patched_tool
-        
+
     def _create_patched_run(self):
         """Create a patched version of BaseTool._run method."""
         original_run = self._original_base_tool_run
-        
+
         def patched_run(self, *args, **kwargs):
             # Generate a span ID for this tool execution
             span_id = generate_span_id()
             start_time = time.time()
-            
+
             # Get current trace context
             context = TraceContext.get_current_context()
             trace_id = context.get("trace_id")
             parent_span_id = context.get("span_id")
-            
+
             # Log tool execution start
             log_event(
                 name="tool.execution.start",
@@ -230,11 +230,11 @@ class LangChainToolPatcher:
                 trace_id=trace_id,
                 parent_span_id=parent_span_id
             )
-            
+
             try:
                 # Execute the tool
                 result = original_run(self, *args, **kwargs)
-                
+
                 # Log tool execution end
                 log_event(
                     name="tool.execution.end",
@@ -249,9 +249,9 @@ class LangChainToolPatcher:
                     trace_id=trace_id,
                     parent_span_id=parent_span_id
                 )
-                
+
                 return result
-                
+
             except Exception as e:
                 # Log tool execution error
                 log_event(
@@ -268,23 +268,23 @@ class LangChainToolPatcher:
                     parent_span_id=parent_span_id
                 )
                 raise
-                
+
         return patched_run
-    
+
     def _create_patched_arun(self):
         """Create a patched version of BaseTool._arun method."""
         original_arun = self._original_base_tool_arun
-        
+
         async def patched_arun(self, *args, **kwargs):
             # Generate a span ID for this tool execution
             span_id = generate_span_id()
             start_time = time.time()
-            
+
             # Get current trace context
             context = TraceContext.get_current_context()
             trace_id = context.get("trace_id")
             parent_span_id = context.get("span_id")
-            
+
             # Log tool execution start
             log_event(
                 name="tool.execution.start",
@@ -297,11 +297,11 @@ class LangChainToolPatcher:
                 trace_id=trace_id,
                 parent_span_id=parent_span_id
             )
-            
+
             try:
                 # Execute the tool asynchronously
                 result = await original_arun(self, *args, **kwargs)
-                
+
                 # Log tool execution end
                 log_event(
                     name="tool.execution.end",
@@ -316,9 +316,9 @@ class LangChainToolPatcher:
                     trace_id=trace_id,
                     parent_span_id=parent_span_id
                 )
-                
+
                 return result
-                
+
             except Exception as e:
                 # Log tool execution error
                 log_event(
@@ -335,7 +335,7 @@ class LangChainToolPatcher:
                     parent_span_id=parent_span_id
                 )
                 raise
-                
+
         return patched_arun
 ```
 
@@ -351,7 +351,7 @@ from cylestio_monitor.patchers.langchain_patcher import LangChainToolPatcher
 def start_monitoring(agent_id=None, **kwargs):
     """Start monitoring LLM and agent activity."""
     # ... existing code ...
-    
+
     # Initialize patchers
     openai_patcher = OpenAIPatcher()
     anthropic_patcher = AnthropicPatcher()
@@ -359,14 +359,14 @@ def start_monitoring(agent_id=None, **kwargs):
     langgraph_patcher = LangGraphPatcher()
     mcp_patcher = MCPPatcher()
     tool_patcher = LangChainToolPatcher()  # New patcher
-    
+
     # Apply patches
     # ... existing patchers ...
-    
+
     # Apply tool monitoring
     if tool_patcher.patch():
         logger.info("LangChain tool execution monitoring enabled")
-    
+
     # ... rest of existing code ...
 ```
 
@@ -387,7 +387,7 @@ The implementation depends on these utility functions:
    def calculator(expression: str) -> str:
        """Calculate a mathematical expression."""
        return str(eval(expression))
-   
+
    agent = Agent(llm=OpenAI(), tools=[calculator])
    result = agent.invoke("What is 2+2?")
    ```

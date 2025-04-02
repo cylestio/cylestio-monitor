@@ -9,4 +9,4 @@ python-dotenv>=1.0.0
 tiktoken>=0.5.1
 
 platformdirs>=4.2.0
-langgraph>=0.0.19 
+langgraph>=0.0.19

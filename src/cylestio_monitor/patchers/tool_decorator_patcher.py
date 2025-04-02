@@ -276,9 +276,9 @@ class ToolDecoratorPatcher(BasePatcher):
 
             # Store the original decorator
             original_decorator = langchain.agents.tools.tool
-            self._original_decorators["langchain.agents.tools.tool"] = (
-                original_decorator
-            )
+            self._original_decorators[
+                "langchain.agents.tools.tool"
+            ] = original_decorator
 
             # Create the patched decorator
             @functools.wraps(original_decorator)

@@ -105,4 +105,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Implemented security checks for dangerous prompts
 - Added masking for sensitive data
-- Integrated with pre-commit hooks for security scanning 
+- Integrated with pre-commit hooks for security scanning

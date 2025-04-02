@@ -244,9 +244,9 @@ class LangGraphPatcher(BasePatcher):
 
                 # Replace the function
                 create_react_agent = patched_create_react_agent
-                sys.modules["langgraph.prebuilt"].create_react_agent = (
-                    patched_create_react_agent
-                )
+                sys.modules[
+                    "langgraph.prebuilt"
+                ].create_react_agent = patched_create_react_agent
                 patch_count += 1
                 logger.debug("Patched create_react_agent function")
 

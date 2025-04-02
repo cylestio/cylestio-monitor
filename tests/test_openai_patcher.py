@@ -32,23 +32,23 @@ class MockPatcherModules:
             mock_trace_context.get_current_context.return_value = {
                 "trace_id": "test-trace-id"
             }
-            sys.modules["cylestio_monitor.patchers.openai_patcher.TraceContext"] = (
-                mock_trace_context
-            )
+            sys.modules[
+                "cylestio_monitor.patchers.openai_patcher.TraceContext"
+            ] = mock_trace_context
 
         # Mock the log_event function
         if "cylestio_monitor.patchers.openai_patcher.log_event" not in sys.modules:
             mock_log_event = mock.MagicMock()
-            sys.modules["cylestio_monitor.patchers.openai_patcher.log_event"] = (
-                mock_log_event
-            )
+            sys.modules[
+                "cylestio_monitor.patchers.openai_patcher.log_event"
+            ] = mock_log_event
 
         # Mock the log_error function
         if "cylestio_monitor.patchers.openai_patcher.log_error" not in sys.modules:
             mock_log_error = mock.MagicMock()
-            sys.modules["cylestio_monitor.patchers.openai_patcher.log_error"] = (
-                mock_log_error
-            )
+            sys.modules[
+                "cylestio_monitor.patchers.openai_patcher.log_error"
+            ] = mock_log_error
 
 
 # Setup the mocks first before importing the module under test

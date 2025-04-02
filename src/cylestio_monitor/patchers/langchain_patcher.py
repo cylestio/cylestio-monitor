@@ -219,13 +219,13 @@ class LangChainPatcher(BasePatcher):
                                     "llm.response.usage.output_tokens"
                                 ] = token_usage["completion_tokens"]
                             if "prompt_tokens" in token_usage:
-                                result_attributes["llm.response.usage.input_tokens"] = (
-                                    token_usage["prompt_tokens"]
-                                )
+                                result_attributes[
+                                    "llm.response.usage.input_tokens"
+                                ] = token_usage["prompt_tokens"]
                             if "total_tokens" in token_usage:
-                                result_attributes["llm.response.usage.total_tokens"] = (
-                                    token_usage["total_tokens"]
-                                )
+                                result_attributes[
+                                    "llm.response.usage.total_tokens"
+                                ] = token_usage["total_tokens"]
 
                     # Log LLM response event
                     log_event(name="llm.response", attributes=result_attributes)
@@ -252,9 +252,9 @@ class LangChainPatcher(BasePatcher):
         try:
             # Store original method
             original_get_relevant_documents = BaseRetriever.get_relevant_documents
-            self._retriever_methods["get_relevant_documents"] = (
-                original_get_relevant_documents
-            )
+            self._retriever_methods[
+                "get_relevant_documents"
+            ] = original_get_relevant_documents
 
             def instrumented_get_relevant_documents(self, query, *args, **kwargs):
                 """Instrumented version of BaseRetriever.get_relevant_documents."""
@@ -378,13 +378,13 @@ class LangChainPatcher(BasePatcher):
                                     "llm.response.usage.output_tokens"
                                 ] = token_usage["completion_tokens"]
                             if "prompt_tokens" in token_usage:
-                                result_attributes["llm.response.usage.input_tokens"] = (
-                                    token_usage["prompt_tokens"]
-                                )
+                                result_attributes[
+                                    "llm.response.usage.input_tokens"
+                                ] = token_usage["prompt_tokens"]
                             if "total_tokens" in token_usage:
-                                result_attributes["llm.response.usage.total_tokens"] = (
-                                    token_usage["total_tokens"]
-                                )
+                                result_attributes[
+                                    "llm.response.usage.total_tokens"
+                                ] = token_usage["total_tokens"]
 
                     # Extract response message roles
                     if hasattr(result, "generations") and result.generations:

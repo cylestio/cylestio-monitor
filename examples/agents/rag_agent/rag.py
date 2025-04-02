@@ -254,10 +254,10 @@ class MonitoredRAGAgent:
     def _setup_rag_chain(self):
         """Set up the conversational RAG chain."""
         # Create a system message for the RAG chain
-        system_message = """You are an AI assistant for answering questions based on the provided documents. 
-        Use the retrieved context to formulate your answers. If you don't know the answer based on the context, 
+        system_message = """You are an AI assistant for answering questions based on the provided documents.
+        Use the retrieved context to formulate your answers. If you don't know the answer based on the context,
         say that you don't know. Always maintain a helpful, informative tone.
-        
+
         For follow-up questions, use the conversation history to provide context-aware responses.
         """
 
