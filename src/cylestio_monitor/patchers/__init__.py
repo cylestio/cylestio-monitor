@@ -12,6 +12,8 @@ from .base import BasePatcher
 from .decorated_tools_patcher import (DecoratedToolsPatcher,
                                       patch_decorated_tools,
                                       unpatch_decorated_tools)
+from .langchain_callbacks import (ToolMonitorCallbackHandler,
+                                  get_callback_handler)
 from .langchain_patcher import (LangChainPatcher, patch_langchain,
                                 unpatch_langchain)
 # Expose the patching functions for all supported frameworks
@@ -62,6 +64,9 @@ __all__ = [
     "OpenAIPatcher",
     "ToolDecoratorPatcher",
     "DecoratedToolsPatcher",
+    "ToolMonitorCallbackHandler",
+    # Functions
+    "get_callback_handler",
     # Patching functions
     "patch_mcp",
     "unpatch_mcp",
