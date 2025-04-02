@@ -53,7 +53,8 @@ def start_monitoring(
         # These imports ensure proper type resolution when patching tools
         import inspect
         import types
-        from typing import Annotated, Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+        from typing import (Annotated, Any, Dict, Generic, List, Optional,
+                            Protocol, TypeVar, Union)
     except ImportError:
         logger.debug(
             "Failed to import some typing modules, type annotation compatibility may be limited"
@@ -104,7 +105,9 @@ def start_monitoring(
     # Add a console handler for debug logs only
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
-    console_handler.setFormatter(logging.Formatter("CylestioSDK - %(levelname)s: %(message)s"))
+    console_handler.setFormatter(
+        logging.Formatter("CylestioSDK - %(levelname)s: %(message)s")
+    )
     monitor_logger.addHandler(console_handler)
 
     # Store the agent ID and log file in the configuration
@@ -124,14 +127,17 @@ def start_monitoring(
         if api_client.endpoint:
             logger.info(f"API client initialized with endpoint: {api_client.endpoint}")
         else:
-            logger.warning("API endpoint not configured. Events will only be logged to file.")
+            logger.warning(
+                "API endpoint not configured. Events will only be logged to file."
+            )
 
     # Initialize trace context
     trace_id = TraceContext.initialize_trace(agent_id)
 
     # Log initialization event
     log_event(
-        name="monitoring.start", attributes={"agent.id": agent_id, "monitoring.version": "2.0.0"}
+        name="monitoring.start",
+        attributes={"agent.id": agent_id, "monitoring.version": "2.0.0"},
     )
 
     # Check if framework patching is enabled (default to True)
@@ -144,11 +150,14 @@ def start_monitoring(
         # Ensure critical patching is done early for tool schema creation
         # This must be done early to prevent type evaluation errors
         try:
-            from .patchers.tool_decorator_patcher import patch_openai_function_schema_creation
+            from .patchers.tool_decorator_patcher import \
+                patch_openai_function_schema_creation
 
             schema_patched = patch_openai_function_schema_creation()
             if schema_patched:
-                logger.info("OpenAI function schema creation patched for tool monitoring")
+                logger.info(
+                    "OpenAI function schema creation patched for tool monitoring"
+                )
         except Exception as e:
             logger.warning(f"Failed to patch OpenAI function schema creation: {e}")
 
@@ -161,7 +170,9 @@ def start_monitoring(
                 logger.info("MCP patched for monitoring")
                 monitor_logger.info("MCP integration enabled")
             else:
-                logger.warning("Failed to patch MCP. MCP monitoring will not be available.")
+                logger.warning(
+                    "Failed to patch MCP. MCP monitoring will not be available."
+                )
 
         except ImportError:
             # MCP not installed or available
@@ -177,7 +188,9 @@ def start_monitoring(
 
             patch_anthropic_module()
             logger.info("Anthropic module patched for global monitoring")
-            monitor_logger.info("Anthropic integration enabled (global module patching)")
+            monitor_logger.info(
+                "Anthropic integration enabled (global module patching)"
+            )
         except ImportError:
             logger.debug("Anthropic module not available for global patching")
         except Exception as e:
@@ -251,7 +264,8 @@ def start_monitoring(
             # Step 6: Find and patch already-decorated tools (after framework patches)
             try:
                 # Try to patch already-decorated tools
-                from .patchers.decorated_tools_patcher import patch_decorated_tools
+                from .patchers.decorated_tools_patcher import \
+                    patch_decorated_tools
 
                 # Use safe mode by default to prevent type system errors
                 # In safe mode we only patch agent executors and don't modify tools directly
@@ -263,7 +277,9 @@ def start_monitoring(
                         monitor_logger.info("Agent monitoring enabled (safe mode)")
                     else:
                         logger.info("All tool functions patched directly")
-                        monitor_logger.info("Tool function monitoring enabled (invasive mode)")
+                        monitor_logger.info(
+                            "Tool function monitoring enabled (invasive mode)"
+                        )
                 else:
                     logger.debug("No agent executors or tools found for patching")
             except Exception as e:
@@ -289,7 +305,9 @@ def stop_monitoring() -> None:
     agent_id = config_manager.get("monitoring.agent_id")
 
     # Log monitoring stop event
-    log_event(name="monitoring.stop", attributes={"agent.id": agent_id} if agent_id else {})
+    log_event(
+        name="monitoring.stop", attributes={"agent.id": agent_id} if agent_id else {}
+    )
 
     # Unpatch MCP if it was patched
     try:

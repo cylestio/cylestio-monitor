@@ -3,7 +3,6 @@ import sqlite3
 from enum import Enum
 from typing import Annotated, Dict, Sequence, TypedDict
 
-import cylestio_monitor
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -13,6 +12,8 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
+
+import cylestio_monitor
 
 cylestio_monitor.start_monitoring(
     "customer_support_bot", config={"log_file": "output/support_agent.json"}
@@ -106,7 +107,11 @@ def init_db():
                 "Baggage",
                 "Each passenger is allowed one carry-on and one checked bag up to 50 pounds.",
             ),
-            (3, "Pets", "Small pets under 20 pounds are allowed in the cabin for a $95 fee."),
+            (
+                3,
+                "Pets",
+                "Small pets under 20 pounds are allowed in the cabin for a $95 fee.",
+            ),
         ]
         cursor.executemany("INSERT INTO policies VALUES (?, ?, ?)", policies)
 
@@ -126,8 +131,24 @@ def init_db():
         # Add more example flights with dates relative to current date
         flights = [
             # Original flights
-            (1, "AA123", "NYC", "LAX", "2024-05-15 08:00:00", "2024-05-15 11:30:00", "On Time"),
-            (2, "AA456", "LAX", "NYC", "2024-05-22 09:00:00", "2024-05-22 17:30:00", "On Time"),
+            (
+                1,
+                "AA123",
+                "NYC",
+                "LAX",
+                "2024-05-15 08:00:00",
+                "2024-05-15 11:30:00",
+                "On Time",
+            ),
+            (
+                2,
+                "AA456",
+                "LAX",
+                "NYC",
+                "2024-05-22 09:00:00",
+                "2024-05-22 17:30:00",
+                "On Time",
+            ),
             # New flights with dates relative to current date
             (
                 3,
@@ -232,7 +253,9 @@ def init_db():
             (9, "Madrid", "Convertible", 1, 100.00),
             (10, "Rome", "SUV", 3, 75.00),
         ]
-        cursor.executemany("INSERT INTO car_rentals VALUES (?, ?, ?, ?, ?)", car_rentals)
+        cursor.executemany(
+            "INSERT INTO car_rentals VALUES (?, ?, ?, ?, ?)", car_rentals
+        )
 
         # Add example excursions
         excursions = [
@@ -257,10 +280,34 @@ def init_db():
                 "Guided tour of local vineyards with wine tasting",
                 70.00,
             ),
-            (4, "Mount Fuji Day Trip", "Tokyo", "Full-day excursion to Mount Fuji", 85.00),
-            (5, "Sydney Harbour Cruise", "Sydney", "Scenic cruise of Sydney Harbour", 60.00),
-            (6, "Berlin Wall Tour", "Berlin", "Historical tour of the Berlin Wall", 40.00),
-            (7, "Sagrada Familia Visit", "Barcelona", "Guided tour of the Sagrada Familia", 45.00),
+            (
+                4,
+                "Mount Fuji Day Trip",
+                "Tokyo",
+                "Full-day excursion to Mount Fuji",
+                85.00,
+            ),
+            (
+                5,
+                "Sydney Harbour Cruise",
+                "Sydney",
+                "Scenic cruise of Sydney Harbour",
+                60.00,
+            ),
+            (
+                6,
+                "Berlin Wall Tour",
+                "Berlin",
+                "Historical tour of the Berlin Wall",
+                40.00,
+            ),
+            (
+                7,
+                "Sagrada Familia Visit",
+                "Barcelona",
+                "Guided tour of the Sagrada Familia",
+                45.00,
+            ),
             (
                 8,
                 "Safari Adventure",
@@ -268,7 +315,13 @@ def init_db():
                 "Full-day safari adventure in a national park",
                 120.00,
             ),
-            (9, "Grand Canyon Tour", "Las Vegas", "Helicopter tour of the Grand Canyon", 250.00),
+            (
+                9,
+                "Grand Canyon Tour",
+                "Las Vegas",
+                "Helicopter tour of the Grand Canyon",
+                250.00,
+            ),
             (
                 10,
                 "Northern Lights Expedition",
@@ -322,7 +375,9 @@ def search_flights(input: FlightSearchInput) -> str:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    print(f"Searching for flights: {input.origin} to {input.destination} on {input.date}")
+    print(
+        f"Searching for flights: {input.origin} to {input.destination} on {input.date}"
+    )
 
     # Extract the date part only from the scheduled_departure for comparison
     cursor.execute(
@@ -360,7 +415,9 @@ def book_flight(input: BookFlightInput) -> str:
     """Book a flight for a passenger."""
     # In a real implementation, this would update the database
     # For demo purposes, we'll just return a confirmation message
-    return f"Successfully booked flight {input.flight_number} for {input.passenger_name}."
+    return (
+        f"Successfully booked flight {input.flight_number} for {input.passenger_name}."
+    )
 
 
 class HotelSearchInput(BaseModel):
@@ -443,9 +500,7 @@ def search_car_rentals(input: CarRentalSearchInput) -> str:
             cars.append(f"{vehicle}: {available} available, ${price} per day")
 
     if not cars:
-        return (
-            f"No {input.vehicle_type} cars available in {input.location} for the specified dates."
-        )
+        return f"No {input.vehicle_type} cars available in {input.location} for the specified dates."
 
     return "\n".join(cars)
 
@@ -453,7 +508,9 @@ def search_car_rentals(input: CarRentalSearchInput) -> str:
 class ExcursionSearchInput(BaseModel):
     location: str = Field(description="City or area to search for excursions")
     date: str = Field(description="Date in YYYY-MM-DD format")
-    activity_type: str = Field(description="Type of activity (e.g., sightseeing, adventure)")
+    activity_type: str = Field(
+        description="Type of activity (e.g., sightseeing, adventure)"
+    )
 
 
 @tool
@@ -462,7 +519,9 @@ def search_excursions(input: ExcursionSearchInput) -> str:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    print(f"Searching for {input.activity_type} excursions in {input.location} on {input.date}")
+    print(
+        f"Searching for {input.activity_type} excursions in {input.location} on {input.date}"
+    )
 
     cursor.execute(
         "SELECT name, description, price FROM excursions WHERE location LIKE ?",
@@ -514,7 +573,9 @@ llm = ChatOpenAI(model="gpt-3.5-turbo")
 
 # Define the state for our agent
 class AgentState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], "The messages in the conversation so far"]
+    messages: Annotated[
+        Sequence[BaseMessage], "The messages in the conversation so far"
+    ]
     sender: Annotated[str, "The sender of the last message"]
 
 
@@ -545,7 +606,10 @@ def run_agent(state: AgentState):
     """Run the agent on the messages and update the state."""
     messages = state["messages"]
     result = agent_executor.invoke({"messages": messages})
-    return {"messages": messages + [AIMessage(content=result["output"])], "sender": "agent"}
+    return {
+        "messages": messages + [AIMessage(content=result["output"])],
+        "sender": "agent",
+    }
 
 
 # Define a function to decide whether to continue or finish
@@ -569,9 +633,13 @@ part1_agent = workflow.compile()
 
 # Define the state for our confirmation agent
 class ConfirmationState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], "The messages in the conversation so far"]
+    messages: Annotated[
+        Sequence[BaseMessage], "The messages in the conversation so far"
+    ]
     sender: Annotated[str, "The sender of the last message"]
-    confirmation_needed: Annotated[bool, "Whether confirmation is needed for the agent's action"]
+    confirmation_needed: Annotated[
+        bool, "Whether confirmation is needed for the agent's action"
+    ]
     pending_action: Annotated[Dict, "The pending action to be confirmed"]
 
 
@@ -596,7 +664,9 @@ Always be polite and helpful, and provide detailed information to the user.""",
 
 # Create the confirmation agent
 confirmation_agent = create_openai_functions_agent(llm, tools, confirmation_prompt)
-confirmation_executor = AgentExecutor(agent=confirmation_agent, tools=tools, verbose=True)
+confirmation_executor = AgentExecutor(
+    agent=confirmation_agent, tools=tools, verbose=True
+)
 
 
 # Function to run the agent and check if confirmation is needed
@@ -705,7 +775,9 @@ part2_agent = confirmation_workflow.compile()
 
 # Define the state for our interrupt agent
 class InterruptState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], "The messages in the conversation so far"]
+    messages: Annotated[
+        Sequence[BaseMessage], "The messages in the conversation so far"
+    ]
     sender: Annotated[str, "The sender of the last message"]
     interrupted: Annotated[bool, "Whether the flow has been interrupted"]
     escalate_human: Annotated[bool, "Whether to escalate to a human agent"]
@@ -841,7 +913,9 @@ class AssistantType(str, Enum):
 
 # Define the state for our specialized workflow
 class SpecializedState(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], "The messages in the conversation so far"]
+    messages: Annotated[
+        Sequence[BaseMessage], "The messages in the conversation so far"
+    ]
     sender: Annotated[str, "The sender of the last message"]
     assistant_type: Annotated[AssistantType, "The type of assistant to use"]
 
@@ -923,12 +997,16 @@ Always provide detailed information about excursion options, duration, and what'
 )
 
 # Create specialized assistants
-general_agent = create_openai_functions_agent(llm, [lookup_policy, web_search], general_prompt)
+general_agent = create_openai_functions_agent(
+    llm, [lookup_policy, web_search], general_prompt
+)
 general_executor = AgentExecutor(
     agent=general_agent, tools=[lookup_policy, web_search], verbose=True
 )
 
-flight_agent = create_openai_functions_agent(llm, [search_flights, book_flight], flight_prompt)
+flight_agent = create_openai_functions_agent(
+    llm, [search_flights, book_flight], flight_prompt
+)
 flight_executor = AgentExecutor(
     agent=flight_agent, tools=[search_flights, book_flight], verbose=True
 )
@@ -939,8 +1017,12 @@ hotel_executor = AgentExecutor(agent=hotel_agent, tools=[search_hotels], verbose
 car_agent = create_openai_functions_agent(llm, [search_car_rentals], car_prompt)
 car_executor = AgentExecutor(agent=car_agent, tools=[search_car_rentals], verbose=True)
 
-excursion_agent = create_openai_functions_agent(llm, [search_excursions], excursion_prompt)
-excursion_executor = AgentExecutor(agent=excursion_agent, tools=[search_excursions], verbose=True)
+excursion_agent = create_openai_functions_agent(
+    llm, [search_excursions], excursion_prompt
+)
+excursion_executor = AgentExecutor(
+    agent=excursion_agent, tools=[search_excursions], verbose=True
+)
 
 
 # Function to determine the assistant type based on the message
@@ -957,13 +1039,20 @@ def determine_assistant_type(state: SpecializedState):
     content = last_message.content.lower()
 
     # Simple keyword matching for demonstration
-    if any(word in content for word in ["flight", "fly", "plane", "airport", "airline"]):
+    if any(
+        word in content for word in ["flight", "fly", "plane", "airport", "airline"]
+    ):
         return {**state, "assistant_type": AssistantType.FLIGHT}
-    elif any(word in content for word in ["hotel", "motel", "stay", "room", "accommodation"]):
+    elif any(
+        word in content for word in ["hotel", "motel", "stay", "room", "accommodation"]
+    ):
         return {**state, "assistant_type": AssistantType.HOTEL}
     elif any(word in content for word in ["car", "vehicle", "rent", "rental", "drive"]):
         return {**state, "assistant_type": AssistantType.CAR}
-    elif any(word in content for word in ["excursion", "tour", "activity", "sightseeing", "visit"]):
+    elif any(
+        word in content
+        for word in ["excursion", "tour", "activity", "sightseeing", "visit"]
+    ):
         return {**state, "assistant_type": AssistantType.EXCURSION}
 
     return {**state, "assistant_type": AssistantType.GENERAL}
@@ -1017,7 +1106,12 @@ specialized_workflow.add_conditional_edges("create_assistant", route_specialized
 part4_agent = specialized_workflow.compile()
 
 # Export agents for use
-agents = {"part1": part1_agent, "part2": part2_agent, "part3": part3_agent, "part4": part4_agent}
+agents = {
+    "part1": part1_agent,
+    "part2": part2_agent,
+    "part3": part3_agent,
+    "part4": part4_agent,
+}
 
 if __name__ == "__main__":
     # Choose which agent to run

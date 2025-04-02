@@ -138,7 +138,9 @@ class DecoratedToolsPatcher(BasePatcher):
             # Replace the original function
             module.convert_to_openai_function = patched_convert_to_openai_function
 
-            logger.debug("Patched LangChain function calling utilities for tool compatibility")
+            logger.debug(
+                "Patched LangChain function calling utilities for tool compatibility"
+            )
 
         except Exception as e:
             logger.debug(f"Error patching function calling utilities: {e}")
@@ -167,7 +169,8 @@ class DecoratedToolsPatcher(BasePatcher):
         for module_name, module in list(sys.modules.items()):
             # Skip internal/system modules and libraries
             if any(module_name.startswith(prefix) for prefix in skip_prefixes) or any(
-                module_name == skip or module_name.startswith(f"{skip}.") for skip in skip_modules
+                module_name == skip or module_name.startswith(f"{skip}.")
+                for skip in skip_modules
             ):
                 continue
 
@@ -263,7 +266,9 @@ class DecoratedToolsPatcher(BasePatcher):
                         self._patched_functions[module_name][name] = original_tools
 
             except Exception as e:
-                logger.debug(f"Error processing lists in module {module_name}: {str(e)}")
+                logger.debug(
+                    f"Error processing lists in module {module_name}: {str(e)}"
+                )
                 continue
 
     def _find_and_patch_tools_in_agent_executors(self) -> None:
@@ -272,7 +277,10 @@ class DecoratedToolsPatcher(BasePatcher):
             # Check for langchain AgentExecutor
             agent_executor_found = False
 
-            for package_name in ["langchain.agents.agent", "langchain.agents.agent_executor"]:
+            for package_name in [
+                "langchain.agents.agent",
+                "langchain.agents.agent_executor",
+            ]:
                 if package_name in sys.modules:
                     # Get the AgentExecutor class
                     agent_executor_class = sys.modules[package_name].AgentExecutor
@@ -316,7 +324,9 @@ class DecoratedToolsPatcher(BasePatcher):
                                     tool_name, tool_input, color=None, llm_prefix=None
                                 ):
                                     # Start span for tool execution
-                                    span_id = TraceContext.start_span(f"tool.{tool_name}")
+                                    span_id = TraceContext.start_span(
+                                        f"tool.{tool_name}"
+                                    )
 
                                     # Log tool start
                                     try:
@@ -384,7 +394,9 @@ class DecoratedToolsPatcher(BasePatcher):
                                 # Replace method - this is a bound method so we need to use types.MethodType
                                 import types
 
-                                obj._call_tool = types.MethodType(patched_call_tool, obj)
+                                obj._call_tool = types.MethodType(
+                                    patched_call_tool, obj
+                                )
                                 logger.debug("Patched AgentExecutor._call_tool method")
 
                         # Also patch the newer _get_tool_return method if available
@@ -392,7 +404,9 @@ class DecoratedToolsPatcher(BasePatcher):
                             original_get_tool_return = obj._get_tool_return
 
                             # Only wrap if not already patched
-                            if not hasattr(original_get_tool_return, "__cylestio_patched__"):
+                            if not hasattr(
+                                original_get_tool_return, "__cylestio_patched__"
+                            ):
 
                                 @functools.wraps(original_get_tool_return)
                                 def patched_get_tool_return(
@@ -418,7 +432,11 @@ class DecoratedToolsPatcher(BasePatcher):
                                     # Call original method
                                     try:
                                         result = original_get_tool_return(
-                                            name, tool_input, color, observation, llm_prefix
+                                            name,
+                                            tool_input,
+                                            color,
+                                            observation,
+                                            llm_prefix,
                                         )
 
                                         # Extract result info
@@ -470,7 +488,9 @@ class DecoratedToolsPatcher(BasePatcher):
                                 obj._get_tool_return = types.MethodType(
                                     patched_get_tool_return, obj
                                 )
-                                logger.debug("Patched AgentExecutor._get_tool_return method")
+                                logger.debug(
+                                    "Patched AgentExecutor._get_tool_return method"
+                                )
 
                         # Patch invoke method if present
                         if hasattr(obj, "invoke"):
@@ -484,7 +504,9 @@ class DecoratedToolsPatcher(BasePatcher):
                                     # Log agent invoke start
                                     try:
                                         # Create trace context
-                                        span_id = TraceContext.start_span("agent.invoke")
+                                        span_id = TraceContext.start_span(
+                                            "agent.invoke"
+                                        )
 
                                         log_event(
                                             name="agent.invoke.start",
@@ -615,7 +637,9 @@ class DecoratedToolsPatcher(BasePatcher):
                         self._patch_count += 1
 
                 except Exception as e:
-                    logger.debug(f"Error patching tools in module {module_name}: {str(e)}")
+                    logger.debug(
+                        f"Error patching tools in module {module_name}: {str(e)}"
+                    )
                     continue
         except Exception as e:
             logger.debug(f"Error patching AgentExecutor tools: {str(e)}")
@@ -689,7 +713,9 @@ class DecoratedToolsPatcher(BasePatcher):
                                                         name="tool.inferred",
                                                         attributes={
                                                             "tool.name": f"{tool_match}_tool",
-                                                            "tool.result": content[:500],
+                                                            "tool.result": content[
+                                                                :500
+                                                            ],
                                                             "framework.name": "langgraph",
                                                             "framework.component": "customer_support_bot",
                                                         },
@@ -775,11 +801,17 @@ class DecoratedToolsPatcher(BasePatcher):
 
                                     # Detect tool usage in result
                                     try:
-                                        if isinstance(result, dict) and "output" in result:
+                                        if (
+                                            isinstance(result, dict)
+                                            and "output" in result
+                                        ):
                                             output = result["output"]
                                             # Look for tool usage indicators
                                             for tool in getattr(obj, "tools", []):
-                                                if hasattr(tool, "name") and tool.name in output:
+                                                if (
+                                                    hasattr(tool, "name")
+                                                    and tool.name in output
+                                                ):
                                                     # Likely used this tool
                                                     log_event(
                                                         name="tool.inferred",
@@ -868,7 +900,9 @@ class DecoratedToolsPatcher(BasePatcher):
             # Has args_schema
             lambda o: hasattr(o, "args_schema"),
             # BaseTool instance
-            lambda o: hasattr(o, "_run") and hasattr(o, "name") and hasattr(o, "description"),
+            lambda o: hasattr(o, "_run")
+            and hasattr(o, "name")
+            and hasattr(o, "description"),
             # Tool function with schema
             lambda o: hasattr(o, "schema") and callable(o),
         ]
@@ -955,7 +989,10 @@ class DecoratedToolsPatcher(BasePatcher):
                 attributes["tool.description"] = tool_func.description
 
             # Get return type if available
-            if hasattr(tool_func, "__annotations__") and "return" in tool_func.__annotations__:
+            if (
+                hasattr(tool_func, "__annotations__")
+                and "return" in tool_func.__annotations__
+            ):
                 try:
                     return_type = str(tool_func.__annotations__["return"])
                     attributes["tool.return_type"] = return_type
@@ -1103,7 +1140,9 @@ class DecoratedToolsPatcher(BasePatcher):
                     try:
                         setattr(module, func_name, original_func)
                     except Exception as e:
-                        logger.warning(f"Error restoring {module_name}.{func_name}: {e}")
+                        logger.warning(
+                            f"Error restoring {module_name}.{func_name}: {e}"
+                        )
                         success = False
             except Exception as e:
                 logger.warning(f"Error unpatching module {module_name}: {e}")

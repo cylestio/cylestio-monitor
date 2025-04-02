@@ -276,7 +276,9 @@ class ToolDecoratorPatcher(BasePatcher):
 
             # Store the original decorator
             original_decorator = langchain.agents.tools.tool
-            self._original_decorators["langchain.agents.tools.tool"] = original_decorator
+            self._original_decorators["langchain.agents.tools.tool"] = (
+                original_decorator
+            )
 
             # Create the patched decorator
             @functools.wraps(original_decorator)
@@ -367,14 +369,17 @@ class ToolDecoratorPatcher(BasePatcher):
                 # Handle potential pydantic model in first arg (common pattern)
                 if args and len(args) > 0:
                     if hasattr(args[0], "__dict__") and not (
-                        hasattr(args[0], "__class__") and func_name in dir(args[0].__class__)
+                        hasattr(args[0], "__class__")
+                        and func_name in dir(args[0].__class__)
                     ):
                         # This is likely a pydantic model
                         try:
                             arg_str = str(args[0].__dict__)
                         except:
                             arg_str = str(args)
-                    elif hasattr(args[0], "__class__") and func_name in dir(args[0].__class__):
+                    elif hasattr(args[0], "__class__") and func_name in dir(
+                        args[0].__class__
+                    ):
                         # This is likely self
                         arg_str = str(args[1:]) if len(args) > 1 else ""
                     else:
@@ -547,7 +552,9 @@ def patch_openai_function_schema_creation():
                             name="tool.schema.generated",
                             attributes={
                                 "tool.name": getattr(
-                                    function, "name", getattr(original_func, "__name__", "unknown")
+                                    function,
+                                    "name",
+                                    getattr(original_func, "__name__", "unknown"),
                                 ),
                                 "framework.name": "langchain",
                             },

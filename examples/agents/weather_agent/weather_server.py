@@ -30,7 +30,7 @@ USER_AGENT = "weather-app/1.0"
 async def make_nws_request(url: str) -> dict[str, Any] | None:
     """Make a request to the NWS API with proper error handling."""
     headers = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
-    
+
     # Don't log the full URL as it may contain sensitive coordinates
     if "points/" in url:
         logger.info("Making NWS API request to points endpoint")

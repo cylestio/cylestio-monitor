@@ -58,7 +58,10 @@ def main():
 
             # Print the agent's response
             for message in messages:
-                if message.type == "ai" and messages.index(message) >= len(messages) - 2:
+                if (
+                    message.type == "ai"
+                    and messages.index(message) >= len(messages) - 2
+                ):
                     print(f"Agent: {message.content}")
         else:
             print("Invalid agent selection")

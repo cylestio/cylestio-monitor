@@ -72,7 +72,9 @@ class LangGraphPatcher(BasePatcher):
             # Set patched flag if any patches were applied
             self._patched = patch_count > 0
             if self._patched:
-                logger.info(f"LangGraph patched successfully ({patch_count} components)")
+                logger.info(
+                    f"LangGraph patched successfully ({patch_count} components)"
+                )
                 return True
             else:
                 logger.warning("No LangGraph components found to patch")
@@ -83,7 +85,9 @@ class LangGraphPatcher(BasePatcher):
             return False
         except Exception as e:
             log_error(
-                name="framework.patch.error", error=e, attributes={"framework.name": "langgraph"}
+                name="framework.patch.error",
+                error=e,
+                attributes={"framework.name": "langgraph"},
             )
             logger.exception(f"Error patching LangGraph: {e}")
             return False
@@ -136,11 +140,15 @@ class LangGraphPatcher(BasePatcher):
                                         },
                                     )
                                 except Exception as e:
-                                    logger.debug(f"Error logging LangGraph invoke start: {e}")
+                                    logger.debug(
+                                        f"Error logging LangGraph invoke start: {e}"
+                                    )
 
                                 # Call original
                                 try:
-                                    invoke_result = orig_invoke(*invoke_args, **invoke_kwargs)
+                                    invoke_result = orig_invoke(
+                                        *invoke_args, **invoke_kwargs
+                                    )
 
                                     # Log success
                                     try:
@@ -153,7 +161,9 @@ class LangGraphPatcher(BasePatcher):
                                             },
                                         )
                                     except Exception as e:
-                                        logger.debug(f"Error logging LangGraph invoke success: {e}")
+                                        logger.debug(
+                                            f"Error logging LangGraph invoke success: {e}"
+                                        )
 
                                     return invoke_result
                                 except Exception as e:
@@ -234,7 +244,9 @@ class LangGraphPatcher(BasePatcher):
 
                 # Replace the function
                 create_react_agent = patched_create_react_agent
-                sys.modules["langgraph.prebuilt"].create_react_agent = patched_create_react_agent
+                sys.modules["langgraph.prebuilt"].create_react_agent = (
+                    patched_create_react_agent
+                )
                 patch_count += 1
                 logger.debug("Patched create_react_agent function")
 
@@ -280,8 +292,12 @@ class LangGraphPatcher(BasePatcher):
                                     if "current_tool" in state:
                                         current_tool = state["current_tool"]
                                         if isinstance(current_tool, dict):
-                                            tool_name = current_tool.get("name", tool_name)
-                                            tool_input = str(current_tool.get("input", "{}"))
+                                            tool_name = current_tool.get(
+                                                "name", tool_name
+                                            )
+                                            tool_input = str(
+                                                current_tool.get("input", "{}")
+                                            )
                                 else:
                                     # For direct tool_call, name is often in args[0]
                                     if args and args[0]:
@@ -388,7 +404,9 @@ class LangGraphPatcher(BasePatcher):
                                 if isinstance(tool_calls, list) and tool_calls:
                                     if isinstance(tool_calls[0], dict):
                                         tool_name = tool_calls[0].get("name", tool_name)
-                                        tool_input = str(tool_calls[0].get("args", "{}"))
+                                        tool_input = str(
+                                            tool_calls[0].get("args", "{}")
+                                        )
                         except Exception as e:
                             logger.debug(f"Error extracting batch tool info: {e}")
 
@@ -696,7 +714,10 @@ class LangGraphMonitor:
                 "node_id": node_id,
                 "node_type": node_type,
                 "run_id": node_run_id,
-                "input": {"content": formatted_inputs, "estimated_tokens": estimated_tokens},
+                "input": {
+                    "content": formatted_inputs,
+                    "estimated_tokens": estimated_tokens,
+                },
             },
             direction="incoming",
         )
@@ -705,7 +726,9 @@ class LangGraphMonitor:
         """Handle node end event."""
         # Find the matching node_run_id
         node_run_id_prefix = f"{graph_id}:{node_id}:"
-        matching_keys = [k for k in self._start_times.keys() if k.startswith(node_run_id_prefix)]
+        matching_keys = [
+            k for k in self._start_times.keys() if k.startswith(node_run_id_prefix)
+        ]
 
         if matching_keys:
             node_run_id = matching_keys[0]  # Use the first matching key
@@ -730,7 +753,10 @@ class LangGraphMonitor:
                     "node_id": node_id,
                     "node_type": node_type,
                     "run_id": node_run_id,
-                    "output": {"content": formatted_outputs, "estimated_tokens": estimated_tokens},
+                    "output": {
+                        "content": formatted_outputs,
+                        "estimated_tokens": estimated_tokens,
+                    },
                     "performance": {
                         "duration_ms": duration * 1000,
                         "nodes_per_second": 1.0 / duration if duration > 0 else None,
@@ -743,7 +769,9 @@ class LangGraphMonitor:
         """Handle node error event."""
         # Find the matching node_run_id
         node_run_id_prefix = f"{graph_id}:{node_id}:"
-        matching_keys = [k for k in self._start_times.keys() if k.startswith(node_run_id_prefix)]
+        matching_keys = [
+            k for k in self._start_times.keys() if k.startswith(node_run_id_prefix)
+        ]
 
         if matching_keys:
             node_run_id = matching_keys[0]  # Use the first matching key
@@ -841,7 +869,9 @@ class LangGraphMonitor:
             },
         )
 
-    def on_agent_action(self, graph_id: str, agent_id: str, action: Dict[str, Any]) -> None:
+    def on_agent_action(
+        self, graph_id: str, agent_id: str, action: Dict[str, Any]
+    ) -> None:
         """Handle agent action event."""
         self._create_event(
             "agent_action",
@@ -1066,7 +1096,9 @@ def patch_langgraph() -> None:
         @functools.wraps(original_add_conditional_edges)
         def patched_add_conditional_edges(self, source, condition, *args, **kwargs):
             # Wrap the condition function
-            monitored_condition = _wrap_conditional_edge_function(condition, source, monitor)
+            monitored_condition = _wrap_conditional_edge_function(
+                condition, source, monitor
+            )
 
             # Call original method with wrapped function
             return original_add_conditional_edges(
@@ -1124,7 +1156,9 @@ def patch_langgraph() -> None:
         return False
     except Exception as e:
         # Log error and continue
-        log_error(name="framework.patch.error", error=e, attributes={"framework": "langgraph"})
+        log_error(
+            name="framework.patch.error", error=e, attributes={"framework": "langgraph"}
+        )
         return False
 
 
@@ -1140,7 +1174,9 @@ def unpatch_langgraph():
             del StateGraph._original_add_node
 
         if hasattr(StateGraph, "_original_add_conditional_edges"):
-            StateGraph.add_conditional_edges = StateGraph._original_add_conditional_edges
+            StateGraph.add_conditional_edges = (
+                StateGraph._original_add_conditional_edges
+            )
             del StateGraph._original_add_conditional_edges
 
         if hasattr(StateGraph, "_original_compile"):
@@ -1154,5 +1190,9 @@ def unpatch_langgraph():
         return False
     except Exception as e:
         # Log error and continue
-        log_error(name="framework.unpatch.error", error=e, attributes={"framework": "langgraph"})
+        log_error(
+            name="framework.unpatch.error",
+            error=e,
+            attributes={"framework": "langgraph"},
+        )
         return False

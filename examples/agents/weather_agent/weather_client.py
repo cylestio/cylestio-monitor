@@ -13,12 +13,13 @@ import os
 from contextlib import AsyncExitStack
 from typing import Optional
 
-# Import our monitoring SDK
-import cylestio_monitor
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+# Import our monitoring SDK
+import cylestio_monitor
 
 # Configure logging
 logging.basicConfig(
@@ -67,10 +68,14 @@ class WeatherAIAgent:
 
         # Set up server parameters
         command = "python" if is_python else "node"
-        server_params = StdioServerParameters(command=command, args=[server_script_path], env=None)
+        server_params = StdioServerParameters(
+            command=command, args=[server_script_path], env=None
+        )
 
         # Connect to the server
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+        stdio_transport = await self.exit_stack.enter_async_context(
+            stdio_client(server_params)
+        )
         self.stdio, self.write = stdio_transport
         self.session = await self.exit_stack.enter_async_context(
             ClientSession(self.stdio, self.write)
@@ -83,7 +88,9 @@ class WeatherAIAgent:
         response = await self.session.list_tools()
         tools = response.tools
         logger.info(f"Connected to server with tools: {[tool.name for tool in tools]}")
-        print(f"\nConnected to Weather MCP server with tools: {[tool.name for tool in tools]}")
+        print(
+            f"\nConnected to Weather MCP server with tools: {[tool.name for tool in tools]}"
+        )
 
     async def process_query(self, query: str) -> str:
         """Process a user query using Claude and available weather tools.
@@ -103,7 +110,11 @@ class WeatherAIAgent:
         # Get available tools
         response = await self.session.list_tools()
         available_tools = [
-            {"name": tool.name, "description": tool.description, "input_schema": tool.inputSchema}
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": tool.inputSchema,
+            }
             for tool in response.tools
         ]
 
@@ -132,7 +143,10 @@ class WeatherAIAgent:
                     assistant_message_content = response["content"]
                     if isinstance(assistant_message_content, list):
                         for content in assistant_message_content:
-                            if isinstance(content, dict) and content.get("type") == "text":
+                            if (
+                                isinstance(content, dict)
+                                and content.get("type") == "text"
+                            ):
                                 final_text.append(content.get("text", ""))
                     else:
                         # Treat content as text if it's not a list
@@ -146,7 +160,9 @@ class WeatherAIAgent:
             assistant_message_content = []
             for content in response.content:
                 # Debug each content item
-                logger.info(f"Processing content item type: {getattr(content, 'type', 'unknown')}")
+                logger.info(
+                    f"Processing content item type: {getattr(content, 'type', 'unknown')}"
+                )
 
                 if hasattr(content, "type") and content.type == "text":
                     final_text.append(content.text)
@@ -161,11 +177,15 @@ class WeatherAIAgent:
                     # Execute tool call
                     result = await self.session.call_tool(tool_name, tool_args)
                     tool_results.append({"call": tool_name, "result": result})
-                    final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
+                    final_text.append(
+                        f"[Calling tool {tool_name} with args {tool_args}]"
+                    )
 
                     # Add the tool call and result to the conversation
                     assistant_message_content.append(content)
-                    messages.append({"role": "assistant", "content": assistant_message_content})
+                    messages.append(
+                        {"role": "assistant", "content": assistant_message_content}
+                    )
                     messages.append(
                         {
                             "role": "user",
@@ -190,7 +210,9 @@ class WeatherAIAgent:
                     final_text.append(response.content[0].text)
                 else:
                     # Handle unknown content type
-                    logger.warning(f"Unknown content type: {getattr(content, 'type', 'unknown')}")
+                    logger.warning(
+                        f"Unknown content type: {getattr(content, 'type', 'unknown')}"
+                    )
                     if isinstance(content, dict):
                         # Try to extract text from dict
                         if "text" in content:

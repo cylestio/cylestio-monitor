@@ -40,7 +40,9 @@ class MCPPatcher(BasePatcher):
         async def wrapped_list_tools(*args, **kwargs):
             # Log request
             log_event(
-                "mcp_request", {"method": "list_tools", "args": str(args), "kwargs": kwargs}, "MCP"
+                "mcp_request",
+                {"method": "list_tools", "args": str(args), "kwargs": kwargs},
+                "MCP",
             )
 
             try:
@@ -62,7 +64,10 @@ class MCPPatcher(BasePatcher):
             except Exception as e:
                 # Log error
                 log_event(
-                    "mcp_error", {"method": "list_tools", "error": str(e)}, "MCP", level="error"
+                    "mcp_error",
+                    {"method": "list_tools", "error": str(e)},
+                    "MCP",
+                    level="error",
                 )
                 raise
 
@@ -91,7 +96,9 @@ class MCPPatcher(BasePatcher):
 
                 # Call the original method
                 try:
-                    result = await original_call_tool(tool_name, tool_args, *args, **kwargs)
+                    result = await original_call_tool(
+                        tool_name, tool_args, *args, **kwargs
+                    )
 
                     # Log the call finish
                     duration = time.time() - start_time
@@ -148,7 +155,11 @@ class MCPPatcher(BasePatcher):
                     duration = time.time() - start_time
                     log_event(
                         "call_finish",
-                        {"method": "get_completion", "duration": duration, "result": str(result)},
+                        {
+                            "method": "get_completion",
+                            "duration": duration,
+                            "result": str(result),
+                        },
                         "MCP",
                     )
 
@@ -156,7 +167,10 @@ class MCPPatcher(BasePatcher):
                 except Exception as e:
                     # Log the error
                     log_event(
-                        "call_error", {"method": "get_completion", "error": str(e)}, "MCP", "error"
+                        "call_error",
+                        {"method": "get_completion", "error": str(e)},
+                        "MCP",
+                        "error",
                     )
                     raise
 

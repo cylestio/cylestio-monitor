@@ -81,7 +81,9 @@ class TestEventLogging(unittest.TestCase):
         mock_write_to_log_file.return_value = None
 
         # Log an event
-        event = log_event(name="test.event", attributes={"test_key": "test_value"}, level="INFO")
+        event = log_event(
+            name="test.event", attributes={"test_key": "test_value"}, level="INFO"
+        )
 
         # Event should have the expected fields
         self.assertIn("timestamp", event)
