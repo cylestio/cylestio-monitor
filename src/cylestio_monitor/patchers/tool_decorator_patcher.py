@@ -14,6 +14,9 @@ from cylestio_monitor.utils.trace_context import TraceContext
 
 logger = logging.getLogger("CylestioMonitor")
 
+# Import LangChain components from their new locations
+from langchain_core.tools import BaseTool
+
 
 class ToolDecoratorPatcher(BasePatcher):
     """Patcher for LangChain @tool decorator."""
@@ -157,17 +160,6 @@ class ToolDecoratorPatcher(BasePatcher):
         we patch the __call__ method which is used to invoke the tool.
         """
         try:
-            # Try to import BaseTool
-            try:
-                from langchain_core.tools import BaseTool
-            except ImportError:
-                # Try older import location
-                try:
-                    from langchain.tools import BaseTool
-                except ImportError:
-                    logger.debug("BaseTool class not found for patching")
-                    return False
-
             # Skip if already patched
             if hasattr(BaseTool, "__cylestio_patched__"):
                 return True
@@ -492,8 +484,6 @@ class ToolDecoratorPatcher(BasePatcher):
 
         # Try to unpatch BaseTool class
         try:
-            from langchain_core.tools import BaseTool
-
             if hasattr(BaseTool, "__original_init__"):
                 BaseTool.__init__ = BaseTool.__original_init__
                 logger.debug("Restored original BaseTool.__init__")

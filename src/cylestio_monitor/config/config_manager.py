@@ -57,9 +57,10 @@ class ConfigManager:
             
             # Copy the default configuration file
             try:
-                # Get the default config file path using importlib.resources
-                with importlib.resources.path("cylestio_monitor.config", "default_config.yaml") as default_path:
-                    shutil.copy(default_path, self._config_path)
+                # Get the default config file using importlib.resources.files()
+                with importlib.resources.files("cylestio_monitor.config").joinpath("default_config.yaml").open("rb") as default_file:
+                    with open(self._config_path, "wb") as target_file:
+                        shutil.copyfileobj(default_file, target_file)
                 logger.info("Default configuration copied successfully")
             except Exception as e:
                 logger.error(f"Failed to copy default configuration: {e}")

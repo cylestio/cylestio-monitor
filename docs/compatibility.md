@@ -1,20 +1,22 @@
 # Framework Compatibility
 
-Cylestio Monitor v0.1.5 supports the following frameworks and libraries:
+Cylestio Monitor v0.1.6 supports the following frameworks and libraries:
 
 ## LLM Provider SDKs
 
 | Provider | Support | Notes |
 |----------|---------|-------|
 | Anthropic | ✅ | All Claude models (Opus, Sonnet, Haiku) with auto-detection |
-| OpenAI | Planned | Coming in a future release |
+| OpenAI | ✅ | Chat Completions and Completions APIs |
 
 ## Agent Frameworks
 
 | Framework | Support | Notes |
 |-----------|---------|-------|
 | MCP (Model Context Protocol) | ✅ | Tool calls and responses |
-| LangChain | ✅ | Chains, agents, callbacks |
+| LangChain | ✅ | Chains, agents, callbacks, tools (v0.1.0+) |
+| LangChain Core | ✅ | Core components and runnables |
+| LangChain Community | ✅ | Community components and tools |
 | LangGraph | ✅ | Graph-based agent workflows |
 
 ## Monitoring Features
@@ -24,6 +26,9 @@ All monitored frameworks capture:
 - Response events
 - Error events
 - Performance metrics
+- Token usage (where available)
+- Tool execution details
+- Chain execution details
 
 ## Dependencies
 
@@ -34,9 +39,13 @@ Core dependencies:
 - platformdirs ≥ 4.0.0
 - pyyaml ≥ 6.0.0
 - requests ≥ 2.31.0
+- langchain ≥ 0.1.0
+- langchain-core ≥ 0.1.0
+- langchain-community ≥ 0.0.10
 
 ## Coming Soon
 
-- OpenAI SDK support
 - Azure OpenAI support
 - LiteLLM support
+- Enhanced tool monitoring for LangChain tools
+- Improved chain execution tracking

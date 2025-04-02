@@ -9,7 +9,7 @@ import os
 import sys
 import platform
 from typing import Dict, Any, List, Optional
-import pkg_resources
+from importlib.metadata import version, PackageNotFoundError
 
 
 def get_environment_context() -> Dict[str, str]:
@@ -52,9 +52,9 @@ def get_library_versions(libraries: Optional[List[str]] = None) -> Dict[str, str
     versions = {}
     for package in libraries:
         try:
-            version = pkg_resources.get_distribution(package).version
-            versions[f"library.{package}.version"] = version
-        except (pkg_resources.DistributionNotFound, pkg_resources.RequirementParseError):
+            version_str = version(package)
+            versions[f"library.{package}.version"] = version_str
+        except PackageNotFoundError:
             pass
     
     return versions

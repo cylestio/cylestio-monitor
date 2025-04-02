@@ -1,20 +1,31 @@
-"""
-Patchers for LangChain to integrate with the telemetry system.
+"""LangChain Patcher for Cylestio Monitor.
 
-This module provides patchers for various LangChain components to instrument them
-for telemetry data collection.
+This module provides patching functionality for LangChain components,
+allowing automatic monitoring of all LangChain operations in an application.
 """
 
+import functools
 import logging
-from typing import Dict, Any, Optional, List, Callable, Union, Type
-import time
+import sys
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
-from cylestio_monitor.utils.trace_context import TraceContext
-from cylestio_monitor.utils.event_logging import log_event, log_error
 from cylestio_monitor.patchers.base import BasePatcher
+from cylestio_monitor.utils.event_logging import log_error, log_event
+from cylestio_monitor.utils.trace_context import TraceContext
 
 logger = logging.getLogger("CylestioMonitor")
 
+# Import LangChain components from their new locations
+from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.base import Runnable as Chain
+from langchain_core.language_models.llms import BaseLLM
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain.agents.agent import AgentExecutor
+from langchain_core.documents.base import Document
+
+import time
 
 class LangChainPatcher(BasePatcher):
     """Patcher for LangChain components."""
@@ -81,9 +92,6 @@ class LangChainPatcher(BasePatcher):
     def _patch_chains(self) -> None:
         """Patch LangChain chains."""
         try:
-            # Import here to avoid dependency if not used
-            from langchain.chains.base import Chain
-            
             # Store original method
             original_call = Chain.__call__
             self._chain_methods["__call__"] = original_call
@@ -167,9 +175,6 @@ class LangChainPatcher(BasePatcher):
     def _patch_llms(self) -> None:
         """Patch LangChain LLMs."""
         try:
-            # Import here to avoid dependency if not used
-            from langchain.llms.base import BaseLLM
-            
             # Store original method
             original_generate = BaseLLM._generate
             self._llm_methods["_generate"] = original_generate
@@ -253,9 +258,6 @@ class LangChainPatcher(BasePatcher):
     def _patch_retrievers(self) -> None:
         """Patch LangChain retrievers."""
         try:
-            # Import here to avoid dependency if not used
-            from langchain.schema.retriever import BaseRetriever
-            
             # Store original method
             original_get_relevant_documents = BaseRetriever.get_relevant_documents
             self._retriever_methods["get_relevant_documents"] = original_get_relevant_documents
@@ -321,9 +323,6 @@ class LangChainPatcher(BasePatcher):
     def _patch_chat_models(self) -> None:
         """Patch LangChain chat models."""
         try:
-            # Import here to avoid dependency if not used
-            from langchain.chat_models.base import BaseChatModel
-            
             # Store original method
             original_generate = BaseChatModel._generate
             self._llm_methods["chat_generate"] = original_generate
@@ -426,17 +425,6 @@ class LangChainPatcher(BasePatcher):
     def _patch_agent_executor(self) -> None:
         """Patch LangChain AgentExecutor."""
         try:
-            # Try to import AgentExecutor
-            try:
-                from langchain.agents import AgentExecutor
-            except ImportError:
-                # Try newer location
-                try:
-                    from langchain.agents.agent import AgentExecutor
-                except ImportError:
-                    logger.debug("AgentExecutor not found in langchain.agents or langchain.agents.agent")
-                    return
-            
             # Store original methods
             if not hasattr(AgentExecutor, '_run_tool'):
                 logger.debug("AgentExecutor doesn't have _run_tool method, skipping patch")
@@ -562,7 +550,6 @@ class LangChainPatcher(BasePatcher):
             
             # Unpatch chains
             try:
-                from langchain.chains.base import Chain
                 for method_name, original_method in self._chain_methods.items():
                     setattr(Chain, method_name, original_method)
                 logger.debug("Unpatched LangChain chains")
@@ -573,7 +560,6 @@ class LangChainPatcher(BasePatcher):
             
             # Unpatch LLMs
             try:
-                from langchain.llms.base import BaseLLM
                 for method_name, original_method in self._llm_methods.items():
                     setattr(BaseLLM, method_name, original_method)
                 logger.debug("Unpatched LangChain LLMs")
@@ -584,7 +570,6 @@ class LangChainPatcher(BasePatcher):
             
             # Unpatch retrievers
             try:
-                from langchain.schema.retriever import BaseRetriever
                 for method_name, original_method in self._retriever_methods.items():
                     setattr(BaseRetriever, method_name, original_method)
                 logger.debug("Unpatched LangChain retrievers")
@@ -595,7 +580,6 @@ class LangChainPatcher(BasePatcher):
             
             # Unpatch documents
             try:
-                from langchain.schema import Document
                 for method_name, original_method in self._document_methods.items():
                     setattr(Document, method_name, original_method)
                 logger.debug("Unpatched LangChain documents")
@@ -608,16 +592,18 @@ class LangChainPatcher(BasePatcher):
             try:
                 # First try to import AgentExecutor
                 try:
-                    from langchain.agents import AgentExecutor
+                    for method_name, original_method in self._agent_methods.items():
+                        setattr(AgentExecutor, method_name, original_method)
+                    logger.debug("Unpatched LangChain AgentExecutor")
                 except ImportError:
                     # Try newer location
                     from langchain.agents.agent import AgentExecutor
                     
-                # Restore original methods
-                if hasattr(self, '_agent_methods'):
-                    for method_name, original_method in self._agent_methods.items():
-                        setattr(AgentExecutor, method_name, original_method)
-                    logger.debug("Unpatched LangChain AgentExecutor")
+                    # Restore original methods
+                    if hasattr(self, '_agent_methods'):
+                        for method_name, original_method in self._agent_methods.items():
+                            setattr(AgentExecutor, method_name, original_method)
+                            logger.debug("Unpatched LangChain AgentExecutor")
             except ImportError:
                 pass
             except Exception as e:
