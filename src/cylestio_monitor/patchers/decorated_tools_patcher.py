@@ -8,7 +8,7 @@ import functools
 import inspect
 import logging
 import sys
-from typing import Annotated, Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable
 
 from cylestio_monitor.patchers.base import BasePatcher
 from cylestio_monitor.utils.event_logging import log_error, log_event
@@ -51,8 +51,8 @@ class DecoratedToolsPatcher(BasePatcher):
                 attributes={
                     "framework.name": "decorated_tools",
                     "patch.type": "function_wrapper",
-                    "patch.components": ["@tool functions"]
-                }
+                    "patch.components": ["@tool functions"],
+                },
             )
 
             # Reset patch count
@@ -72,7 +72,9 @@ class DecoratedToolsPatcher(BasePatcher):
 
             if self._patch_count > 0:
                 self._patched = True
-                logger.info(f"Successfully patched {self._patch_count} pre-existing @tool functions")
+                logger.info(
+                    f"Successfully patched {self._patch_count} pre-existing @tool functions"
+                )
                 return True
             else:
                 logger.info("No pre-existing @tool functions found to patch")
@@ -82,9 +84,7 @@ class DecoratedToolsPatcher(BasePatcher):
             log_error(
                 name="framework.patch.error",
                 error=e,
-                attributes={
-                    "framework.name": "decorated_tools"
-                }
+                attributes={"framework.name": "decorated_tools"},
             )
             logger.exception(f"Error patching decorated tools: {e}")
             return False
@@ -147,9 +147,17 @@ class DecoratedToolsPatcher(BasePatcher):
         """Find and patch tools in all module attributes."""
         # Skip these modules
         skip_modules = {
-            "langchain", "langchain_core", "langchain_community",
-            "cylestio_monitor", "sys", "os", "typing", "types",
-            "functools", "inspect", "logging"
+            "langchain",
+            "langchain_core",
+            "langchain_community",
+            "cylestio_monitor",
+            "sys",
+            "os",
+            "typing",
+            "types",
+            "functools",
+            "inspect",
+            "logging",
         }
 
         # Skip modules that start with these prefixes
@@ -158,8 +166,9 @@ class DecoratedToolsPatcher(BasePatcher):
         # Process all loaded modules
         for module_name, module in list(sys.modules.items()):
             # Skip internal/system modules and libraries
-            if (any(module_name.startswith(prefix) for prefix in skip_prefixes) or
-                any(module_name == skip or module_name.startswith(f"{skip}.") for skip in skip_modules)):
+            if any(module_name.startswith(prefix) for prefix in skip_prefixes) or any(
+                module_name == skip or module_name.startswith(f"{skip}.") for skip in skip_modules
+            ):
                 continue
 
             try:
@@ -301,8 +310,11 @@ class DecoratedToolsPatcher(BasePatcher):
 
                             # Only wrap if not already patched
                             if not hasattr(original_call_tool, "__cylestio_patched__"):
+
                                 @functools.wraps(original_call_tool)
-                                def patched_call_tool(tool_name, tool_input, color=None, llm_prefix=None):
+                                def patched_call_tool(
+                                    tool_name, tool_input, color=None, llm_prefix=None
+                                ):
                                     # Start span for tool execution
                                     span_id = TraceContext.start_span(f"tool.{tool_name}")
 
@@ -314,15 +326,17 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 "tool.name": tool_name,
                                                 "tool.input": str(tool_input),
                                                 "framework.name": "langchain",
-                                                "framework.component": "AgentExecutor._call_tool"
-                                            }
+                                                "framework.component": "AgentExecutor._call_tool",
+                                            },
                                         )
                                     except Exception as e:
                                         logger.debug(f"Error logging tool start: {e}")
 
                                     # Call original method
                                     try:
-                                        result = original_call_tool(tool_name, tool_input, color, llm_prefix)
+                                        result = original_call_tool(
+                                            tool_name, tool_input, color, llm_prefix
+                                        )
 
                                         # Extract result info
                                         result_str = str(result)
@@ -338,8 +352,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                     "tool.status": "success",
                                                     "tool.result": result_str,
                                                     "framework.name": "langchain",
-                                                    "framework.component": "AgentExecutor._call_tool"
-                                                }
+                                                    "framework.component": "AgentExecutor._call_tool",
+                                                },
                                             )
                                         except Exception as e:
                                             logger.debug(f"Error logging tool end: {e}")
@@ -354,8 +368,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 attributes={
                                                     "tool.name": tool_name,
                                                     "framework.name": "langchain",
-                                                    "framework.component": "AgentExecutor._call_tool"
-                                                }
+                                                    "framework.component": "AgentExecutor._call_tool",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -369,6 +383,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                                 # Replace method - this is a bound method so we need to use types.MethodType
                                 import types
+
                                 obj._call_tool = types.MethodType(patched_call_tool, obj)
                                 logger.debug("Patched AgentExecutor._call_tool method")
 
@@ -378,8 +393,11 @@ class DecoratedToolsPatcher(BasePatcher):
 
                             # Only wrap if not already patched
                             if not hasattr(original_get_tool_return, "__cylestio_patched__"):
+
                                 @functools.wraps(original_get_tool_return)
-                                def patched_get_tool_return(name, tool_input, color, observation, llm_prefix):
+                                def patched_get_tool_return(
+                                    name, tool_input, color, observation, llm_prefix
+                                ):
                                     # Start span
                                     span_id = TraceContext.start_span(f"tool.{name}")
 
@@ -391,15 +409,17 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 "tool.name": name,
                                                 "tool.input": str(tool_input),
                                                 "framework.name": "langchain",
-                                                "framework.component": "AgentExecutor._get_tool_return"
-                                            }
+                                                "framework.component": "AgentExecutor._get_tool_return",
+                                            },
                                         )
                                     except Exception as e:
                                         logger.debug(f"Error logging tool start: {e}")
 
                                     # Call original method
                                     try:
-                                        result = original_get_tool_return(name, tool_input, color, observation, llm_prefix)
+                                        result = original_get_tool_return(
+                                            name, tool_input, color, observation, llm_prefix
+                                        )
 
                                         # Extract result info
                                         result_str = str(result)
@@ -415,8 +435,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                     "tool.status": "success",
                                                     "tool.result": result_str,
                                                     "framework.name": "langchain",
-                                                    "framework.component": "AgentExecutor._get_tool_return"
-                                                }
+                                                    "framework.component": "AgentExecutor._get_tool_return",
+                                                },
                                             )
                                         except Exception as e:
                                             logger.debug(f"Error logging tool end: {e}")
@@ -431,8 +451,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 attributes={
                                                     "tool.name": name,
                                                     "framework.name": "langchain",
-                                                    "framework.component": "AgentExecutor._get_tool_return"
-                                                }
+                                                    "framework.component": "AgentExecutor._get_tool_return",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -446,7 +466,10 @@ class DecoratedToolsPatcher(BasePatcher):
 
                                 # Replace method - this is a bound method so we need to use types.MethodType
                                 import types
-                                obj._get_tool_return = types.MethodType(patched_get_tool_return, obj)
+
+                                obj._get_tool_return = types.MethodType(
+                                    patched_get_tool_return, obj
+                                )
                                 logger.debug("Patched AgentExecutor._get_tool_return method")
 
                         # Patch invoke method if present
@@ -455,6 +478,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                             # Only wrap if not already patched
                             if not hasattr(original_invoke, "__cylestio_patched__"):
+
                                 @functools.wraps(original_invoke)
                                 def patched_invoke(*args, **kwargs):
                                     # Log agent invoke start
@@ -466,8 +490,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                             name="agent.invoke.start",
                                             attributes={
                                                 "agent.type": "AgentExecutor",
-                                                "framework.name": "langchain"
-                                            }
+                                                "framework.name": "langchain",
+                                            },
                                         )
                                     except Exception:
                                         pass
@@ -483,8 +507,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 attributes={
                                                     "agent.type": "AgentExecutor",
                                                     "framework.name": "langchain",
-                                                    "agent.status": "success"
-                                                }
+                                                    "agent.status": "success",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -498,8 +522,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 error=e,
                                                 attributes={
                                                     "agent.type": "AgentExecutor",
-                                                    "framework.name": "langchain"
-                                                }
+                                                    "framework.name": "langchain",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -523,6 +547,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                             # Only wrap if not already patched
                             if not hasattr(original_run, "__cylestio_patched__"):
+
                                 @functools.wraps(original_run)
                                 def patched_run(*args, **kwargs):
                                     # Log agent run start
@@ -534,8 +559,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                             name="agent.run.start",
                                             attributes={
                                                 "agent.type": "AgentExecutor",
-                                                "framework.name": "langchain"
-                                            }
+                                                "framework.name": "langchain",
+                                            },
                                         )
                                     except Exception:
                                         pass
@@ -551,8 +576,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 attributes={
                                                     "agent.type": "AgentExecutor",
                                                     "framework.name": "langchain",
-                                                    "agent.status": "success"
-                                                }
+                                                    "agent.status": "success",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -566,8 +591,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 error=e,
                                                 attributes={
                                                     "agent.type": "AgentExecutor",
-                                                    "framework.name": "langchain"
-                                                }
+                                                    "framework.name": "langchain",
+                                                },
                                             )
                                         except Exception:
                                             pass
@@ -587,7 +612,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                         # Mark agent as patched
                         obj.__cylestio_tools_patched__ = True
-                                self._patch_count += 1
+                        self._patch_count += 1
 
                 except Exception as e:
                     logger.debug(f"Error patching tools in module {module_name}: {str(e)}")
@@ -608,7 +633,9 @@ class DecoratedToolsPatcher(BasePatcher):
                     continue
 
                 # Patch the 'run_agent' function which is commonly used in these examples
-                if hasattr(module, "run_agent") and not hasattr(module.run_agent, "__cylestio_patched__"):
+                if hasattr(module, "run_agent") and not hasattr(
+                    module.run_agent, "__cylestio_patched__"
+                ):
                     original_run_agent = module.run_agent
 
                     @functools.wraps(original_run_agent)
@@ -620,8 +647,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                 attributes={
                                     "agent.type": "run_agent",
                                     "framework.name": "langgraph",
-                                    "framework.component": "customer_support_bot"
-                                }
+                                    "framework.component": "customer_support_bot",
+                                },
                             )
                         except Exception:
                             pass
@@ -639,10 +666,19 @@ class DecoratedToolsPatcher(BasePatcher):
                                         if hasattr(msg, "content"):
                                             content = msg.content
                                             # Simple heuristic to detect tool usage
-                                            if "I'll search for" in content or "I'll look up" in content:
+                                            if (
+                                                "I'll search for" in content
+                                                or "I'll look up" in content
+                                            ):
                                                 # This likely used a tool
                                                 tool_match = None
-                                                for tool_keyword in ["flight", "hotel", "policy", "car", "excursion"]:
+                                                for tool_keyword in [
+                                                    "flight",
+                                                    "hotel",
+                                                    "policy",
+                                                    "car",
+                                                    "excursion",
+                                                ]:
                                                     if tool_keyword in content.lower():
                                                         tool_match = tool_keyword
                                                         break
@@ -655,8 +691,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                             "tool.name": f"{tool_match}_tool",
                                                             "tool.result": content[:500],
                                                             "framework.name": "langgraph",
-                                                            "framework.component": "customer_support_bot"
-                                                        }
+                                                            "framework.component": "customer_support_bot",
+                                                        },
                                                     )
                             except Exception:
                                 pass
@@ -669,8 +705,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                         "agent.type": "run_agent",
                                         "framework.name": "langgraph",
                                         "framework.component": "customer_support_bot",
-                                        "agent.status": "success"
-                                    }
+                                        "agent.status": "success",
+                                    },
                                 )
                             except Exception:
                                 pass
@@ -685,8 +721,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                     attributes={
                                         "agent.type": "run_agent",
                                         "framework.name": "langgraph",
-                                        "framework.component": "customer_support_bot"
-                                    }
+                                        "framework.component": "customer_support_bot",
+                                    },
                                 )
                             except Exception:
                                 pass
@@ -709,9 +745,11 @@ class DecoratedToolsPatcher(BasePatcher):
                         obj = getattr(module, attr_name)
 
                         # Check if it's an agent executor with tools
-                        if (hasattr(obj, "tools") and hasattr(obj, "invoke") and
-                            not hasattr(obj, "__cylestio_patched__")):
-
+                        if (
+                            hasattr(obj, "tools")
+                            and hasattr(obj, "invoke")
+                            and not hasattr(obj, "__cylestio_patched__")
+                        ):
                             # Patch invoke method
                             original_invoke = obj.invoke
 
@@ -725,8 +763,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                         attributes={
                                             "agent.type": attr_name,
                                             "framework.name": "langchain",
-                                            "framework.component": "customer_support_bot"
-                                        }
+                                            "framework.component": "customer_support_bot",
+                                        },
                                     )
                                 except Exception:
                                     pass
@@ -749,8 +787,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                             "tool.name": tool.name,
                                                             "tool.result": output[:500],
                                                             "framework.name": "langchain",
-                                                            "framework.component": "customer_support_bot"
-                                                        }
+                                                            "framework.component": "customer_support_bot",
+                                                        },
                                                     )
                                     except Exception:
                                         pass
@@ -763,8 +801,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                                 "agent.type": attr_name,
                                                 "framework.name": "langchain",
                                                 "framework.component": "customer_support_bot",
-                                                "agent.status": "success"
-                                            }
+                                                "agent.status": "success",
+                                            },
                                         )
                                     except Exception:
                                         pass
@@ -779,8 +817,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                             attributes={
                                                 "agent.type": attr_name,
                                                 "framework.name": "langchain",
-                                                "framework.component": "customer_support_bot"
-                                            }
+                                                "framework.component": "customer_support_bot",
+                                            },
                                         )
                                     except Exception:
                                         pass
@@ -832,7 +870,7 @@ class DecoratedToolsPatcher(BasePatcher):
             # BaseTool instance
             lambda o: hasattr(o, "_run") and hasattr(o, "name") and hasattr(o, "description"),
             # Tool function with schema
-            lambda o: hasattr(o, "schema") and callable(o)
+            lambda o: hasattr(o, "schema") and callable(o),
         ]
 
         # Check each indicator
@@ -848,7 +886,11 @@ class DecoratedToolsPatcher(BasePatcher):
         try:
             if hasattr(obj, "__name__"):
                 # Check if the function has a docstring describing it as a tool
-                if obj.__doc__ and ("tool" in obj.__doc__.lower() or "look up" in obj.__doc__.lower() or "search" in obj.__doc__.lower()):
+                if obj.__doc__ and (
+                    "tool" in obj.__doc__.lower()
+                    or "look up" in obj.__doc__.lower()
+                    or "search" in obj.__doc__.lower()
+                ):
                     # Look at signature - tools often have typed args/return
                     sig = inspect.signature(obj)
                     # If it has typed annotations and a descriptive docstring, it's likely a tool
@@ -905,7 +947,7 @@ class DecoratedToolsPatcher(BasePatcher):
                 "tool.name": tool_name,
                 "tool.type": "function",
                 "tool.module": func_module,
-                "framework.name": "langchain"
+                "framework.name": "langchain",
             }
 
             # Get description if available
@@ -926,7 +968,11 @@ class DecoratedToolsPatcher(BasePatcher):
                 arg_str = ""
                 if args:
                     # Try to serialize args - handle case where first arg might be self
-                    if len(args) > 0 and hasattr(args[0], "__class__") and tool_name in dir(args[0].__class__):
+                    if (
+                        len(args) > 0
+                        and hasattr(args[0], "__class__")
+                        and tool_name in dir(args[0].__class__)
+                    ):
                         # This is likely 'self' - skip it
                         arg_str = str(args[1:]) if len(args) > 1 else ""
                     else:
@@ -937,7 +983,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                 # Add to attributes if not empty
                 if arg_str and arg_str != "()":
-                attributes["tool.args"] = arg_str
+                    attributes["tool.args"] = arg_str
             except Exception as e:
                 logger.debug(f"Error serializing tool arguments: {e}")
 
@@ -945,10 +991,7 @@ class DecoratedToolsPatcher(BasePatcher):
                 attributes["tool.kwargs"] = kwarg_str
 
             # Log tool start
-            log_event(
-                name="tool.start",
-                attributes=attributes
-            )
+            log_event(name="tool.start", attributes=attributes)
 
             try:
                 # Call the tool function
@@ -969,19 +1012,12 @@ class DecoratedToolsPatcher(BasePatcher):
                     result_attributes["tool.result.type"] = type(result).__name__
 
                 # Log tool end event
-                log_event(
-                    name="tool.end",
-                    attributes=result_attributes
-                )
+                log_event(name="tool.end", attributes=result_attributes)
 
                 return result
             except Exception as e:
                 # Log tool error
-                log_error(
-                    name="tool.error",
-                    error=e,
-                    attributes=attributes
-                )
+                log_error(name="tool.error", error=e, attributes=attributes)
                 raise
             finally:
                 # End span
@@ -995,7 +1031,14 @@ class DecoratedToolsPatcher(BasePatcher):
         monitored_tool.__signature__ = original_signature
 
         # Special handling for LangChain tool attributes
-        for attr in ["name", "description", "args_schema", "return_type", "tool_metadata", "schema"]:
+        for attr in [
+            "name",
+            "description",
+            "args_schema",
+            "return_type",
+            "tool_metadata",
+            "schema",
+        ]:
             if hasattr(tool_func, attr):
                 setattr(monitored_tool, attr, getattr(tool_func, attr))
 
@@ -1021,7 +1064,7 @@ class DecoratedToolsPatcher(BasePatcher):
             if not attr_name.startswith("__"):
                 try:
                     if not hasattr(monitored_version, attr_name):
-                    original_attr = getattr(tool_func, attr_name)
+                        original_attr = getattr(tool_func, attr_name)
                         setattr(monitored_version, attr_name, original_attr)
                 except (AttributeError, TypeError):
                     pass
@@ -1091,8 +1134,8 @@ def patch_decorated_tools(safe_mode=True):
             return False
     else:
         # Apply full patching (may break type system in complex environments)
-    patcher.patch()
-    return patcher._patched
+        patcher.patch()
+        return patcher._patched
 
 
 def unpatch_decorated_tools():
