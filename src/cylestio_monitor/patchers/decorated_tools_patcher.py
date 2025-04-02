@@ -587,7 +587,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                         # Mark agent as patched
                         obj.__cylestio_tools_patched__ = True
-                        self._patch_count += 1
+                                self._patch_count += 1
 
                 except Exception as e:
                     logger.debug(f"Error patching tools in module {module_name}: {str(e)}")
@@ -937,7 +937,7 @@ class DecoratedToolsPatcher(BasePatcher):
 
                 # Add to attributes if not empty
                 if arg_str and arg_str != "()":
-                    attributes["tool.args"] = arg_str
+                attributes["tool.args"] = arg_str
             except Exception as e:
                 logger.debug(f"Error serializing tool arguments: {e}")
 
@@ -1021,7 +1021,7 @@ class DecoratedToolsPatcher(BasePatcher):
             if not attr_name.startswith("__"):
                 try:
                     if not hasattr(monitored_version, attr_name):
-                        original_attr = getattr(tool_func, attr_name)
+                    original_attr = getattr(tool_func, attr_name)
                         setattr(monitored_version, attr_name, original_attr)
                 except (AttributeError, TypeError):
                     pass
@@ -1091,8 +1091,8 @@ def patch_decorated_tools(safe_mode=True):
             return False
     else:
         # Apply full patching (may break type system in complex environments)
-        patcher.patch()
-        return patcher._patched
+    patcher.patch()
+    return patcher._patched
 
 
 def unpatch_decorated_tools():
