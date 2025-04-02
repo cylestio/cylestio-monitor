@@ -47,17 +47,27 @@ Cylestio Monitor works by automatically patching supported LLM clients and frame
 
 ### Supported Frameworks
 
-- **LLM Clients**: Anthropic Claude (all versions), OpenAI (Chat Completions and Completions APIs)
-- **Agent Frameworks**: MCP (Model Context Protocol), LangChain, LangGraph
+- **LLM Clients**:
+  - Anthropic Claude (all versions)
+  - OpenAI (Chat Completions and Completions APIs)
+- **Agent Frameworks**:
+  - MCP (Model Context Protocol)
+  - LangChain (v0.1.0+)
+  - LangChain Core
+  - LangChain Community
+  - LangGraph
 
 ## Key Features
 
 - **Zero-configuration setup**: Import and enable with just two lines of code
 - **OpenTelemetry compliance**: Generate structured telemetry with trace context for distributed tracing
-- **Multi-framework support**: Works with popular LLM clients and frameworks including Model Context Protocol (MCP), LangChain, and LangGraph
+- **Multi-framework support**: Works with popular LLM clients and frameworks
 - **Hierarchical operation tracking**: Understand relationships between operations with spans and trace context
 - **Complete request-response tracking**: Captures both outgoing LLM requests and incoming responses
 - **Security monitoring**: Detects and flags suspicious or dangerous content
+- **Token usage tracking**: Monitor token consumption across supported providers
+- **Tool execution monitoring**: Track tool calls and their execution details
+- **Chain execution tracking**: Monitor LangChain chain execution with detailed metrics
 - **Performance tracking**: Monitors call durations and response times
 - **Flexible storage options**: Events can be sent to a remote API endpoint or stored locally in JSON files
 

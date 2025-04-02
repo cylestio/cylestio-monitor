@@ -5,6 +5,7 @@ This module provides a default converter for events that don't have a specific c
 It handles the basic conversion of events to the standardized schema.
 """
 
-from cylestio_monitor.events.converters.default.converter import DefaultEventConverter
+from cylestio_monitor.events.converters.default.converter import \
+    DefaultEventConverter
 
-__all__ = ['DefaultEventConverter'] 
+__all__ = ["DefaultEventConverter"]

@@ -5,7 +5,9 @@ Tests for the OpenTelemetry ID generation.
 import re
 import unittest
 
-from cylestio_monitor.utils.otel import generate_span_id, generate_trace_context, generate_trace_id
+from cylestio_monitor.utils.otel import (generate_span_id,
+                                         generate_trace_context,
+                                         generate_trace_id)
 
 
 class TestOtelIdGeneration(unittest.TestCase):

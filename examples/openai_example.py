@@ -14,9 +14,7 @@ Requirements:
     - cylestio_monitor package installed
 """
 
-import logging
 import os
-import sys
 import time
 
 from dotenv import load_dotenv
@@ -30,7 +28,11 @@ import cylestio_monitor
 # Step 3: Initialize monitoring
 cylestio_monitor.start_monitoring(
     agent_id="openai-example-agent",
-    config={"debug_level": "INFO", "development_mode": True, "log_file": "openai_example.json"},
+    config={
+        "debug_level": "INFO",
+        "development_mode": True,
+        "log_file": "openai_example.json",
+    },
 )
 
 # Step 4: Import OpenAI
@@ -50,7 +52,10 @@ def main():
         print("\n1. Running Chat Completions example (gpt-3.5-turbo):")
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Tell me about AI monitoring in one paragraph."},
+            {
+                "role": "user",
+                "content": "Tell me about AI monitoring in one paragraph.",
+            },
         ]
 
         # This call will be automatically monitored by Cylestio
@@ -116,7 +121,9 @@ def main():
     print("\nExample completed! All three model types tested:")
     print("1. Chat Model: gpt-3.5-turbo")
     print("2. Text Completion Model: gpt-3.5-turbo-instruct")
-    print("3. Code Completion Model: gpt-3.5-turbo-instruct (replacement for code-cushman-001)")
+    print(
+        "3. Code Completion Model: gpt-3.5-turbo-instruct (replacement for code-cushman-001)"
+    )
 
 
 if __name__ == "__main__":

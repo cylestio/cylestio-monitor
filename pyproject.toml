@@ -51,13 +51,6 @@ packages = ["src/cylestio_monitor"]
 "src/cylestio_monitor/config/default_config.yaml" = "cylestio_monitor/config/default_config.yaml"
 
 [project.optional-dependencies]
-dev = [
-    "black>=24.2.0",
-    "isort>=5.13.0",
-    "mypy>=1.8.0",
-    "ruff>=0.3.0",
-    "pre-commit>=3.6.0",
-]
 test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -70,32 +63,8 @@ test = [
 security = [
     "bandit>=1.7.0",
     "safety>=3.0.0",
-    "ruff>=0.3.0",
     "sentence-transformers>=3.1.0",  # Fix for PVE-2024-73169
 ]
-
-[tool.black]
-line-length = 100
-target-version = ["py312"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
-multi_line_output = 3
-
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -123,24 +92,3 @@ exclude_lines = [
     "pass",
     "raise ImportError",
 ]
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "C",   # flake8-comprehensions
-    "B",   # flake8-bugbear
-    "S",   # flake8-bandit
-]
-ignore = []
-
-[tool.ruff.per-file-ignores]
-"tests/*" = ["S101"]  # Allow assert in tests
-
-[tool.bandit]
-exclude_dirs = ["tests"]
-skips = ["B101"]  # Skip assert warnings in tests

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2024-04-02
+
+### Added
+- Added support for OpenAI Chat Completions and Completions APIs
+- Enhanced LangChain support with updated imports for langchain-core and langchain-community
+- Added monitoring for LangChain tools and tool decorators
+- Improved chain execution tracking with better span context
+- Added token usage tracking for supported LLM providers
+
+### Changed
+- Updated LangChain imports to use langchain-core and langchain-community packages
+- Improved tool monitoring with better error handling and context capture
+- Enhanced chain execution monitoring with more detailed metrics
+- Updated compatibility matrix to reflect new framework support
+
+### Fixed
+- Fixed import issues with LangChain components
+- Improved error handling in tool execution monitoring
+- Fixed span context propagation in chain execution
+- Resolved deprecation warnings in LangChain imports
+
 ## [0.1.5] - 2024-03-27
 
 ### Security
@@ -84,4 +105,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Implemented security checks for dangerous prompts
 - Added masking for sensitive data
-- Integrated with pre-commit hooks for security scanning 
+- Integrated with pre-commit hooks for security scanning

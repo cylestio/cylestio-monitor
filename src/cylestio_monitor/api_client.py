@@ -1,254 +1,268 @@
-"""
-REST API client for sending telemetry events to a remote endpoint.
+"""API client for sending telemetry data to the Cylestio API.
 
-This module provides a minimal implementation for sending telemetry events
-to a remote REST API endpoint.
+This module provides a client for sending telemetry data to the Cylestio API.
+It supports both synchronous and asynchronous sending of data.
 """
 
 import json
 import logging
-import os
 import threading
-import queue
 import time
-from typing import Any, Dict, Optional
-import requests
+import urllib.request
 from datetime import datetime
+from queue import Empty, Queue
+from typing import Any, Dict, List, Optional, Tuple
 
 from cylestio_monitor.config import ConfigManager
+from cylestio_monitor.utils.serialization import safe_event_serialize
 
-# Set up module-level logger
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = logging.getLogger("cylestio_monitor.api_client")
 
-# Get configuration manager instance
-config_manager = ConfigManager()
-
-# Global event queue for background processing
-_event_queue = queue.Queue()
-_thread_running = False
+# Background sending queue and thread
+_event_queue: Queue = Queue()
+_sender_thread: Optional[threading.Thread] = None
 _thread_stop_event = threading.Event()
 
 
 class ApiClient:
-    """
-    Simple REST API client for sending telemetry events to a remote endpoint.
-    """
+    """Client for sending telemetry data to the Cylestio API."""
 
-    def __init__(self, endpoint: Optional[str] = None, http_method: Optional[str] = None):
-        """
-        Initialize the API client.
-        
+    def __init__(
+        self, endpoint: Optional[str] = None, http_method: Optional[str] = None
+    ):
+        """Initialize the API client.
+
         Args:
-            endpoint: The remote API endpoint URL. If None, it will try to get from configuration or environment.
-            http_method: The HTTP method to use (POST, PUT, etc.). If None, it will try to get from configuration.
+            endpoint: The API endpoint to send data to
+            http_method: The HTTP method to use (POST or PUT)
+
+        Raises:
+            ValueError: If an invalid HTTP method is provided
         """
-        # Try to get endpoint from parameters, then config, then environment, then default
-        self.endpoint = endpoint
-        if not self.endpoint:
-            self.endpoint = config_manager.get("api.endpoint")
-        if not self.endpoint:
-            self.endpoint = os.environ.get("CYLESTIO_API_ENDPOINT")
-        if not self.endpoint:
-            # Set default endpoint if not provided anywhere else - use 127.0.0.1:8000
-            self.endpoint = "http://127.0.0.1:8000/api/v1/telemetry/"
-            logger.info(f"Using default API endpoint: {self.endpoint}")
-            
-        # Try to get HTTP method from parameters, then config, then default to POST
-        self.http_method = http_method
-        if not self.http_method:
-            self.http_method = config_manager.get("api.http_method", "POST")
-        if not self.http_method:
-            self.http_method = "POST"  # Default to POST if not specified
-            
-        # Get timeout from config or use default
-        self.timeout = config_manager.get("api.timeout", 5)
-            
-        logger.info(f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}")
+        # Load configuration
+        config = ConfigManager()
+
+        # Set endpoint
+        self.endpoint = (
+            endpoint
+            or config.get("api.endpoint")
+            or "http://127.0.0.1:8000/api/v1/telemetry/"
+        )
+
+        # Set HTTP method (defaulting to POST)
+        self.http_method = http_method or config.get("api.http_method") or "POST"
+        if self.http_method not in ["POST", "PUT"]:
+            raise ValueError(f"Invalid HTTP method: {self.http_method}")
+
+        # Log configuration
+        logger.info(
+            f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}"
+        )
+
+        # Set request timeout (default: 5 seconds)
+        self.timeout = int(config.get("api.timeout") or 5)
+
+        # Whether to send in background
+        self.send_in_background = bool(config.get("api.background_sending") or True)
 
     def send_event(self, event: Dict[str, Any]) -> bool:
-        """
-        Send a telemetry event to the remote API endpoint.
-        
-        Args:
-            event: The telemetry event data to send
-            
-        Returns:
-            bool: True if the event was successfully queued for sending
-        """
-        if not self.endpoint:
-            logger.warning("Cannot send event: No API endpoint configured")
-            return False
-        
-        # Add to the queue for background processing - non-blocking
-        _event_queue.put((self.endpoint, self.http_method, self.timeout, event))
-        
-        # Start background thread if not already running
-        _ensure_background_thread_running()
-        
-        return True
+        """Send an event to the API.
 
-    def _send_event_direct(self, endpoint: str, http_method: str, timeout: int, event: Dict[str, Any]) -> bool:
-        """
-        Directly send a telemetry event to the API endpoint.
-        
-        This is the actual sending logic used by the background thread.
-        
         Args:
-            endpoint: The API endpoint to send to
-            http_method: The HTTP method to use
-            timeout: Request timeout in seconds
-            event: The telemetry event data to send
-            
+            event: The event to send
+
         Returns:
-            bool: True if the event was successfully sent
+            bool: True if the event was sent successfully, False otherwise
+        """
+        # Apply safe serialization to the event attributes
+        event = self._ensure_serializable(event)
+
+        # Check if we should send in background
+        if self.send_in_background:
+            # Add to background queue
+            _event_queue.put((self.endpoint, self.http_method, self.timeout, event))
+            _ensure_background_thread_running()
+            return True
+        else:
+            # Send directly
+            return self._send_event_direct(
+                self.endpoint, self.http_method, self.timeout, event
+            )
+
+    def _ensure_serializable(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure the event is JSON serializable.
+
+        Args:
+            event: The event to check
+
+        Returns:
+            Dict: The serializable event
+        """
+        # Make a copy to avoid modifying the original
+        event_copy = event.copy()
+
+        # Safely serialize the attributes
+        if "attributes" in event_copy:
+            event_copy["attributes"] = safe_event_serialize(event_copy["attributes"])
+
+        return event_copy
+
+    def _send_event_direct(
+        self, endpoint: str, http_method: str, timeout: int, event: Dict[str, Any]
+    ) -> bool:
+        """Send an event directly to the API.
+
+        Args:
+            endpoint: The API endpoint
+            http_method: The HTTP method
+            timeout: Request timeout in seconds
+            event: The event to send
+
+        Returns:
+            bool: True if the event was sent successfully, False otherwise
         """
         try:
-            # Create the request based on the configured HTTP method
-            headers = {"Content-Type": "application/json"}
-            
-            # Debug logging
-            logger.debug(f"Sending event to API endpoint: {endpoint}")
-            
-            # Make the request using the configured HTTP method
-            if http_method.upper() == "POST":
-                response = requests.post(
-                    endpoint,
-                    json=event,
-                    headers=headers,
-                    timeout=timeout
-                )
-            elif http_method.upper() == "PUT":
-                response = requests.put(
-                    endpoint,
-                    json=event,
-                    headers=headers,
-                    timeout=timeout
-                )
-            else:
-                logger.error(f"Unsupported HTTP method: {http_method}")
-                return False
-            
-            # Check if the request was successful
-            if response.ok:
-                logger.debug(f"Event successfully sent to API endpoint")
+            # Convert event to JSON
+            event_json = json.dumps(event)
+            event_bytes = event_json.encode("utf-8")
+
+            # Create request
+            req = urllib.request.Request(
+                url=endpoint, data=event_bytes, method=http_method
+            )
+
+            # Add headers
+            req.add_header("Content-Type", "application/json")
+            req.add_header("User-Agent", "Cylestio-Monitor/1.0")
+
+            # Send request
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                status = response.status
+
+                if status < 200 or status >= 300:
+                    logger.warning(f"API request failed with status {status}")
+                    return False
+
                 return True
-            else:
-                logger.error(f"Failed to send event to API: {response.status_code} - {response.text}")
-                return False
-                
-        except requests.RequestException as e:
-            logger.error(f"Error sending event to API: {str(e)}")
-            return False
+
         except Exception as e:
-            logger.error(f"Unexpected error sending event to API: {str(e)}")
+            logger.error(f"Unexpected error sending event to API: {e}")
             return False
-
-
-# Create a global API client instance
-_api_client = None
 
 
 def _background_sender_thread():
-    """Background thread function for sending events from the queue."""
-    global _thread_running
-    
-    _thread_running = True
-    logger.debug("Background event sender thread started")
-    
-    api_client = get_api_client()
-    
-    while not _thread_stop_event.is_set():
-        try:
-            # Get an event from the queue with timeout
+    """Background thread for sending events to the API."""
+    logger.debug("Starting background sender thread")
+
+    # List to batch events
+    batch: List[Tuple[str, str, int, Dict[str, Any]]] = []
+    batch_size = 10  # Max events to send in a batch
+    last_send_time = time.time()
+    max_batch_age = 5  # Max seconds to hold events before sending
+
+    try:
+        while not _thread_stop_event.is_set():
             try:
-                endpoint, http_method, timeout, event = _event_queue.get(block=True, timeout=0.5)
-            except queue.Empty:
-                continue
-                
-            # Send the event
+                # Get the next event from the queue with a timeout
+                try:
+                    event_data = _event_queue.get(timeout=1.0)
+                    batch.append(event_data)
+                    _event_queue.task_done()
+                except Empty:
+                    # No new events
+                    pass
+
+                # Check if we should send the batch
+                batch_age = time.time() - last_send_time
+                if (len(batch) >= batch_size) or (batch and batch_age >= max_batch_age):
+                    # Process the batch
+                    for endpoint, http_method, timeout, event in batch:
+                        try:
+                            # Get an API client and send directly
+                            client = ApiClient(endpoint, http_method)
+                            client._send_event_direct(
+                                endpoint, http_method, timeout, event
+                            )
+                        except Exception as e:
+                            logger.error(f"Error in background sending: {e}")
+
+                    # Reset the batch
+                    batch = []
+                    last_send_time = time.time()
+
+            except Exception as e:
+                logger.error(f"Error in background sender thread: {e}")
+                time.sleep(1)  # Avoid tight loop on persistent errors
+
+    except Exception as e:
+        logger.error(f"Background sender thread died: {e}")
+    finally:
+        logger.debug("Background sender thread stopping")
+
+        # Attempt to send any remaining events
+        for endpoint, http_method, timeout, event in batch:
             try:
-                api_client._send_event_direct(endpoint, http_method, timeout, event)
-            finally:
-                # Mark task as done regardless of success
-                _event_queue.task_done()
-                
-        except Exception as e:
-            logger.error(f"Error in background sender thread: {str(e)}")
-    
-    # Process remaining items in the queue before exiting
-    while not _event_queue.empty():
-        try:
-            endpoint, http_method, timeout, event = _event_queue.get(block=False)
-            try:
-                api_client._send_event_direct(endpoint, http_method, timeout, event)
-            finally:
-                _event_queue.task_done()
-        except queue.Empty:
-            break
-        except Exception as e:
-            logger.error(f"Error processing remaining events: {str(e)}")
-    
-    logger.debug("Background event sender thread stopped")
-    _thread_running = False
+                client = ApiClient(endpoint, http_method)
+                client._send_event_direct(endpoint, http_method, timeout, event)
+            except Exception:
+                # Just log and continue
+                logger.error("Failed to send event during thread shutdown")
 
 
 def _ensure_background_thread_running():
     """Ensure the background sender thread is running."""
-    global _thread_running
-    
-    if not _thread_running and not _thread_stop_event.is_set():
-        thread = threading.Thread(target=_background_sender_thread, daemon=True)
-        thread.start()
+    global _sender_thread
+
+    if _sender_thread is None or not _sender_thread.is_alive():
+        _thread_stop_event.clear()
+        _sender_thread = threading.Thread(target=_background_sender_thread, daemon=True)
+        _sender_thread.start()
 
 
 def stop_background_thread():
     """Stop the background sender thread."""
-    global _thread_running
-    
-    if _thread_running:
+    global _sender_thread
+
+    if _sender_thread and _sender_thread.is_alive():
+        logger.debug("Stopping background sender thread")
         _thread_stop_event.set()
-        # Wait for the remaining events to be processed (with timeout)
-        try:
-            _event_queue.join(timeout=2.0)
-        except Exception:
-            pass
+        _sender_thread.join(timeout=5.0)
+        _sender_thread = None
+
+        # Process any remaining items in the queue
+        while not _event_queue.empty():
+            try:
+                endpoint, http_method, timeout, event = _event_queue.get(block=False)
+                client = ApiClient(endpoint, http_method)
+                client._send_event_direct(endpoint, http_method, timeout, event)
+                _event_queue.task_done()
+            except:
+                break
 
 
 def get_api_client() -> ApiClient:
-    """
-    Get the API client instance.
-    
+    """Get an API client with the default configuration.
+
     Returns:
-        ApiClient instance
+        ApiClient: The configured API client
     """
-    global _api_client
-    if _api_client is None:
-        _api_client = ApiClient()
-    return _api_client
+    return ApiClient()
 
 
 def send_event_to_api(event: Dict[str, Any]) -> bool:
-    """
-    Send an event to the remote API endpoint asynchronously.
-    
+    """Send an event to the API using the default client.
+
     Args:
-        event: The event to send (in OpenTelemetry-compliant format)
-        
+        event: The event to send
+
     Returns:
-        bool: True if the event was successfully queued for sending
+        bool: True if the event was sent successfully, False otherwise
     """
-    # Get the API client
-    api_client = get_api_client()
-    
-    # Check if we have an endpoint
-    if not api_client.endpoint:
-        return False
-        
-    # Queue the event for sending
-    return api_client.send_event(event)
+    client = get_api_client()
+    return client.send_event(event)
 
 
-# Legacy API function for backward compatibility - will be removed in future versions
 def send_event_to_api_legacy(
     agent_id: str,
     event_type: str,
@@ -256,14 +270,10 @@ def send_event_to_api_legacy(
     channel: str = "SYSTEM",
     level: str = "info",
     timestamp: Optional[datetime] = None,
-    direction: Optional[str] = None
+    direction: Optional[str] = None,
 ) -> bool:
-    """
-    Legacy function for sending an event to the remote API endpoint.
-    
-    This function is deprecated and will be removed in future versions.
-    Use the new send_event_to_api function instead.
-    
+    """Send an event to the API using the legacy format.
+
     Args:
         agent_id: Agent ID
         event_type: Event type
@@ -272,29 +282,26 @@ def send_event_to_api_legacy(
         level: Log level
         timestamp: Event timestamp (defaults to now)
         direction: Event direction
-        
+
     Returns:
         bool: True if the event was successfully sent, False otherwise
     """
     # Get timestamp if not provided
     if timestamp is None:
         timestamp = datetime.now()
-    
+
     # Create the event payload in the new format
     event = {
         "timestamp": timestamp.isoformat(),
         "agent_id": agent_id,
-        "name": event_type.lower().replace('_', '.'),
+        "name": event_type.lower().replace("_", "."),
         "level": level.upper(),
-        "attributes": {
-            **data,
-            "source": channel.upper()
-        }
+        "attributes": {**data, "source": channel.upper()},
     }
-    
+
     # Add direction if provided
     if direction:
         event["attributes"]["direction"] = direction
-        
+
     # Send the event
-    return send_event_to_api(event) 
+    return send_event_to_api(event)

@@ -34,7 +34,7 @@ def generate_span_id() -> str:
         A 16-character hex string representing a valid span ID.
     """
     # Generate a random 8-byte array (as hexadecimal string)
-    return ''.join(f'{random.randint(0, 255):02x}' for _ in range(8))
+    return "".join(f"{random.randint(0, 255):02x}" for _ in range(8))
 
 
 def generate_trace_context(parent_span_id: Optional[str] = None) -> Dict[str, str]:
@@ -50,5 +50,5 @@ def generate_trace_context(parent_span_id: Optional[str] = None) -> Dict[str, st
     return {
         "trace_id": generate_trace_id(),
         "span_id": generate_span_id(),
-        "parent_span_id": parent_span_id
-    } 
+        "parent_span_id": parent_span_id,
+    }

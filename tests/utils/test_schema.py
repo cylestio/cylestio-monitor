@@ -1,15 +1,15 @@
 """
 Tests for schema versioning and validation.
 """
+
 import pytest
-from cylestio_monitor.utils.schema import (
-    get_current_schema_version,
-    validate_schema_version,
-    validate_event_schema,
-    get_schema_evolution_history,
-    get_schema_version_guidelines,
-    migrate_event_to_current_version
-)
+
+from cylestio_monitor.utils.schema import (get_current_schema_version,
+                                           get_schema_evolution_history,
+                                           get_schema_version_guidelines,
+                                           migrate_event_to_current_version,
+                                           validate_event_schema,
+                                           validate_schema_version)
 
 
 def test_get_current_schema_version():
@@ -34,27 +34,27 @@ def test_validate_event_schema():
         "timestamp": "2025-03-25T12:23:21.816297",
         "name": "test.event",
         "level": "INFO",
-        "attributes": {}
+        "attributes": {},
     }
     assert validate_event_schema(valid_event) is True
-    
+
     # Missing required field
     invalid_event = {
         "schema_version": "1.0",
         "timestamp": "2025-03-25T12:23:21.816297",
         # Missing "name" field
         "level": "INFO",
-        "attributes": {}
+        "attributes": {},
     }
     assert validate_event_schema(invalid_event) is False
-    
+
     # Invalid schema version
     invalid_version_event = {
         "schema_version": "0.9",
         "timestamp": "2025-03-25T12:23:21.816297",
         "name": "test.event",
         "level": "INFO",
-        "attributes": {}
+        "attributes": {},
     }
     assert validate_event_schema(invalid_version_event) is False
 
@@ -85,21 +85,21 @@ def test_migrate_event_to_current_version():
         "timestamp": "2025-03-25T12:23:21.816297",
         "name": "test.event",
         "level": "INFO",
-        "attributes": {}
+        "attributes": {},
     }
     migrated_event = migrate_event_to_current_version(current_event)
     assert migrated_event == current_event
-    
+
     # Event with no version should get the current version
     no_version_event = {
         "timestamp": "2025-03-25T12:23:21.816297",
         "name": "test.event",
         "level": "INFO",
-        "attributes": {}
+        "attributes": {},
     }
     migrated_event = migrate_event_to_current_version(no_version_event)
     assert migrated_event["schema_version"] == get_current_schema_version()
 
 
 if __name__ == "__main__":
-    pytest.main(["-xvs", __file__]) 
+    pytest.main(["-xvs", __file__])

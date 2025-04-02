@@ -10,10 +10,7 @@ import pytest
 try:
     # Import directly from module under test
     from cylestio_monitor.patchers.openai_patcher import (
-        OpenAIPatcher,
-        patch_openai_module,
-        unpatch_openai_module,
-    )
+        OpenAIPatcher, patch_openai_module, unpatch_openai_module)
 
     OPENAI_AVAILABLE = True
 except ImportError:
@@ -32,7 +29,9 @@ class MockPatcherModules:
         if "cylestio_monitor.patchers.openai_patcher.TraceContext" not in sys.modules:
             mock_trace_context = mock.MagicMock()
             mock_trace_context.start_span.return_value = {"span_id": "test-span-id"}
-            mock_trace_context.get_current_context.return_value = {"trace_id": "test-trace-id"}
+            mock_trace_context.get_current_context.return_value = {
+                "trace_id": "test-trace-id"
+            }
             sys.modules[
                 "cylestio_monitor.patchers.openai_patcher.TraceContext"
             ] = mock_trace_context
@@ -40,12 +39,16 @@ class MockPatcherModules:
         # Mock the log_event function
         if "cylestio_monitor.patchers.openai_patcher.log_event" not in sys.modules:
             mock_log_event = mock.MagicMock()
-            sys.modules["cylestio_monitor.patchers.openai_patcher.log_event"] = mock_log_event
+            sys.modules[
+                "cylestio_monitor.patchers.openai_patcher.log_event"
+            ] = mock_log_event
 
         # Mock the log_error function
         if "cylestio_monitor.patchers.openai_patcher.log_error" not in sys.modules:
             mock_log_error = mock.MagicMock()
-            sys.modules["cylestio_monitor.patchers.openai_patcher.log_error"] = mock_log_error
+            sys.modules[
+                "cylestio_monitor.patchers.openai_patcher.log_error"
+            ] = mock_log_error
 
 
 # Setup the mocks first before importing the module under test
@@ -71,12 +74,16 @@ class TestOpenAIPatcher(unittest.TestCase):
 
         # Setup completions.create
         self.mock_completions = mock.MagicMock()
-        self.original_completions_create = mock.MagicMock(name="original_completions_create")
+        self.original_completions_create = mock.MagicMock(
+            name="original_completions_create"
+        )
         self.mock_completions.create = self.original_completions_create
 
         # Create property mocks for the attributes
         type(self.client).chat = mock.PropertyMock(return_value=self.mock_chat)
-        type(self.client).completions = mock.PropertyMock(return_value=self.mock_completions)
+        type(self.client).completions = mock.PropertyMock(
+            return_value=self.mock_completions
+        )
 
         # Create an instance of the patcher
         self.patcher = OpenAIPatcher(client=self.client)
@@ -126,7 +133,9 @@ class TestOpenAIPatcher(unittest.TestCase):
         self.patcher.patch()
 
         # Verify the method was patched
-        self.assertNotEqual(self.mock_chat_completions.create, self.original_chat_create)
+        self.assertNotEqual(
+            self.mock_chat_completions.create, self.original_chat_create
+        )
 
         # Call the patched method with test data
         messages = [{"role": "user", "content": "Hello"}]
@@ -165,12 +174,17 @@ class TestOpenAIPatcher(unittest.TestCase):
         self.patcher.patch()
 
         # Verify the method was patched
-        self.assertNotEqual(self.mock_completions.create, self.original_completions_create)
+        self.assertNotEqual(
+            self.mock_completions.create, self.original_completions_create
+        )
 
         # Call the patched method with test data
         prompt = "Say hello"
         result = self.client.completions.create(
-            model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.7, max_tokens=100
+            model="gpt-3.5-turbo-instruct",
+            prompt=prompt,
+            temperature=0.7,
+            max_tokens=100,
         )
 
         # Verify the original method was called with the right arguments
@@ -190,8 +204,12 @@ class TestOpenAIPatcher(unittest.TestCase):
         self.patcher.patch()
 
         # Verify the methods were changed
-        self.assertNotEqual(self.mock_chat_completions.create, self.original_chat_create)
-        self.assertNotEqual(self.mock_completions.create, self.original_completions_create)
+        self.assertNotEqual(
+            self.mock_chat_completions.create, self.original_chat_create
+        )
+        self.assertNotEqual(
+            self.mock_completions.create, self.original_completions_create
+        )
 
         # Unpatch
         self.patcher.unpatch()

@@ -32,7 +32,9 @@ _original_methods = {}
 class OpenAIPatcher(BasePatcher):
     """Patcher for monitoring OpenAI API calls."""
 
-    def __init__(self, client: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, client: Optional[Any] = None, config: Optional[Dict[str, Any]] = None
+    ):
         """Initialize OpenAI patcher.
 
         Args:
@@ -132,15 +134,21 @@ class OpenAIPatcher(BasePatcher):
 
                     # Add security details if something was detected
                     if security_info["alert_level"] != "none":
-                        request_attributes["security.alert_level"] = security_info["alert_level"]
-                        request_attributes["security.keywords"] = security_info["keywords"]
+                        request_attributes["security.alert_level"] = security_info[
+                            "alert_level"
+                        ]
+                        request_attributes["security.keywords"] = security_info[
+                            "keywords"
+                        ]
 
                         # Log security event separately
                         self._log_security_event(security_info, request_data)
 
                     # Log the request with debug mode info if enabled
                     if self.debug_mode:
-                        self.logger.debug(f"Request data: {json.dumps(request_data)[:500]}...")
+                        self.logger.debug(
+                            f"Request data: {json.dumps(request_data)[:500]}..."
+                        )
 
                     # Log the request event
                     log_event(
@@ -187,13 +195,13 @@ class OpenAIPatcher(BasePatcher):
                         if choices:
                             first_choice = choices[0]
                             if "message" in first_choice:
-                                response_attributes["llm.response.content"] = self._safe_serialize(
-                                    first_choice["message"]
-                                )
+                                response_attributes[
+                                    "llm.response.content"
+                                ] = self._safe_serialize(first_choice["message"])
                             if "finish_reason" in first_choice:
-                                response_attributes["llm.response.stop_reason"] = first_choice[
-                                    "finish_reason"
-                                ]
+                                response_attributes[
+                                    "llm.response.stop_reason"
+                                ] = first_choice["finish_reason"]
 
                         # Add usage statistics if available
                         if usage:
@@ -360,15 +368,21 @@ class OpenAIPatcher(BasePatcher):
 
                     # Add security details if something was detected
                     if security_info["alert_level"] != "none":
-                        request_attributes["security.alert_level"] = security_info["alert_level"]
-                        request_attributes["security.keywords"] = security_info["keywords"]
+                        request_attributes["security.alert_level"] = security_info[
+                            "alert_level"
+                        ]
+                        request_attributes["security.keywords"] = security_info[
+                            "keywords"
+                        ]
 
                         # Log security event separately
                         self._log_security_event(security_info, request_data)
 
                     # Log the request with debug mode info if enabled
                     if self.debug_mode:
-                        self.logger.debug(f"Request data: {json.dumps(request_data)[:500]}...")
+                        self.logger.debug(
+                            f"Request data: {json.dumps(request_data)[:500]}..."
+                        )
 
                     # Log the request event
                     log_event(
@@ -415,13 +429,13 @@ class OpenAIPatcher(BasePatcher):
                         if choices:
                             first_choice = choices[0]
                             if "text" in first_choice:
-                                response_attributes["llm.response.content"] = self._safe_serialize(
-                                    first_choice["text"]
-                                )
+                                response_attributes[
+                                    "llm.response.content"
+                                ] = self._safe_serialize(first_choice["text"])
                             if "finish_reason" in first_choice:
-                                response_attributes["llm.response.stop_reason"] = first_choice[
-                                    "finish_reason"
-                                ]
+                                response_attributes[
+                                    "llm.response.stop_reason"
+                                ] = first_choice["finish_reason"]
 
                         # Add usage statistics if available
                         if usage:
@@ -545,7 +559,10 @@ class OpenAIPatcher(BasePatcher):
 
         # Handle dictionaries
         if isinstance(obj, dict):
-            return {str(k): self._safe_serialize(v, depth + 1, max_depth) for k, v in obj.items()}
+            return {
+                str(k): self._safe_serialize(v, depth + 1, max_depth)
+                for k, v in obj.items()
+            }
 
         # Handle objects with a to_dict method
         if hasattr(obj, "to_dict") and callable(obj.to_dict):
@@ -774,10 +791,16 @@ class OpenAIPatcher(BasePatcher):
             self.logger.error(f"Error extracting response data: {e}")
             # Return minimal data in case of error
             response_data = {
-                "id": getattr(result, "id", "unknown") if hasattr(result, "id") else "unknown",
-                "model": getattr(result, "model", "unknown")
-                if hasattr(result, "model")
-                else "unknown",
+                "id": (
+                    getattr(result, "id", "unknown")
+                    if hasattr(result, "id")
+                    else "unknown"
+                ),
+                "model": (
+                    getattr(result, "model", "unknown")
+                    if hasattr(result, "model")
+                    else "unknown"
+                ),
             }
 
         return response_data
@@ -851,10 +874,16 @@ class OpenAIPatcher(BasePatcher):
             self.logger.error(f"Error extracting response data: {e}")
             # Return minimal data in case of error
             response_data = {
-                "id": getattr(result, "id", "unknown") if hasattr(result, "id") else "unknown",
-                "model": getattr(result, "model", "unknown")
-                if hasattr(result, "model")
-                else "unknown",
+                "id": (
+                    getattr(result, "id", "unknown")
+                    if hasattr(result, "id")
+                    else "unknown"
+                ),
+                "model": (
+                    getattr(result, "model", "unknown")
+                    if hasattr(result, "model")
+                    else "unknown"
+                ),
             }
 
         return response_data
@@ -866,7 +895,9 @@ class OpenAIPatcher(BasePatcher):
 
         # Unpatch chat completions create
         if "chat.completions.create" in self.original_funcs:
-            self.client.chat.completions.create = self.original_funcs["chat.completions.create"]
+            self.client.chat.completions.create = self.original_funcs[
+                "chat.completions.create"
+            ]
 
         # Unpatch completions create
         if "completions.create" in self.original_funcs:
@@ -963,7 +994,10 @@ class OpenAIPatcher(BasePatcher):
                 OpenAI.__init__ = _original_methods["OpenAI.__init__"]
 
             # Restore original AsyncOpenAI constructor
-            if "AsyncOpenAI.__init__" in _original_methods and "AsyncOpenAI" in globals():
+            if (
+                "AsyncOpenAI.__init__" in _original_methods
+                and "AsyncOpenAI" in globals()
+            ):
                 AsyncOpenAI.__init__ = _original_methods["AsyncOpenAI.__init__"]
 
             _is_module_patched = False

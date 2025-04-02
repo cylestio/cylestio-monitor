@@ -1,8 +1,8 @@
 """Base patcher class for Cylestio Monitor."""
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type
 import logging
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
 
 class BasePatcher(ABC):
@@ -56,19 +56,19 @@ class BasePatcher(ABC):
     @classmethod
     def patch_module(cls) -> None:
         """Apply global patches to the module rather than specific instances.
-        
+
         This is used for automatic detection and patching of library modules
         without requiring explicit client instantiation.
-        
+
         Subclasses should implement this if they support module-level patching.
         """
         logger = logging.getLogger(f"CylestioMonitor.Patcher.{cls.__name__}")
         logger.debug(f"Module-level patching not implemented for {cls.__name__}")
-        
-    @classmethod    
+
+    @classmethod
     def unpatch_module(cls) -> None:
         """Remove global patches from the module.
-        
+
         Subclasses should implement this if they support module-level patching.
         """
         logger = logging.getLogger(f"CylestioMonitor.Patcher.{cls.__name__}")

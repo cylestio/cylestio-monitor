@@ -2,4 +2,4 @@
 
 from cylestio_monitor.events.processors.event_processor import EventProcessor
 
-__all__ = ["EventProcessor"] 
+__all__ = ["EventProcessor"]
