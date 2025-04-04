@@ -179,7 +179,7 @@ def main():
     original_blocked_keywords = config_manager.get("security.blocked_keywords")
 
     # Set temporary config values
-    config_manager.set("api_endpoint", "http://localhost:8000/api/v1/telemetry/")
+    config_manager.set("api_endpoint", "http://localhost:8000/v1/telemetry")
     config_manager.set("log_file", "output/chatbot_monitoring.json")
     config_manager.set("enable_file_logging", True)
     config_manager.set("enable_api_logging", False)  # Disable API logging for demo
