@@ -42,7 +42,7 @@ monitoring:
 # API configuration
 api:
   # API endpoint for sending telemetry events
-  endpoint: "http://127.0.0.1:8000/api/v1/telemetry/"
+  endpoint: "http://127.0.0.1:8000/v1/telemetry"
   # HTTP method to use (POST, PUT, etc.)
   http_method: "POST"
   # Timeout in seconds

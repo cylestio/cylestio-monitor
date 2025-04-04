@@ -47,7 +47,7 @@ class ApiClient:
         self.endpoint = (
             endpoint
             or config.get("api.endpoint")
-            or "http://127.0.0.1:8000/api/v1/telemetry/"
+            or "http://127.0.0.1:8000/v1/telemetry"
         )
 
         # Set HTTP method (defaulting to POST)

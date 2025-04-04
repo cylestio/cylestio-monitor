@@ -33,10 +33,11 @@ def start_monitoring(
     Args:
         agent_id: Unique identifier for the agent
         config: Optional configuration dictionary that can include:
+            - events_output_file: Path to store event data in JSON format
+            - log_file: (DEPRECATED, use events_output_file) Path to the output log file
+            - debug_mode: Whether to show debug output (default: False)
+            - debug_log_file: Path to file for debug logs (if provided, debug logs go to this file instead of console)
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            - log_file: Path to the output log file (if None, only API logging is used)
-                - If a directory is provided, a file named "{agent_id}_monitoring_{timestamp}.json" will be created
-                - If a file without extension is provided, ".json" will be added
             - api_endpoint: URL of the remote API endpoint to send events to
             - development_mode: Enable additional development features like detailed logging
 
@@ -62,9 +63,17 @@ def start_monitoring(
 
     # Extract debug level from config
     debug_level = config.get("debug_level", "INFO")
+    
+    # Extract debug mode settings
+    debug_mode = config.get("debug_mode", False)
+    debug_log_file = config.get("debug_log_file", None)
 
-    # Extract log file path from config
-    log_file = config.get("log_file")
+    # Extract event output file path from config
+    # Check for both new parameter name and old one for backward compatibility
+    events_output_file = config.get("events_output_file")
+    if events_output_file is None:
+        # Fall back to legacy parameter name if new one isn't provided
+        events_output_file = config.get("log_file")
 
     # Check if development mode is enabled
     development_mode = config.get("development_mode", False)
@@ -74,9 +83,15 @@ def start_monitoring(
         # Use debug level if not explicitly set
         if "debug_level" not in config:
             debug_level = "DEBUG"
+        # Force debug mode on in development mode unless explicitly turned off
+        if "debug_mode" not in config:
+            debug_mode = True
 
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
+    
+    # Prevent logs from propagating to the root logger
+    monitor_logger.propagate = False
 
     # Set the logging level based on the debug_level parameter
     level = getattr(logging, debug_level.upper(), logging.INFO)
@@ -85,35 +100,89 @@ def start_monitoring(
     # Remove any existing handlers to avoid duplicate logs
     for handler in monitor_logger.handlers[:]:
         monitor_logger.removeHandler(handler)
-
-    # Process log_file path if provided
-    if log_file:
-        # If log_file is a directory, create a file with the agent_id in the name
-        if os.path.isdir(log_file):
+        
+    # Get all other SDK loggers and configure them too
+    sdk_loggers = [
+        logging.getLogger(name) for name in logging.root.manager.loggerDict 
+        if name.startswith("cylestio_") or name.startswith("CylestioMonitor")
+    ]
+    
+    # Process events output file path if provided
+    if events_output_file:
+        # If events_output_file is a directory, create a file with the agent_id in the name
+        if os.path.isdir(events_output_file):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_filename = f"{agent_id}_monitoring_{timestamp}.json"
-            log_file = os.path.join(log_file, log_filename)
-        # If log_file doesn't have an extension, add .json
-        elif not os.path.splitext(log_file)[1]:
-            log_file = f"{log_file}.json"
+            events_output_file = os.path.join(events_output_file, log_filename)
+        # If events_output_file doesn't have an extension, add .json
+        elif not os.path.splitext(events_output_file)[1]:
+            events_output_file = f"{events_output_file}.json"
 
         # Create the directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
+        log_dir = os.path.dirname(events_output_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
-
-    # Add a console handler for debug logs only
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(
-        logging.Formatter("CylestioSDK - %(levelname)s: %(message)s")
-    )
-    monitor_logger.addHandler(console_handler)
+    
+    # Setup debug logging based on configuration
+    if debug_mode:
+        if debug_log_file:
+            # Create debug log file directory if it doesn't exist
+            debug_log_dir = os.path.dirname(debug_log_file)
+            if debug_log_dir and not os.path.exists(debug_log_dir):
+                os.makedirs(debug_log_dir, exist_ok=True)
+                
+            # Add file handler for debug logs
+            debug_file_handler = logging.FileHandler(debug_log_file)
+            debug_file_handler.setLevel(level)
+            debug_file_handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            )
+            monitor_logger.addHandler(debug_file_handler)
+            
+            # Apply the same file handler to all SDK loggers
+            for sdk_logger in sdk_loggers:
+                sdk_logger.setLevel(level)
+                sdk_logger.propagate = False
+                if not any(isinstance(h, logging.FileHandler) for h in sdk_logger.handlers):
+                    sdk_logger.addHandler(logging.FileHandler(debug_log_file))
+            
+            # Log to file that we're starting with debug output to file
+            monitor_logger.info(f"Debug logging enabled, writing to: {debug_log_file}")
+        else:
+            # Add a console handler for debug logs
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(level)
+            console_handler.setFormatter(
+                logging.Formatter("CylestioSDK - %(levelname)s: %(message)s")
+            )
+            monitor_logger.addHandler(console_handler)
+            
+            # Apply the same console handler to all SDK loggers
+            for sdk_logger in sdk_loggers:
+                sdk_logger.setLevel(level)
+                sdk_logger.propagate = False
+                if not any(isinstance(h, logging.StreamHandler) for h in sdk_logger.handlers):
+                    sdk_logger.addHandler(console_handler)
+    else:
+        # Suppress all debug logging from the SDK
+        null_handler = logging.NullHandler()
+        monitor_logger.addHandler(null_handler)
+        
+        # Suppress logging for all SDK loggers
+        for sdk_logger in sdk_loggers:
+            sdk_logger.setLevel(logging.CRITICAL)  # Set very high threshold
+            sdk_logger.propagate = False
+            for handler in sdk_logger.handlers[:]:
+                sdk_logger.removeHandler(handler)
+            sdk_logger.addHandler(logging.NullHandler())
 
     # Store the agent ID and log file in the configuration
     config_manager = ConfigManager()
     config_manager.set("monitoring.agent_id", agent_id)
-    config_manager.set("monitoring.log_file", log_file)
+    config_manager.set("monitoring.log_file", events_output_file)  # For backward compatibility
+    config_manager.set("monitoring.events_output_file", events_output_file)
+    config_manager.set("monitoring.debug_mode", debug_mode)
+    config_manager.set("monitoring.debug_log_file", debug_log_file)
     config_manager.save()
 
     # Initialize the API client if endpoint is provided
@@ -373,10 +442,39 @@ def stop_monitoring() -> None:
 
     # Reset the trace context
     TraceContext.reset()
-
-    logger.info("Monitoring stopped")
+    
+    # Clean up all SDK loggers
     monitor_logger = logging.getLogger("CylestioMonitor")
-    monitor_logger.info("Monitoring stopped")
+    
+    # Close and remove all handlers from the main logger
+    for handler in monitor_logger.handlers[:]:
+        try:
+            handler.close()
+        except:
+            pass
+        monitor_logger.removeHandler(handler)
+    
+    # Add a null handler to prevent "No handlers could be found" warnings
+    monitor_logger.addHandler(logging.NullHandler())
+    
+    # Clean up all other SDK loggers
+    sdk_loggers = [
+        logging.getLogger(name) for name in logging.root.manager.loggerDict 
+        if name.startswith("cylestio_") or name.startswith("CylestioMonitor")
+    ]
+    
+    for sdk_logger in sdk_loggers:
+        for handler in sdk_logger.handlers[:]:
+            try:
+                handler.close()
+            except:
+                pass
+            sdk_logger.removeHandler(handler)
+        sdk_logger.addHandler(logging.NullHandler())
+        sdk_logger.setLevel(logging.CRITICAL)
+    
+    # Final log message through standard logger (not SDK logger)
+    logger.info("Monitoring stopped")
 
 
 def get_api_endpoint() -> str:

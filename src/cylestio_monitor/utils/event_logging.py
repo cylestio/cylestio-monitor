@@ -137,21 +137,24 @@ def _write_to_log_file(event: Dict[str, Any]) -> None:
         event: The event to write
     """
     config_manager = ConfigManager()
-    log_file = config_manager.get("monitoring.log_file")
+    # Check for new parameter name first, fall back to old one for backward compatibility
+    events_file = config_manager.get("monitoring.events_output_file")
+    if events_file is None:
+        events_file = config_manager.get("monitoring.log_file")
 
-    if log_file:
+    if events_file:
         try:
-            logger.debug(f"Writing event to log file: {log_file}")
+            logger.debug(f"Writing event to file: {events_file}")
             logger.debug(f"Event data: {json.dumps(event)[:200]}...")
 
-            with open(log_file, "a") as f:
+            with open(events_file, "a") as f:
                 f.write(json.dumps(event) + "\n")
 
-            logger.debug("Successfully wrote event to log file")
+            logger.debug("Successfully wrote event to file")
         except Exception as e:
-            logger.error(f"Failed to write to log file: {e}")
+            logger.error(f"Failed to write to event file: {e}")
     else:
-        logger.debug("No log file configured, skipping file logging")
+        logger.debug("No events output file configured, skipping file logging")
 
 
 def _send_to_api(event: Dict[str, Any]) -> None:
