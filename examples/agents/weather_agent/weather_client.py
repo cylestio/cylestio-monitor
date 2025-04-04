@@ -12,6 +12,7 @@ import logging
 import os
 from contextlib import AsyncExitStack
 from typing import Optional
+from pathlib import Path
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -31,8 +32,21 @@ logger = logging.getLogger("Weather AI Agent")
 # Load environment variables from .env file
 load_dotenv()
 
+# Create output directory if it doesn't exist
+output_dir = Path("output")
+output_dir.mkdir(exist_ok=True)
+
+# Configure Cylestio monitoring with simplified configuration
 cylestio_monitor.start_monitoring(
-    agent_id="weather-agent", config={"log_file": "output/weather_monitoring.json"}
+    agent_id="weather-agent",
+    config={
+        # Event data output file
+        "events_output_file": "output/weather_monitoring.json",
+        
+        # Debug configuration - explicitly disabled by default
+        "debug_mode": True,  # Explicitly enable debug output
+        "debug_log_file": "output/cylestio_debug.log",  # Optional: Send debug to file
+    }
 )
 
 

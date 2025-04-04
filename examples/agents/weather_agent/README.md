@@ -67,6 +67,31 @@ The monitoring data is stored in:
 - An SQLite database at the default location
 - JSON logs in the `output/` directory
 
+### Debug Logging
+
+This example includes simple debug logging configuration:
+
+```python
+cylestio_monitor.start_monitoring(
+    agent_id="weather-agent",
+    config={
+        "events_output_file": "output/weather_monitoring.json",
+        
+        # Debug configuration - simple and direct
+        "debug_mode": False,  # Set to True to enable debug output
+        "debug_log_file": "output/cylestio_debug.log",  # Optional: Send debug to file
+        # "debug_level": "INFO",  # Optional: Control verbosity level
+    }
+)
+```
+
+To enable debugging:
+1. Set `debug_mode` to `True` in the configuration
+2. Optionally specify a `debug_log_file` to send debug output to a file
+3. Optionally set `debug_level` to control verbosity (DEBUG, INFO, WARNING, ERROR)
+
+This approach separates the event monitoring logs (in JSON format) from debug logs, making it easier to troubleshoot issues without cluttering your terminal.
+
 ## Code Structure
 
 - `weather_client.py`: The main client application that connects to both Claude and the MCP server
@@ -78,4 +103,4 @@ The monitoring data is stored in:
 
 - **Anthropic SDK**: For Claude API integration (v0.18.0+)
 - **MCP**: For tool integration (v1.3.0+)
-- **Cylestio Monitor**: For security and performance monitoring 
+- **Cylestio Monitor**: For security and performance monitoring
