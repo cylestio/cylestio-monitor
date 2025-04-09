@@ -12,6 +12,7 @@ import threading
 from typing import Any, Dict, List, Set, Optional, Tuple
 
 from cylestio_monitor.config import ConfigManager
+from cylestio_monitor.security_detection.patterns import PatternRegistry
 
 logger = logging.getLogger("CylestioMonitor.Security")
 
@@ -32,6 +33,9 @@ class SecurityScanner:
     
     # Category configuration - immutable after initialization
     _categories: Dict[str, Dict[str, Any]] = {}
+    
+    # Pattern registry for regex pattern matching
+    _pattern_registry: Optional[PatternRegistry] = None
     
     # Flags for initialization state
     _is_initialized = False
@@ -63,9 +67,12 @@ class SecurityScanner:
             # Load all keywords from the config
             self._load_keywords()
             
+            # Initialize pattern registry
+            self._pattern_registry = PatternRegistry.get_instance(self.config_manager)
+            
             # Mark as initialized
             self._is_initialized = True
-            logger.info("Security scanner initialized with keywords")
+            logger.info("Security scanner initialized with keywords and patterns")
 
     def _load_keywords(self):
         """Load keywords and categories from configuration with fallbacks."""
@@ -209,7 +216,10 @@ class SecurityScanner:
         with self._init_lock:
             self.config_manager.reload()
             self._load_keywords()
-            logger.info("Security keywords reloaded from config")
+            # Reload pattern registry
+            if self._pattern_registry:
+                self._pattern_registry.reload_config()
+            logger.info("Security keywords and patterns reloaded from config")
 
     def scan_event(self, event: Any) -> Dict[str, Any]:
         """Scan any event type for security concerns.
@@ -340,31 +350,82 @@ class SecurityScanner:
         for keyword in self._sensitive_data_keywords:
             if self._word_boundary_match(keyword, normalized):
                 matches["sensitive_data"].append(keyword)
+        
+        # Check patterns with pattern registry
+        pattern_matches = []
+        masked_pattern_refs = []
+        if self._pattern_registry:
+            pattern_matches = self._pattern_registry.scan_text(original, mask_values=True)
+            
+            # Add pattern matches to the appropriate categories using masked values
+            for match in pattern_matches:
+                category = match.get("category", "sensitive_data")
+                if category in matches:
+                    masked_value = match.get("masked_value", match.get("matched_value", ""))
+                    pattern_ref = f"{match['pattern_name']}:{masked_value}"
+                    matches[category].append(pattern_ref)
+                    masked_pattern_refs.append(pattern_ref)
                 
         # Determine category, severity, and alert level
-        category, severity, alert_level, description, found_keywords = self._determine_category_and_severity(matches)
+        category, severity, alert_level, description, found_keywords = self._determine_category_and_severity(matches, pattern_matches)
         
-        # Return detailed result
-        return {
+        # Return detailed result with pattern matches
+        result = {
             "alert_level": alert_level,
             "category": category,
             "severity": severity,
             "description": description,
             "keywords": found_keywords
         }
+        
+        # Add pattern_matches if any were found, but ensure sensitive data is masked
+        if pattern_matches:
+            # Create a list of matches with masked values
+            masked_matches = []
+            for match in pattern_matches:
+                # Create a copy of the match with masked value replacing the actual value
+                masked_match = match.copy()
+                if "matched_value" in masked_match and "masked_value" in masked_match:
+                    # Replace the actual matched value with the masked one for logging
+                    masked_match["matched_value"] = masked_match["masked_value"]
+                    # Remove the redundant masked_value field
+                    del masked_match["masked_value"]
+                masked_matches.append(masked_match)
+                
+            result["pattern_matches"] = masked_matches
+            
+        return result
     
-    def _determine_category_and_severity(self, matches: Dict[str, List[str]]) -> Tuple[Optional[str], Optional[str], str, Optional[str], List[str]]:
+    def _determine_category_and_severity(self, matches: Dict[str, List[str]], pattern_matches: List[Dict[str, Any]] = None) -> Tuple[Optional[str], Optional[str], str, Optional[str], List[str]]:
         """Determine the most severe category and appropriate severity based on matches.
         
         Args:
             matches: Dictionary of matches by category
+            pattern_matches: List of pattern matches with severity information
             
         Returns:
             Tuple of (category, severity, alert_level, description, keywords)
         """
         # No matches at all
-        if not any(matches.values()):
+        if not any(matches.values()) and not pattern_matches:
             return None, None, "none", None, []
+        
+        # Initialize highest severity based on patterns
+        highest_pattern_severity = None
+        highest_pattern_category = None
+        highest_pattern_description = None
+        
+        # Check if we have any high severity pattern matches
+        if pattern_matches:
+            for match in pattern_matches:
+                pattern_severity = match.get("severity", "medium")
+                if pattern_severity == "high" or (highest_pattern_severity is None and pattern_severity == "medium"):
+                    highest_pattern_severity = pattern_severity
+                    highest_pattern_category = match.get("category", "sensitive_data")
+                    highest_pattern_description = match.get("description", f"Pattern match: {match.get('pattern_name', 'unknown')}")
+                    # Break early if we found a high severity match
+                    if pattern_severity == "high":
+                        break
             
         # Priority order of categories (dangerous_commands takes precedence over others)
         priority_order = ["dangerous_commands", "prompt_manipulation", "sensitive_data"]
@@ -392,7 +453,18 @@ class SecurityScanner:
                     "high": "dangerous"
                 }.get(severity, "suspicious")
                 
+                # If we have a high severity pattern match, use it for dangerous commands and sensitive_data
+                if highest_pattern_severity == "high" and (category == "sensitive_data" or not matches["dangerous_commands"]):
+                    return highest_pattern_category, "high", "dangerous", highest_pattern_description, matches[highest_pattern_category]
+                
                 return category, severity, alert_level, description, matches[category]
+        
+        # If we get here and have a pattern match, use it
+        if highest_pattern_severity:
+            alert_level = "suspicious"
+            if highest_pattern_severity == "high":
+                alert_level = "dangerous"
+            return highest_pattern_category, highest_pattern_severity, alert_level, highest_pattern_description, matches.get(highest_pattern_category, [])
         
         # Fallback if we have matches but no category in priority order matched
         for category, keywords in matches.items():

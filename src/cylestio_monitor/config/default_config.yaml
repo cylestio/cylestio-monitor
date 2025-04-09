@@ -64,6 +64,59 @@ security:
         - "malware"
         - "compromise"
         - "vulnerable"
+  
+  # Regex patterns for security scanning
+  patterns:
+    # API keys
+    openai_api_key:
+      regex: "(sk-|org-)[a-zA-Z0-9_-]{32,}"
+      category: "sensitive_data"
+      severity: "high"
+      description: "OpenAI API Key"
+      mask_method: "partial"
+      
+    aws_access_key:
+      regex: "AKIA[0-9A-Z]{16}"
+      category: "sensitive_data"
+      severity: "high"
+      description: "AWS Access Key ID"
+      mask_method: "partial"
+      
+    anthropic_api_key:
+      regex: "sk-ant-[a-zA-Z0-9]{32,}"
+      category: "sensitive_data"
+      severity: "high"
+      description: "Anthropic API Key"
+      mask_method: "partial"
+      
+    # PII patterns
+    credit_card:
+      regex: "\\b\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b"
+      category: "sensitive_data"
+      severity: "high"
+      description: "Credit Card Number"
+      mask_method: "credit_card"
+      
+    email_address:
+      regex: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b"
+      category: "sensitive_data"
+      severity: "medium"
+      description: "Email Address"
+      mask_method: "email"
+      
+    phone_number:
+      regex: "\\b\\d{3}[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b"
+      category: "sensitive_data"
+      severity: "medium"
+      description: "Phone Number"
+      mask_method: "phone"
+      
+    ssn:
+      regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      category: "sensitive_data"
+      severity: "high"
+      description: "Social Security Number"
+      mask_method: "ssn"
 
 # Logging configuration
 logging:
@@ -112,18 +165,23 @@ data_masking:
     - name: "credit_card"
       regex: "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"
       replacement: "[CREDIT_CARD]"
+      mask_method: "credit_card"
     - name: "ssn"
       regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
       replacement: "[SSN]"
+      mask_method: "ssn"
     - name: "email"
       regex: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
       replacement: "[EMAIL]"
+      mask_method: "email"
     - name: "phone"
       regex: "\\b(?:\\+\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}\\b"
       replacement: "[PHONE]"
+      mask_method: "phone"
     - name: "ip_address"
       regex: "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
       replacement: "[IP_ADDRESS]"
+      mask_method: "partial"
 
 # Compliance settings
 compliance:
