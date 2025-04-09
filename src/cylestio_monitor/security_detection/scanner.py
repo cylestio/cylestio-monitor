@@ -9,7 +9,7 @@ consistent access to security keywords from a central source.
 import logging
 import re
 import threading
-from typing import Any, Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional, Tuple
 
 from cylestio_monitor.config import ConfigManager
 
@@ -29,6 +29,9 @@ class SecurityScanner:
     _sensitive_data_keywords: Set[str] = set()
     _dangerous_commands_keywords: Set[str] = set()
     _prompt_manipulation_keywords: Set[str] = set()
+    
+    # Category configuration - immutable after initialization
+    _categories: Dict[str, Dict[str, Any]] = {}
     
     # Flags for initialization state
     _is_initialized = False
@@ -65,7 +68,63 @@ class SecurityScanner:
             logger.info("Security scanner initialized with keywords")
 
     def _load_keywords(self):
-        """Load keywords from configuration with fallbacks."""
+        """Load keywords and categories from configuration with fallbacks."""
+        # Load categories from new format
+        try:
+            categories = self.config_manager.get("security.alert_categories", {})
+            if categories:
+                self._categories = categories
+                
+                # Load keywords from category structure
+                for category, config in categories.items():
+                    if not config.get("enabled", True):
+                        logger.info(f"Category {category} is disabled, skipping")
+                        continue
+                        
+                    keywords = config.get("keywords", [])
+                    if category == "sensitive_data":
+                        self._sensitive_data_keywords = set(k.lower() for k in keywords)
+                    elif category == "dangerous_commands":
+                        # Store dangerous commands preserving original case and adding lowercase versions
+                        self._dangerous_commands_keywords = set()
+                        # Add all SQL and database commands that should be detected without case sensitivity
+                        sql_commands = ["drop", "delete", "truncate", "alter", "create", "insert", 
+                                      "update", "select", "exec", "shutdown", "format", "eval"]
+                                      
+                        # Make sure all basic SQL commands are included even if not in config
+                        for cmd in sql_commands:
+                            self._dangerous_commands_keywords.add(cmd)
+                            self._dangerous_commands_keywords.add(cmd.upper())
+                            
+                        # Now add all commands from config
+                        for cmd in keywords:
+                            # Add original case
+                            self._dangerous_commands_keywords.add(cmd)
+                            # Add lowercase
+                            if cmd != cmd.lower():
+                                self._dangerous_commands_keywords.add(cmd.lower())
+                            # Add uppercase
+                            if cmd != cmd.upper():
+                                self._dangerous_commands_keywords.add(cmd.upper())
+                    elif category == "prompt_manipulation":
+                        # For prompt manipulation, we need to preserve case for some keywords
+                        # but also support case-insensitive matching
+                        self._prompt_manipulation_keywords = set()
+                        for keyword in keywords:
+                            # Add original case
+                            self._prompt_manipulation_keywords.add(keyword)
+                            # Add lowercase if different
+                            if keyword != keyword.lower():
+                                self._prompt_manipulation_keywords.add(keyword.lower())
+                
+                logger.info(f"Loaded keywords from alert_categories config with {len(categories)} categories")
+                return
+        except Exception as e:
+            logger.warning(f"Error loading from alert_categories: {str(e)}")
+                
+        # Fallback to legacy format if needed
+        logger.warning("Falling back to legacy keywords format")
+        
         # Sensitive data keywords
         sensitive_data = self.config_manager.get("security.keywords.sensitive_data", [])
         if not sensitive_data:
@@ -118,6 +177,25 @@ class SecurityScanner:
             ]
         self._prompt_manipulation_keywords = set(k.lower() for k in prompt_manipulation)
         
+        # Create default categories since we're in fallback mode
+        self._categories = {
+            "sensitive_data": {
+                "enabled": True,
+                "severity": "medium",
+                "description": "Sensitive information like PII, credentials, and other confidential data"
+            },
+            "dangerous_commands": {
+                "enabled": True,
+                "severity": "high",
+                "description": "System commands, SQL injections, and other potentially harmful operations"
+            },
+            "prompt_manipulation": {
+                "enabled": True,
+                "severity": "medium",
+                "description": "Attempts to manipulate LLM behavior or bypass security constraints"
+            }
+        }
+        
         # Log keyword counts
         logger.debug(f"Loaded dangerous commands: {sorted(list(self._dangerous_commands_keywords))}")
         logger.info(
@@ -140,11 +218,11 @@ class SecurityScanner:
             event: Any event type to scan
             
         Returns:
-            Dict with scan results including alert level and category
+            Dict with scan results including alert level, category, severity, description, and keywords
         """
         # Skip if None
         if event is None:
-            return {"alert_level": "none", "category": None, "keywords": []}
+            return {"alert_level": "none", "category": None, "severity": None, "description": None, "keywords": []}
             
         # Extract text based on event type
         text = self._extract_text_from_event(event)
@@ -221,11 +299,11 @@ class SecurityScanner:
             text: Text to scan
             
         Returns:
-            Dict with scan results including alert level and category
+            Dict with scan results including alert level, category, severity, and found keywords
         """
         # Skip if None or empty
         if not text:
-            return {"alert_level": "none", "category": None, "keywords": []}
+            return {"alert_level": "none", "category": None, "severity": None, "description": None, "keywords": []}
         
         # Original text for exact case matching
         original = text
@@ -247,155 +325,203 @@ class SecurityScanner:
                 
         # Check ALL prompt manipulation keywords and collect matches
         for keyword in self._prompt_manipulation_keywords:
-            if self._word_boundary_match(keyword, normalized):
+            # For multi-word prompt manipulation phrases, use simple contains on either original or lowercase
+            if " " in keyword:
+                if keyword in original or (keyword.lower() in normalized and keyword.lower() == keyword):
+                    matches["prompt_manipulation"].append(keyword)
+            # For uppercase keywords (like "REMOVE"), check in original case
+            elif keyword.isupper() and keyword in original:
+                matches["prompt_manipulation"].append(keyword)
+            # For single words, use word boundary match to avoid false positives
+            elif self._word_boundary_match(keyword, normalized):
                 matches["prompt_manipulation"].append(keyword)
                 
         # Check ALL sensitive data keywords and collect matches
         for keyword in self._sensitive_data_keywords:
             if self._word_boundary_match(keyword, normalized):
                 matches["sensitive_data"].append(keyword)
+                
+        # Determine category, severity, and alert level
+        category, severity, alert_level, description, found_keywords = self._determine_category_and_severity(matches)
         
-        # Determine the result based on matches - prioritizing dangerous > manipulation > sensitive
-        if matches["dangerous_commands"]:
-            return {
-                "alert_level": "dangerous",
-                "category": "dangerous_commands",
-                "keywords": matches["dangerous_commands"]
-            }
-        elif matches["prompt_manipulation"]:
-            return {
-                "alert_level": "suspicious",
-                "category": "prompt_manipulation",
-                "keywords": matches["prompt_manipulation"]
-            }
-        elif matches["sensitive_data"]:
-            return {
-                "alert_level": "suspicious",
-                "category": "sensitive_data",
-                "keywords": matches["sensitive_data"]
-            }
-        else:
-            return {"alert_level": "none", "category": None, "keywords": []}
+        # Return detailed result
+        return {
+            "alert_level": alert_level,
+            "category": category,
+            "severity": severity,
+            "description": description,
+            "keywords": found_keywords
+        }
+    
+    def _determine_category_and_severity(self, matches: Dict[str, List[str]]) -> Tuple[Optional[str], Optional[str], str, Optional[str], List[str]]:
+        """Determine the most severe category and appropriate severity based on matches.
         
+        Args:
+            matches: Dictionary of matches by category
+            
+        Returns:
+            Tuple of (category, severity, alert_level, description, keywords)
+        """
+        # No matches at all
+        if not any(matches.values()):
+            return None, None, "none", None, []
+            
+        # Priority order of categories (dangerous_commands takes precedence over others)
+        priority_order = ["dangerous_commands", "prompt_manipulation", "sensitive_data"]
+        
+        # Find the highest priority category that has matches
+        for category in priority_order:
+            if matches[category] and category in self._categories:
+                # Get category config
+                category_config = self._categories[category]
+                
+                # Skip if disabled
+                if not category_config.get("enabled", True):
+                    continue
+                
+                # Get severity from category config
+                severity = category_config.get("severity", "medium")
+                
+                # Get description from category config
+                description = category_config.get("description", f"{category} detection")
+                
+                # Map severity to alert level
+                alert_level = {
+                    "low": "suspicious",
+                    "medium": "suspicious",
+                    "high": "dangerous"
+                }.get(severity, "suspicious")
+                
+                return category, severity, alert_level, description, matches[category]
+        
+        # Fallback if we have matches but no category in priority order matched
+        for category, keywords in matches.items():
+            if keywords and category in self._categories:
+                # Get category config
+                category_config = self._categories[category]
+                
+                # Skip if disabled
+                if not category_config.get("enabled", True):
+                    continue
+                    
+                severity = category_config.get("severity", "medium")
+                description = category_config.get("description", f"{category} detection")
+                alert_level = "suspicious"
+                if severity == "high":
+                    alert_level = "dangerous"
+                return category, severity, alert_level, description, keywords
+        
+        # Ultimate fallback (should never happen)
+        return None, None, "none", None, []
+                
     def _simple_text_match(self, keyword: str, text: str) -> bool:
-        """Smart substring match with context awareness for SQL commands.
+        """Simple substring match that can be used for commands or phrases.
         
         Args:
             keyword: Keyword to search for
             text: Text to search in
             
         Returns:
-            True if keyword is found in text
+            True if keyword is found
         """
-        # For multi-word phrases, use simple substring match
+        # Skip if either is None
+        if not keyword or not text:
+            return False
+            
+        # For multi-word phrases or special characters, use simple substring match
         if " " in keyword or "(" in keyword or "-" in keyword:
             return keyword in text
             
-        # List of SQL commands that need context-aware matching
+        # For single words that are SQL commands, use word boundary matching to avoid false positives
+        # List of SQL commands and dangerous commands that need context-aware matching
         sql_commands = {"drop", "delete", "truncate", "alter", "create", "insert", 
-                       "update", "select", "exec", "shutdown", "format", "eval"}
-                       
-        # For SQL commands, use more sophisticated matching to avoid false positives
+                      "update", "select", "exec", "shutdown", "format", "eval"}
+                      
         if keyword.lower() in sql_commands:
             # If it's an exact match (the whole text is just the command), it's a match
             if text.strip().lower() == keyword.lower():
                 return True
                 
-            # Check for SQL context with word boundaries
+            # Check for word boundaries
             pattern = r'\b' + re.escape(keyword) + r'\b'
-            if re.search(pattern, text):
-                # Check for SQL context
-                sql_context_terms = [
-                    "table", "database", "schema", "column", "index", "view", "function", 
-                    "procedure", "trigger", "sql", "query", "db", "command", "statement"
-                ]
-                
-                text_lower = text.lower()
-                
-                # If it appears with SQL context terms, it's likely a SQL command
-                for term in sql_context_terms:
-                    if term in text_lower:
-                        return True
-                        
-                # If it's near specific SQL syntax, it's likely a SQL command
-                sql_syntax = ["select", "from", "where", "alter", "create", "insert", 
-                             "update", "delete", ";", "--", "/*", "*/"]
-                             
-                for syntax in sql_syntax:
-                    if syntax in text_lower:
-                        return True
-                        
-                # For standalone commands, check if they're being used as commands
-                command_indicators = ["command", "run", "execute", "shell", "terminal", 
-                                     "bash", "cmd", "powershell", "executing"]
-                                     
-                for indicator in command_indicators:
-                    if indicator in text_lower:
-                        return True
-                
-                # Special cases for specific commands
-                if keyword.lower() == "drop":
-                    # "drop" in database/programming context
-                    if any(x in text_lower for x in ["table", "database", "db", "index", "column"]):
-                        return True
-                    # Standalone "drop" with clear intent  
-                    if re.search(r'\bdrop\b.*\btable\b', text_lower) or re.search(r'\bdrop\b.*\bdatabase\b', text_lower):
-                        return True
-                
-                elif keyword.lower() == "format":
-                    # "format" in dangerous context
-                    if any(x in text_lower for x in ["disk", "drive", "hard", "partition", "memory"]):
-                        return True
-                
-                elif keyword.lower() in ["exec", "eval"]:
-                    # "exec"/"eval" in code execution context
-                    if any(x in text_lower for x in ["code", "script", "function", "command"]):
-                        return True
-                
-                elif keyword.lower() == "shutdown":
-                    # "shutdown" in system context
-                    if any(x in text_lower for x in ["server", "system", "computer", "machine"]):
-                        return True
-                
-                # If no context suggests it's a SQL command, check if used as a verb
-                # This helps avoid triggering on phrases like "dropdown menu"
+            if not re.search(pattern, text):
                 return False
                 
-            # Simple substring match as fallback for exact casing like "DROP"
-            # but not for lowercase to avoid false positives 
-            if keyword.isupper() and keyword in text:
-                return True
+            # For potentially ambiguous keywords, we need to check for usage context
+            if keyword.lower() in {"drop", "format", "eval", "delete", "exec", "shutdown"}:
+                # First check if it's used in a technical/programming context
+                text_lower = text.lower()
                 
-            return False
+                # For "format", only match if it's about formatting storage, not text/documents
+                if keyword.lower() == "format":
+                    # Check for "format" + storage-related terms
+                    storage_terms = {"hard", "drive", "disk", "partition", "memory", "usb", "flash", "sd card"}
+                    
+                    has_storage_context = any(term in text_lower for term in storage_terms)
+                    has_text_context = any(term in text_lower for term in 
+                                           {"text", "document", "properly", "paragraph", "string"})
+                    
+                    # Only match if clear storage context, but not text context
+                    if not has_storage_context and has_text_context:
+                        return False
+                
+                # For "eval", only match if it's about code evaluation
+                if keyword.lower() == "eval":
+                    # Only match if seems to be about code evaluation
+                    if "evaluate" in text_lower and not any(term in text_lower for term in 
+                                                         {"code", "script", "javascript", "function"}):
+                        return False
+                
+                # For "drop", look for database context
+                if keyword.lower() == "drop":
+                    # Common false positives for "drop"
+                    false_positive_terms = {"dropdown", "drop-down", "droplet", "dropping"}
+                    
+                    # Check false positives first
+                    for term in false_positive_terms:
+                        if term in text_lower:
+                            return False
+                    
+                    # No need to check for database context - that's handled by word boundary check
             
-        # For all other dangerous commands, use simple substring match
+            # If uppercase, it's likely a SQL statement
+            if keyword.isupper():
+                return True
+            
+            # Default to matching SQL commands if they pass word boundary check
+            return True
+            
+        # For all other keywords, use simple substring match
         return keyword in text
-        
+
     def _word_boundary_match(self, keyword: str, text: str) -> bool:
-        """Match a keyword in text using word boundaries.
+        """Match keywords at word boundaries to avoid false positives.
         
         Args:
             keyword: Keyword to search for
             text: Text to search in
             
         Returns:
-            True if keyword is found in text
+            True if keyword is found at word boundaries
         """
-        # For multi-word phrases, use simple substring match
+        # Skip if either is None
+        if not keyword or not text:
+            return False
+            
+        # For multi-word keywords, do simple contains
         if " " in keyword:
             return keyword in text
             
-        # For single-word keywords, use word boundary matching
+        # For single words, check word boundaries
         pattern = r'\b' + re.escape(keyword) + r'\b'
         return bool(re.search(pattern, text))
-
-    # Static accessor for convenience
+    
     @staticmethod
     def get_instance(config_manager=None) -> "SecurityScanner":
-        """Get or create the scanner instance.
+        """Get the singleton instance of the security scanner.
         
         Args:
-            config_manager: Optional config manager to use
+            config_manager: Optional ConfigManager instance
             
         Returns:
             SecurityScanner instance
