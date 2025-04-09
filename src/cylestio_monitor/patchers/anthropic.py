@@ -457,52 +457,28 @@ class AnthropicPatcher(BasePatcher):
         Returns:
             Dict with security scan results
         """
-        # Convert messages to a simple string for scanning
-        message_str = str(messages).lower()
-
-        # Define suspicious and dangerous keywords
-        suspicious_keywords = [
-            "hack",
-            "exploit",
-            "bomb",
-            "terrorist",
-            "illegal",
-            "attack",
-            "drop",
-            "destroy",
-            "delete",
-            "backdoor",
-            "exploit",
-            "virus",
-            "malware",
-        ]
-
-        dangerous_keywords = [
-            "how to make a bomb",
-            "how to steal",
-            "how to hack",
-            "assassinate",
-            "kill",
-            "build a bomb",
-            "drop tables",
-        ]
-
-        # Initialize result
-        result = {"alert_level": "none", "keywords": []}
-
-        # Check for dangerous content first (more severe)
-        for keyword in dangerous_keywords:
-            if keyword in message_str:
-                result["alert_level"] = "dangerous"
-                result["keywords"].append(keyword)
-
-        # If not dangerous, check if suspicious
-        if result["alert_level"] == "none":
-            for keyword in suspicious_keywords:
-                if keyword in message_str:
-                    result["alert_level"] = "suspicious"
-                    result["keywords"].append(keyword)
-
+        from cylestio_monitor.security_detection import SecurityScanner
+        
+        # Get the scanner instance
+        scanner = SecurityScanner.get_instance()
+        
+        # Scan the messages using the central security scanner
+        scan_result = scanner.scan_event(messages)
+        
+        # Map the scanner result to the expected format
+        result = {
+            "alert_level": scan_result["alert_level"],
+            "keywords": scan_result.get("keywords", []),
+            "category": scan_result.get("category")
+        }
+        
+        # Log the result if it's not "none"
+        if result["alert_level"] != "none":
+            self.logger.warning(
+                f"Security scan detected {result['alert_level']} content: "
+                f"category={result['category']}, keywords={result['keywords']}"
+            )
+            
         return result
 
     def _log_security_event(
@@ -532,8 +508,10 @@ class AnthropicPatcher(BasePatcher):
 
         # Log appropriate event based on severity
         event_name = f"security.content.{security_info['alert_level']}"
+        
+        # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
         event_level = (
-            "ERROR" if security_info["alert_level"] == "dangerous" else "WARNING"
+            "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
         )
 
         log_event(name=event_name, attributes=security_attributes, level=event_level)

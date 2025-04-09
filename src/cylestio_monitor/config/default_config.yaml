@@ -3,20 +3,64 @@
 
 # Security monitoring settings
 security:
-  # Keywords for security checks
-  suspicious_keywords:
-    - "REMOVE"
-    - "CLEAR"
-    - "HACK"
-    - "BOMB"
-  
-  dangerous_keywords:
-    - "DROP"
-    - "DELETE"
-    - "SHUTDOWN"
-    - "EXEC("
-    - "FORMAT"
-    - "RM -RF"
+  # Keywords for security checks - unified source of truth
+  keywords:
+    sensitive_data:
+      - "api_key"
+      - "password"
+      - "secret"
+      - "token"
+      - "credential"
+      - "credit card"
+      - "ssn"
+      - "social security"
+      - "address"
+      - "phone"
+      - "email"
+      - "passport"
+      - "license"
+      - "account number"
+      - "personal data"
+      - "financial data"
+    
+    dangerous_commands:
+      - "drop table"
+      - "delete from"
+      - "rm -rf"
+      - "format"
+      - "exec("
+      - "system("
+      - "eval("
+      - "shutdown"
+      - "DROP"
+      - "DELETE"
+      - "SHUTDOWN"
+      - "EXEC("
+      - "FORMAT"
+      - "RM -RF"
+      - "alter table"
+      - "truncate"
+      - "destroy"
+    
+    prompt_manipulation:
+      - "ignore previous instructions"
+      - "disregard the rules"
+      - "bypass"
+      - "hack"
+      - "exploit"
+      - "jailbreak"
+      - "REMOVE"
+      - "CLEAR"
+      - "HACK"
+      - "BOMB"
+      - "terrorist"
+      - "illegal"
+      - "attack"
+      - "backdoor"
+      - "virus"
+      - "malware"
+      - "compromise"
+      - "vulnerable"
 
 # Logging configuration
 logging:

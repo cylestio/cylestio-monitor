@@ -695,10 +695,18 @@ class OpenAIPatcher(BasePatcher):
 
         # Create a sanitized version of the request data
         sanitized_data = {"model": request_data.get("model", "unknown")}
+        
+        # Create more specific event name based on severity
+        event_name = f"security.content.{security_info['alert_level']}"
+        
+        # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
+        event_level = (
+            "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
+        )
 
         # Log the security event
         log_event(
-            name="security.sensitive_content_detected",
+            name=event_name,
             attributes={
                 "security.alert_level": security_info["alert_level"],
                 "security.keywords": security_info["keywords"],
@@ -706,12 +714,11 @@ class OpenAIPatcher(BasePatcher):
                 "llm.model": sanitized_data.get("model"),
                 "llm.request.timestamp": datetime.now().isoformat(),
             },
-            level="WARNING",
+            level=event_level,
         )
 
         self.logger.warning(
-            f"Security alert ({security_info['alert_level']}): Detected potentially sensitive content "
-            f"with keywords: {', '.join(security_info['keywords'])}"
+            f"SECURITY ALERT: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
         )
 
     def _extract_chat_response_data(self, result: Any) -> Dict[str, Any]:
