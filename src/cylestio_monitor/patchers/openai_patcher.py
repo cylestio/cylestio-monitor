@@ -737,6 +737,18 @@ class OpenAIPatcher(BasePatcher):
         # Create a sanitized version of the request data
         sanitized_data = {"model": request_data.get("model", "unknown")}
         
+        # Extract a sample of content for logging
+        content_sample = (
+            str(request_data)[:100] + "..."
+            if len(str(request_data)) > 100
+            else str(request_data)
+        )
+        
+        # Mask sensitive data in the content sample
+        from cylestio_monitor.security_detection import SecurityScanner
+        scanner = SecurityScanner.get_instance()
+        masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
+        
         # Create more specific event name based on severity
         event_name = f"security.content.{security_info['alert_level']}"
         
@@ -749,6 +761,8 @@ class OpenAIPatcher(BasePatcher):
         security_attributes = {
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
+            "security.content_sample": masked_content_sample,
+            "security.detection_time": datetime.now().isoformat(),
             "llm.vendor": "openai",
             "llm.model": sanitized_data.get("model"),
             "llm.request.timestamp": datetime.now().isoformat(),

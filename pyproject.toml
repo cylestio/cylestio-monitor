@@ -68,7 +68,7 @@ security = [
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --cov=src --cov-report=xml --cov-report=term-missing"
+addopts = "-ra -q"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 markers = [

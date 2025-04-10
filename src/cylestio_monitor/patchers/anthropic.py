@@ -535,12 +535,17 @@ class AnthropicPatcher(BasePatcher):
             else str(request_data)
         )
 
+        # Mask sensitive data in the content sample
+        from cylestio_monitor.security_detection import SecurityScanner
+        scanner = SecurityScanner.get_instance()
+        masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
+
         # Create event attributes
         security_attributes = {
             "llm.vendor": "anthropic",
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
-            "security.content_sample": content_sample,
+            "security.content_sample": masked_content_sample,
             "security.detection_time": datetime.now().isoformat(),
         }
         

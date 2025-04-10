@@ -278,6 +278,67 @@ class SecurityScanner:
             # Handle event with attributes that has llm.response.content
             elif "attributes" in event and isinstance(event["attributes"], dict):
                 attributes = event["attributes"]
+                
+                # Handle LangGraph node events
+                if "node.result" in attributes and isinstance(attributes["node.result"], dict):
+                    node_result = attributes["node.result"]
+                    
+                    # Handle messages array in node result (common LangGraph pattern)
+                    if "messages" in node_result and isinstance(node_result["messages"], list):
+                        extracted_text = ""
+                        for msg in node_result["messages"]:
+                            if isinstance(msg, dict) and "content" in msg:
+                                extracted_text += str(msg["content"]) + " "
+                        if extracted_text:
+                            return extracted_text.strip()
+                    
+                    # If node result contains content directly
+                    if "content" in node_result:
+                        return str(node_result["content"])
+                        
+                    # If no messages or couldn't extract from messages, return the whole node result
+                    return str(node_result)
+                
+                # Handle LangGraph node.state (for langgraph.node.start events)
+                elif "node.state" in attributes and isinstance(attributes["node.state"], dict):
+                    node_state = attributes["node.state"]
+                    
+                    # Handle messages array in node state
+                    if "messages" in node_state and isinstance(node_state["messages"], list):
+                        extracted_text = ""
+                        for msg in node_state["messages"]:
+                            if isinstance(msg, dict) and "content" in msg:
+                                extracted_text += str(msg["content"]) + " "
+                        if extracted_text:
+                            return extracted_text.strip()
+                            
+                        # If node state contains content directly
+                        if "content" in node_state:
+                            return str(node_state["content"])
+                            
+                        # If no messages or couldn't extract from messages, return the whole node state
+                        return str(node_state)
+                
+                # Handle LangGraph state_transition events
+                elif "state" in attributes and isinstance(attributes["state"], dict):
+                    state = attributes["state"]
+                    
+                    # Handle messages array in state
+                    if "messages" in state and isinstance(state["messages"], list):
+                        extracted_text = ""
+                        for msg in state["messages"]:
+                            if isinstance(msg, dict) and "content" in msg:
+                                extracted_text += str(msg["content"]) + " "
+                        if extracted_text:
+                            return extracted_text.strip()
+                            
+                        # If state contains content directly
+                        if "content" in state:
+                            return str(state["content"])
+                            
+                        # If no messages or couldn't extract from messages, return the whole state
+                        return str(state)
+                
                 # LLM response content
                 if "llm.response.content" in attributes:
                     content = attributes["llm.response.content"]
@@ -598,4 +659,177 @@ class SecurityScanner:
         Returns:
             SecurityScanner instance
         """
-        return SecurityScanner(config_manager) 
+        return SecurityScanner(config_manager)
+
+    def mask_event(self, event: Any) -> Any:
+        """Mask sensitive data in any event type.
+        
+        This method extracts text from the event, masks sensitive data,
+        and updates the event with the masked text.
+        
+        Args:
+            event: Event to mask
+            
+        Returns:
+            Event with sensitive data masked
+        """
+        # Skip if None
+        if event is None:
+            return None
+            
+        # Extract text from event based on type
+        text = self._extract_text_from_event(event)
+        if not text:
+            return event
+            
+        # Mask the text
+        masked_text = self._pattern_registry.mask_text_in_place(text)
+        
+        # If no masking occurred, return original event
+        if masked_text == text:
+            return event
+            
+        # Create a shallow copy of the event and update with masked text
+        return self._update_event_with_masked_text(event, masked_text)
+        
+    def _update_event_with_masked_text(self, event: Any, masked_text: str) -> Any:
+        """Update event with masked text in the appropriate field.
+        
+        Args:
+            event: Original event
+            masked_text: Masked text to update in the event
+            
+        Returns:
+            Updated event with masked text
+        """
+        import copy
+        
+        # Create a shallow copy to avoid modifying the original
+        # (unless the event is a primitive type)
+        if isinstance(event, (str, int, float, bool, type(None))):
+            return masked_text if isinstance(event, str) else event
+            
+        masked_event = copy.copy(event)
+        
+        # Update appropriate field based on event type
+        if hasattr(masked_event, "content"):  # LLM message
+            masked_event.content = masked_text
+        elif hasattr(masked_event, "prompt"):  # LLM prompt
+            masked_event.prompt = masked_text
+        elif hasattr(masked_event, "command"):  # Tool call
+            masked_event.command = masked_text
+        elif hasattr(masked_event, "request") and hasattr(masked_event.request, "body"):  # API request
+            masked_event.request.body = masked_text
+        elif hasattr(masked_event, "args"):  # Function call
+            masked_event.args = masked_text
+        # Handle dict-like objects
+        elif isinstance(masked_event, dict):
+            if "content" in masked_event:
+                masked_event["content"] = masked_text
+            elif "messages" in masked_event:
+                masked_event["messages"] = masked_text
+            elif "prompt" in masked_event:
+                masked_event["prompt"] = masked_text
+            # Handle event with attributes that has llm.response.content
+            elif "attributes" in masked_event and isinstance(masked_event["attributes"], dict):
+                attributes = masked_event["attributes"]
+                
+                # Handle LangGraph node events
+                if "node.result" in attributes and isinstance(attributes["node.result"], dict):
+                    node_result = attributes["node.result"]
+                    
+                    # Handle messages array in node result
+                    if "messages" in node_result and isinstance(node_result["messages"], list):
+                        # We need to scan each message individually and only mask those with sensitive data
+                        for i, msg in enumerate(node_result["messages"]):
+                            if isinstance(msg, dict) and "content" in msg:
+                                # Extract the original content
+                                original_content = str(msg["content"])
+                                
+                                # Check if this specific message contains sensitive data
+                                # by scanning it with the pattern registry
+                                matches = self._pattern_registry.scan_text(original_content)
+                                
+                                # Only mask if sensitive data was found in this message
+                                if matches:
+                                    # Mask just this message's content
+                                    msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
+                                    node_result["messages"][i]["content"] = msg_masked_text
+                    
+                    # If content field exists directly in node result
+                    elif "content" in node_result:
+                        node_result["content"] = masked_text
+                
+                # Handle LangGraph node.state (for langgraph.node.start events)
+                elif "node.state" in attributes and isinstance(attributes["node.state"], dict):
+                    node_state = attributes["node.state"]
+                    
+                    # Handle messages array in node state
+                    if "messages" in node_state and isinstance(node_state["messages"], list):
+                        # We need to scan each message individually and only mask those with sensitive data
+                        for i, msg in enumerate(node_state["messages"]):
+                            if isinstance(msg, dict) and "content" in msg:
+                                # Extract the original content
+                                original_content = str(msg["content"])
+                                
+                                # Check if this specific message contains sensitive data
+                                # by scanning it with the pattern registry
+                                matches = self._pattern_registry.scan_text(original_content)
+                                
+                                # Only mask if sensitive data was found in this message
+                                if matches:
+                                    # Mask just this message's content
+                                    msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
+                                    node_state["messages"][i]["content"] = msg_masked_text
+                    
+                    # If content field exists directly in node state
+                    elif "content" in node_state:
+                        node_state["content"] = masked_text
+                
+                # Handle LangGraph state_transition events
+                elif "state" in attributes and isinstance(attributes["state"], dict):
+                    state = attributes["state"]
+                    
+                    # Handle messages array in state
+                    if "messages" in state and isinstance(state["messages"], list):
+                        # We need to scan each message individually and only mask those with sensitive data
+                        for i, msg in enumerate(state["messages"]):
+                            if isinstance(msg, dict) and "content" in msg:
+                                # Extract the original content
+                                original_content = str(msg["content"])
+                                
+                                # Check if this specific message contains sensitive data
+                                # by scanning it with the pattern registry
+                                matches = self._pattern_registry.scan_text(original_content)
+                                
+                                # Only mask if sensitive data was found in this message
+                                if matches:
+                                    # Mask just this message's content
+                                    msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
+                                    state["messages"][i]["content"] = msg_masked_text
+                    
+                    # If content field exists directly in state
+                    elif "content" in state:
+                        state["content"] = masked_text
+                
+                # LLM response content
+                elif "llm.response.content" in attributes:
+                    content = attributes["llm.response.content"]
+                    if isinstance(content, list):
+                        # Handle array of content blocks
+                        for i, item in enumerate(content):
+                            if isinstance(item, dict) and "text" in item:
+                                # Create masked version of content blocks
+                                item_text = self._pattern_registry.mask_text_in_place(item["text"])
+                                content[i]["text"] = item_text
+                    else:
+                        attributes["llm.response.content"] = masked_text
+                # Input content
+                elif "llm.request.data" in attributes and isinstance(attributes["llm.request.data"], dict):
+                    request_data = attributes["llm.request.data"]
+                    if "messages" in request_data:
+                        request_data["messages"] = masked_text
+                    elif "prompt" in request_data:
+                        request_data["prompt"] = masked_text
+        
+        return masked_event 

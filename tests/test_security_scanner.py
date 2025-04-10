@@ -724,3 +724,202 @@ class TestSecurityScanner:
         # And username is partially masked
         masked_username = result["keywords"][0].split(":", 1)[1].split("@")[0]
         assert "*" in masked_username 
+
+    def test_mask_event(self):
+        """Test masking sensitive data in different event types."""
+        # Get the scanner instance
+        scanner = SecurityScanner.get_instance()
+        
+        # Test with dict-like message containing credit card
+        message_event = {"content": "my credit card is 4111-1111-1111-1111"}
+        masked_event = scanner.mask_event(message_event)
+        assert masked_event["content"] != message_event["content"]
+        assert "4111" in masked_event["content"]  # Prefix preserved
+        assert "1111" in masked_event["content"]  # Suffix preserved
+        assert "****" in masked_event["content"]  # Masked middle
+        
+        # Test with object-like message containing email
+        class MockEvent:
+            def __init__(self, content):
+                self.content = content
+            
+        obj_event = MockEvent("my email is user@example.com")
+        masked_event = scanner.mask_event(obj_event)
+        assert masked_event.content != obj_event.content
+        assert "@example.com" in masked_event.content  # Domain preserved
+        assert "user" not in masked_event.content  # Username masked
+        
+        # Test with request object containing API key
+        class MockRequest:
+            def __init__(self, body):
+                self.body = body
+        
+        class MockRequestEvent:
+            def __init__(self, request):
+                self.request = request
+            
+        # Store original value for comparison
+        api_key_text = "API key: sk-abcdefghijklmnopqrstuvwxyz123456"
+        req_event = MockRequestEvent(MockRequest(api_key_text))
+        masked_event = scanner.mask_event(req_event)
+        
+        # Verify masking occurred properly
+        assert masked_event.request.body != api_key_text
+        assert "sk-" in masked_event.request.body  # Prefix preserved
+        assert "*" in masked_event.request.body  # Contains masked content
+        assert "3456" in masked_event.request.body  # Suffix preserved
+        
+        # Test with attributes containing nested content
+        ssn_text = "SSN: 123-45-6789"
+        attr_event = {
+            "attributes": {
+                "llm.response.content": ssn_text
+            }
+        }
+        masked_event = scanner.mask_event(attr_event)
+        assert masked_event["attributes"]["llm.response.content"] != ssn_text
+        assert "6789" in masked_event["attributes"]["llm.response.content"]  # Last 4 digits preserved
+        assert "123-45" not in masked_event["attributes"]["llm.response.content"]  # First part masked
+        
+        # Test with content blocks in attributes
+        credit_card_text = "Second part with credit card 4111-1111-1111-1111"
+        blocks_event = {
+            "attributes": {
+                "llm.response.content": [
+                    {"text": "First part with no sensitive data"},
+                    {"text": credit_card_text}
+                ]
+            }
+        }
+        
+        masked_event = scanner.mask_event(blocks_event)
+        # First block should be unchanged
+        assert masked_event["attributes"]["llm.response.content"][0]["text"] == blocks_event["attributes"]["llm.response.content"][0]["text"]
+        # Second block should be masked
+        assert masked_event["attributes"]["llm.response.content"][1]["text"] != credit_card_text
+        assert "4111" in masked_event["attributes"]["llm.response.content"][1]["text"]
+        assert "*" in masked_event["attributes"]["llm.response.content"][1]["text"]
+        
+        # Test with None input
+        assert scanner.mask_event(None) is None
+        
+        # Test with non-sensitive content (no masking should occur)
+        normal_event = {"content": "This is normal non-sensitive content"}
+        masked_normal = scanner.mask_event(normal_event)
+        assert masked_normal["content"] == normal_event["content"]
+
+    def test_mask_all_langgraph_event_types(self):
+        """Test masking sensitive data in all LangGraph event types."""
+        # Get the scanner instance
+        scanner = SecurityScanner.get_instance()
+        
+        # Test with credit card number
+        credit_card = "8989-8989-8989-8989"
+        
+        # Test LangGraph node.start event with node.state
+        node_start_event = {
+            "name": "langgraph.node.start",
+            "attributes": {
+                "node.name": "determine_assistant_type",
+                "node.exec_id": "determine_assistant_type:4495231552:1744273675.237132",
+                "node.state": {
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": f"hi {credit_card}",
+                            "_message_type": "HumanMessage"
+                        }
+                    ],
+                    "sender": "human"
+                }
+            }
+        }
+        
+        # Test extraction and masking for node.state
+        extracted_text = scanner._extract_text_from_event(node_start_event)
+        assert credit_card in extracted_text
+        
+        masked_event = scanner.mask_event(node_start_event)
+        masked_message = masked_event["attributes"]["node.state"]["messages"][0]["content"]
+        assert credit_card not in masked_message
+        assert "8989" in masked_message  # Prefix preserved
+        assert "*" in masked_message  # Contains masked content
+        
+        # Test LangGraph state_transition event with state
+        state_transition_event = {
+            "name": "langgraph.state_transition",
+            "attributes": {
+                "graph_id": "4554185792",
+                "transition": {
+                    "from_node": "create_assistant",
+                    "to_node": "__end__",
+                    "timestamp": "2025-04-10T10:27:56.102974"
+                },
+                "state": {
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": f"hello {credit_card}",
+                            "_message_type": "HumanMessage"
+                        },
+                        {
+                            "type": "ai",
+                            "content": "Hello! How can I assist you today?",
+                            "_message_type": "AIMessage"
+                        }
+                    ],
+                    "sender": "agent"
+                }
+            }
+        }
+        
+        # Test extraction and masking for state
+        extracted_text = scanner._extract_text_from_event(state_transition_event)
+        assert credit_card in extracted_text
+        
+        masked_event = scanner.mask_event(state_transition_event)
+        masked_message = masked_event["attributes"]["state"]["messages"][0]["content"]
+        assert credit_card not in masked_message
+        assert "8989" in masked_message  # Prefix preserved
+        assert "*" in masked_message  # Contains masked content
+        
+        # Verify that other messages remain unchanged
+        assert masked_event["attributes"]["state"]["messages"][1]["content"] == "Hello! How can I assist you today?"
+        
+        # Test LangGraph node.end event with node.result
+        node_end_event = {
+            "name": "langgraph.node.end",
+            "attributes": {
+                "node.name": "create_assistant",
+                "node.exec_id": "create_assistant:4505338432:1744271165.218923",
+                "node.result": {
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": f"test {credit_card}",
+                            "_message_type": "HumanMessage"
+                        },
+                        {
+                            "type": "ai",
+                            "content": "I'll help you with your query.",
+                            "_message_type": "AIMessage"
+                        }
+                    ],
+                    "sender": "agent",
+                    "assistant_type": "AssistantType.GENERAL"
+                }
+            }
+        }
+        
+        # Test extraction and masking for node.result
+        extracted_text = scanner._extract_text_from_event(node_end_event)
+        assert credit_card in extracted_text
+        
+        masked_event = scanner.mask_event(node_end_event)
+        masked_message = masked_event["attributes"]["node.result"]["messages"][0]["content"]
+        assert credit_card not in masked_message
+        assert "8989" in masked_message  # Prefix preserved
+        assert "*" in masked_message  # Contains masked content
+        
+        # Verify that other messages remain unchanged
+        assert masked_event["attributes"]["node.result"]["messages"][1]["content"] == "I'll help you with your query." 

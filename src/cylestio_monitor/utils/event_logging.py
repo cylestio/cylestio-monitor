@@ -20,6 +20,7 @@ from cylestio_monitor.utils.schema import (get_current_schema_version,
                                            validate_event_schema)
 from cylestio_monitor.utils.serialization import safe_event_serialize
 from cylestio_monitor.utils.trace_context import TraceContext
+from cylestio_monitor.security_detection import SecurityScanner
 
 # Configure logger
 logger = logging.getLogger("CylestioMonitor")
@@ -121,12 +122,22 @@ def log_event(
     if not validate_event_schema(event):
         logger.warning(f"Event failed schema validation: {name}")
 
+    # Mask sensitive data in the event before logging/sending
+    scanner = SecurityScanner.get_instance()
+    masked_event = scanner.mask_event(event)
+    
+    # If masking didn't occur, use the original event
+    if masked_event is None:
+        masked_event = event
+
     # Write to log file
-    _write_to_log_file(event)
+    _write_to_log_file(masked_event)
 
     # Send to API if configured
-    _send_to_api(event)
-
+    _send_to_api(masked_event)
+    
+    # Return the original unmasked event to the caller
+    # This ensures internal processing isn't affected
     return event
 
 
@@ -194,3 +205,35 @@ def log_error(
     )
 
     return log_event(name=name, attributes=error_attributes, level="ERROR")
+
+
+def log_info(
+    name: str, attributes: Optional[Dict[str, Any]] = None, **kwargs
+) -> Dict[str, Any]:
+    """Log an info-level event.
+
+    Args:
+        name: Event name following OTel conventions
+        attributes: Dict of attributes following OTel conventions
+        **kwargs: Additional parameters to pass to log_event
+
+    Returns:
+        Dict: The created event record
+    """
+    return log_event(name=name, attributes=attributes, level="INFO", **kwargs)
+
+
+def log_warning(
+    name: str, attributes: Optional[Dict[str, Any]] = None, **kwargs
+) -> Dict[str, Any]:
+    """Log a warning-level event.
+
+    Args:
+        name: Event name following OTel conventions
+        attributes: Dict of attributes following OTel conventions
+        **kwargs: Additional parameters to pass to log_event
+
+    Returns:
+        Dict: The created event record
+    """
+    return log_event(name=name, attributes=attributes, level="WARNING", **kwargs)

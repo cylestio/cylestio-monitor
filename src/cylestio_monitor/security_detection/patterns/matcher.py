@@ -303,4 +303,45 @@ class PatternRegistry:
         Returns:
             Singleton PatternRegistry instance
         """
-        return PatternRegistry(config_manager) 
+        return PatternRegistry(config_manager)
+
+    def mask_text_in_place(self, text: str) -> str:
+        """Mask all sensitive data in a text string.
+        
+        Unlike scan_text which returns detected matches, this method directly returns
+        a masked version of the input text with all sensitive data replaced.
+        
+        Args:
+            text: Text to scan and mask
+            
+        Returns:
+            Text with all sensitive data masked
+        """
+        # Skip if None or empty
+        if not text:
+            return text
+            
+        # First scan for all matches
+        matches = self.scan_text(text, mask_values=True)
+        
+        # If no matches, return original text
+        if not matches:
+            return text
+            
+        # Sort matches by position in reverse order to avoid offset issues
+        # when replacing substrings
+        matches.sort(key=lambda x: x["position"], reverse=True)
+        
+        # Create a mutable version of the text
+        mutable_text = list(text)
+        
+        # Replace each match with its masked version
+        for match in matches:
+            start = match["position"]
+            end = start + len(match["matched_value"])
+            masked_value = match["masked_value"]
+            
+            # Replace the matched value with the masked version
+            mutable_text[start:end] = masked_value
+        
+        return ''.join(mutable_text) 
