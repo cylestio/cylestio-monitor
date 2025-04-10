@@ -217,6 +217,48 @@ class OpenAIPatcher(BasePatcher):
                                 response_attributes["llm.usage.total_tokens"] = usage[
                                     "total_tokens"
                                 ]
+                                
+                        # Extract response content for security scanning
+                        response_content = ""
+                        if "llm.response.content" in response_attributes:
+                            content_data = response_attributes["llm.response.content"]
+                            if isinstance(content_data, dict) and "content" in content_data:
+                                response_content = content_data["content"]
+                            elif isinstance(content_data, str):
+                                response_content = content_data
+                                
+                        # If no content was found but we have choices
+                        if not response_content and choices:
+                            first_choice = choices[0]
+                            if isinstance(first_choice, dict):
+                                if "message" in first_choice and isinstance(first_choice["message"], dict):
+                                    response_content = first_choice["message"].get("content", "")
+                                elif "text" in first_choice:
+                                    response_content = first_choice["text"]
+                                    
+                        # Scan response content for security concerns
+                        if response_content:
+                            # Security scanning for response content
+                            from cylestio_monitor.security_detection import SecurityScanner
+                            scanner = SecurityScanner.get_instance()
+                            security_info = scanner.scan_text(response_content)
+                            
+                            # If security issues found, add to attributes and log a separate event
+                            if security_info["alert_level"] != "none":
+                                response_attributes["security.alert_level"] = security_info["alert_level"]
+                                response_attributes["security.keywords"] = security_info["keywords"]
+                                response_attributes["security.category"] = security_info["category"]
+                                response_attributes["security.severity"] = security_info["severity"]
+                                response_attributes["security.description"] = security_info["description"]
+                                
+                                # Log security event for response content
+                                self._log_security_event(security_info, {"content": response_content[:100] + "..."})
+                                
+                                # Log warning
+                                self.logger.warning(
+                                    f"SECURITY ALERT in LLM RESPONSE: {security_info['alert_level'].upper()} content "
+                                    f"detected: {security_info['keywords']}"
+                                )
 
                         # Debug logging
                         if self.debug_mode:
@@ -451,6 +493,46 @@ class OpenAIPatcher(BasePatcher):
                                 response_attributes["llm.usage.total_tokens"] = usage[
                                     "total_tokens"
                                 ]
+                                
+                        # Extract response content for security scanning
+                        response_content = ""
+                        if "llm.response.content" in response_attributes:
+                            content_data = response_attributes["llm.response.content"]
+                            if isinstance(content_data, dict) and "content" in content_data:
+                                response_content = content_data["content"]
+                            elif isinstance(content_data, str):
+                                response_content = content_data
+                                
+                        # If no content was found but we have choices
+                        if not response_content and choices:
+                            first_choice = choices[0]
+                            if isinstance(first_choice, dict):
+                                if "text" in first_choice:
+                                    response_content = first_choice["text"]
+                                    
+                        # Scan response content for security concerns
+                        if response_content:
+                            # Security scanning for response content
+                            from cylestio_monitor.security_detection import SecurityScanner
+                            scanner = SecurityScanner.get_instance()
+                            security_info = scanner.scan_text(response_content)
+                            
+                            # If security issues found, add to attributes and log a separate event
+                            if security_info["alert_level"] != "none":
+                                response_attributes["security.alert_level"] = security_info["alert_level"]
+                                response_attributes["security.keywords"] = security_info["keywords"]
+                                response_attributes["security.category"] = security_info["category"]
+                                response_attributes["security.severity"] = security_info["severity"]
+                                response_attributes["security.description"] = security_info["description"]
+                                
+                                # Log security event for response content
+                                self._log_security_event(security_info, {"content": response_content[:100] + "..."})
+                                
+                                # Log warning
+                                self.logger.warning(
+                                    f"SECURITY ALERT in LLM RESPONSE: {security_info['alert_level'].upper()} content "
+                                    f"detected: {security_info['keywords']}"
+                                )
 
                         # Debug logging
                         if self.debug_mode:
@@ -594,91 +676,50 @@ class OpenAIPatcher(BasePatcher):
     def _scan_content_security(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Scan message content for potential security issues.
 
-        This is a placeholder for a more sophisticated security scanner.
-
         Args:
             messages: List of message objects
 
         Returns:
             Dictionary with alert level and details
         """
-        # Simple keywords to look for in prompts
-        sensitive_keywords = [
-            "password",
-            "api key",
-            "secret",
-            "credential",
-            "token",
-            "authorization",
-            "private key",
-            "ssh key",
-            "access key",
-            "webhook",
-            "jwt",
-            "certificate",
-            "username",
-            "login",
-            "admin",
-            "root",
-            "sudo",
-            "bash",
-            "shell",
-            "exec",
-            "eval",
-            "system",
-            "command",
-            "script",
-            "execute",
-            "run",
-        ]
-
-        # Scan all messages for sensitive content
-        detected_keywords = set()
-        highest_level = "none"
-
-        for message in messages:
-            # Skip if not a dictionary
-            if not isinstance(message, dict):
-                continue
-
-            # Get content from the message
-            content = message.get("content", "")
-            if not content:
-                continue
-
-            # Convert to string if not already
-            if not isinstance(content, str):
-                content = str(content)
-
-            # Check for sensitive keywords
-            content_lower = content.lower()
-            for keyword in sensitive_keywords:
-                if keyword in content_lower:
-                    detected_keywords.add(keyword)
-
-                    # Set alert level based on severity
-                    if keyword in [
-                        "password",
-                        "api key",
-                        "secret",
-                        "credential",
-                        "token",
-                        "private key",
-                    ]:
-                        highest_level = "high"
-                    elif highest_level != "high" and keyword in [
-                        "bash",
-                        "shell",
-                        "exec",
-                        "eval",
-                        "system",
-                        "command",
-                    ]:
-                        highest_level = "medium"
-                    elif highest_level not in ["high", "medium"]:
-                        highest_level = "low"
-
-        return {"alert_level": highest_level, "keywords": list(detected_keywords)}
+        from cylestio_monitor.security_detection import SecurityScanner
+        
+        # Get the scanner instance
+        scanner = SecurityScanner.get_instance()
+        
+        # Find the last user message in the conversation
+        last_user_message = None
+        if isinstance(messages, list):
+            for message in reversed(messages):
+                if isinstance(message, dict) and message.get("role") == "user":
+                    last_user_message = message
+                    break
+        
+        # If we found a last user message, only scan that
+        if last_user_message:
+            scan_result = scanner.scan_text(last_user_message.get("content", ""))
+        else:
+            # Fallback to scanning the entire conversation if we can't identify the last user message
+            scan_result = scanner.scan_event(messages)
+        
+        # Map the scanner result to the expected format
+        result = {
+            "alert_level": scan_result["alert_level"],
+            "keywords": scan_result.get("keywords", []),
+            "category": scan_result.get("category"),
+            "severity": scan_result.get("severity"),
+            "description": scan_result.get("description")
+        }
+        
+        # Log the result if it's not "none"
+        if result["alert_level"] != "none":
+            self.logger.warning(
+                f"Security scan detected {result['alert_level']} content: "
+                f"category={result['category']}, severity={result['severity']}, "
+                f"description='{result['description']}', keywords={result['keywords']}"
+            )
+            
+        return result
 
     def _log_security_event(
         self, security_info: Dict[str, Any], request_data: Dict[str, Any]
@@ -695,23 +736,57 @@ class OpenAIPatcher(BasePatcher):
 
         # Create a sanitized version of the request data
         sanitized_data = {"model": request_data.get("model", "unknown")}
+        
+        # Extract a sample of content for logging
+        content_sample = (
+            str(request_data)[:100] + "..."
+            if len(str(request_data)) > 100
+            else str(request_data)
+        )
+        
+        # Mask sensitive data in the content sample
+        from cylestio_monitor.security_detection import SecurityScanner
+        scanner = SecurityScanner.get_instance()
+        masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
+        
+        # Create more specific event name based on severity
+        event_name = f"security.content.{security_info['alert_level']}"
+        
+        # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
+        event_level = (
+            "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
+        )
+
+        # Create security attributes
+        security_attributes = {
+            "security.alert_level": security_info["alert_level"],
+            "security.keywords": security_info["keywords"],
+            "security.content_sample": masked_content_sample,
+            "security.detection_time": datetime.now().isoformat(),
+            "llm.vendor": "openai",
+            "llm.model": sanitized_data.get("model"),
+            "llm.request.timestamp": datetime.now().isoformat(),
+        }
+        
+        # Add new security attributes if available
+        if "category" in security_info and security_info["category"]:
+            security_attributes["security.category"] = security_info["category"]
+        
+        if "severity" in security_info and security_info["severity"]:
+            security_attributes["security.severity"] = security_info["severity"]
+            
+        if "description" in security_info and security_info["description"]:
+            security_attributes["security.description"] = security_info["description"]
 
         # Log the security event
         log_event(
-            name="security.sensitive_content_detected",
-            attributes={
-                "security.alert_level": security_info["alert_level"],
-                "security.keywords": security_info["keywords"],
-                "llm.vendor": "openai",
-                "llm.model": sanitized_data.get("model"),
-                "llm.request.timestamp": datetime.now().isoformat(),
-            },
-            level="WARNING",
+            name=event_name,
+            attributes=security_attributes,
+            level=event_level,
         )
 
         self.logger.warning(
-            f"Security alert ({security_info['alert_level']}): Detected potentially sensitive content "
-            f"with keywords: {', '.join(security_info['keywords'])}"
+            f"SECURITY ALERT: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
         )
 
     def _extract_chat_response_data(self, result: Any) -> Dict[str, Any]:

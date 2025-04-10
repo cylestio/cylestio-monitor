@@ -211,24 +211,47 @@ class AnthropicPatcher(BasePatcher):
                         response_attributes["llm.response.content"] = safe_content
 
                         # Add usage statistics if available
-                        if usage:
+                        if "usage" in response_data:
+                            usage = response_data["usage"]
                             if "input_tokens" in usage:
-                                response_attributes["llm.usage.input_tokens"] = usage[
-                                    "input_tokens"
-                                ]
+                                response_attributes["llm.usage.input_tokens"] = usage["input_tokens"]
                             if "output_tokens" in usage:
-                                response_attributes["llm.usage.output_tokens"] = usage[
-                                    "output_tokens"
-                                ]
-                            if "input_tokens" in usage and "output_tokens" in usage:
-                                response_attributes["llm.usage.total_tokens"] = (
-                                    usage["input_tokens"] + usage["output_tokens"]
+                                response_attributes["llm.usage.output_tokens"] = usage["output_tokens"]
+
+                        # Scan response content for security concerns
+                        extracted_text = ""
+                        # Extract text from content blocks
+                        for item in response_data.get("content", []):
+                            if isinstance(item, dict) and "text" in item:
+                                extracted_text += item["text"] + " "
+                        
+                        if extracted_text:
+                            # Security scanning for response content
+                            from cylestio_monitor.security_detection import SecurityScanner
+                            scanner = SecurityScanner.get_instance()
+                            security_info = scanner.scan_text(extracted_text)
+                            
+                            # If security issues found, add to attributes and log a separate event
+                            if security_info["alert_level"] != "none":
+                                response_attributes["security.alert_level"] = security_info["alert_level"]
+                                response_attributes["security.keywords"] = security_info["keywords"]
+                                response_attributes["security.category"] = security_info["category"]
+                                response_attributes["security.severity"] = security_info["severity"]
+                                response_attributes["security.description"] = security_info["description"]
+                                
+                                # Log security event for response content
+                                self._log_security_event(security_info, {"content": extracted_text[:100] + "..."})
+                                
+                                # Log warning
+                                self.logger.warning(
+                                    f"SECURITY ALERT in LLM RESPONSE: {security_info['alert_level'].upper()} content "
+                                    f"detected: {security_info['keywords']}"
                                 )
 
                         # Debug logging
                         if self.debug_mode:
                             self.logger.debug(
-                                f"Response attributes: {json.dumps(response_attributes)[:500]}..."
+                                f"Response data: {json.dumps(safe_content)[:500]}..."
                             )
 
                         # Log the completion of the operation
@@ -457,52 +480,43 @@ class AnthropicPatcher(BasePatcher):
         Returns:
             Dict with security scan results
         """
-        # Convert messages to a simple string for scanning
-        message_str = str(messages).lower()
-
-        # Define suspicious and dangerous keywords
-        suspicious_keywords = [
-            "hack",
-            "exploit",
-            "bomb",
-            "terrorist",
-            "illegal",
-            "attack",
-            "drop",
-            "destroy",
-            "delete",
-            "backdoor",
-            "exploit",
-            "virus",
-            "malware",
-        ]
-
-        dangerous_keywords = [
-            "how to make a bomb",
-            "how to steal",
-            "how to hack",
-            "assassinate",
-            "kill",
-            "build a bomb",
-            "drop tables",
-        ]
-
-        # Initialize result
-        result = {"alert_level": "none", "keywords": []}
-
-        # Check for dangerous content first (more severe)
-        for keyword in dangerous_keywords:
-            if keyword in message_str:
-                result["alert_level"] = "dangerous"
-                result["keywords"].append(keyword)
-
-        # If not dangerous, check if suspicious
-        if result["alert_level"] == "none":
-            for keyword in suspicious_keywords:
-                if keyword in message_str:
-                    result["alert_level"] = "suspicious"
-                    result["keywords"].append(keyword)
-
+        from cylestio_monitor.security_detection import SecurityScanner
+        
+        # Get the scanner instance
+        scanner = SecurityScanner.get_instance()
+        
+        # Find the last user message in the conversation
+        last_user_message = None
+        if isinstance(messages, list):
+            for message in reversed(messages):
+                if isinstance(message, dict) and message.get("role") == "user":
+                    last_user_message = message
+                    break
+        
+        # If we found a last user message, only scan that
+        if last_user_message:
+            scan_result = scanner.scan_text(last_user_message.get("content", ""))
+        else:
+            # Fallback to scanning the entire conversation if we can't identify the last user message
+            scan_result = scanner.scan_event(messages)
+        
+        # Map the scanner result to the expected format
+        result = {
+            "alert_level": scan_result["alert_level"],
+            "keywords": scan_result.get("keywords", []),
+            "category": scan_result.get("category"),
+            "severity": scan_result.get("severity"),
+            "description": scan_result.get("description")
+        }
+        
+        # Log the result if it's not "none"
+        if result["alert_level"] != "none":
+            self.logger.warning(
+                f"Security scan detected {result['alert_level']} content: "
+                f"category={result['category']}, severity={result['severity']}, "
+                f"description='{result['description']}', keywords={result['keywords']}"
+            )
+            
         return result
 
     def _log_security_event(
@@ -521,19 +535,36 @@ class AnthropicPatcher(BasePatcher):
             else str(request_data)
         )
 
+        # Mask sensitive data in the content sample
+        from cylestio_monitor.security_detection import SecurityScanner
+        scanner = SecurityScanner.get_instance()
+        masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
+
         # Create event attributes
         security_attributes = {
             "llm.vendor": "anthropic",
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
-            "security.content_sample": content_sample,
+            "security.content_sample": masked_content_sample,
             "security.detection_time": datetime.now().isoformat(),
         }
+        
+        # Add new security attributes if available
+        if "category" in security_info and security_info["category"]:
+            security_attributes["security.category"] = security_info["category"]
+        
+        if "severity" in security_info and security_info["severity"]:
+            security_attributes["security.severity"] = security_info["severity"]
+            
+        if "description" in security_info and security_info["description"]:
+            security_attributes["security.description"] = security_info["description"]
 
         # Log appropriate event based on severity
         event_name = f"security.content.{security_info['alert_level']}"
+        
+        # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
         event_level = (
-            "ERROR" if security_info["alert_level"] == "dangerous" else "WARNING"
+            "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
         )
 
         log_event(name=event_name, attributes=security_attributes, level=event_level)

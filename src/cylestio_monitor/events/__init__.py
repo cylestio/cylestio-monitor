@@ -26,6 +26,8 @@ from cylestio_monitor.events.schema import StandardizedEvent
 from cylestio_monitor.utils.otel import (create_child_span, generate_span_id,
                                          generate_trace_id,
                                          get_or_create_agent_trace_context)
+# Re-export event creation and logging functions
+from cylestio_monitor.utils.event_logging import log_event, log_error, log_info, log_warning
 
 # Define __all__ to control what's imported with "from events import *"
 __all__ = [
@@ -33,6 +35,10 @@ __all__ = [
     "EventProcessor",
     "log_event",
     "process_standardized_event",
+    # Event logging
+    "log_info",
+    "log_warning",
+    "log_error",
     # Security
     "contains_suspicious",
     "contains_dangerous",

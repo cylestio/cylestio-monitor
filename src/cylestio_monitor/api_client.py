@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.utils.serialization import safe_event_serialize
+from cylestio_monitor.security_detection import SecurityScanner
 
 # Configure logging
 logger = logging.getLogger("cylestio_monitor.api_client")
@@ -251,16 +252,27 @@ def get_api_client() -> ApiClient:
 
 
 def send_event_to_api(event: Dict[str, Any]) -> bool:
-    """Send an event to the API using the default client.
+    """Send an event to the API.
 
     Args:
         event: The event to send
 
     Returns:
-        bool: True if the event was sent successfully, False otherwise
+        bool: True if event was sent successfully
     """
-    client = get_api_client()
-    return client.send_event(event)
+    # Mask sensitive data in the event before sending
+    scanner = SecurityScanner.get_instance()
+    masked_event = scanner.mask_event(event)
+    
+    # If masking didn't occur, use the original event
+    if masked_event is None:
+        masked_event = event
+    
+    # Create client
+    client = ApiClient()
+    
+    # Send event
+    return client.send_event(masked_event)
 
 
 def send_event_to_api_legacy(

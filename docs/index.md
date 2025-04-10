@@ -72,12 +72,30 @@ All events follow OpenTelemetry standards with proper trace context:
 }
 ```
 
-## Security Features
+## Security
 
-- **Content safety monitoring**: Identify potentially suspicious content
+Cylestio Monitor includes several security features:
+
+- **Content safety monitoring**: Identify potentially suspicious or dangerous content
 - **PII detection**: Detect and redact personally identifiable information
-- **Content filtering**: Flag harmful or inappropriate content
-- **Security classification**: Events are classified by security risk level
+- **Content filtering**: Flag harmful or inappropriate content  
+- **Security classification**: Events are automatically classified by security risk level
+- **Regulatory compliance**: Designed to help satisfy SOC2, GDPR, and HIPAA monitoring requirements
+- **Audit-ready logging**: Generate detailed logs suitable for security audits and compliance verification
+
+## Compliance for Agentic Workforces
+
+Cylestio Monitor enables organizations to maintain regulatory compliance as they transition to agentic workforces:
+
+- **Monitors LLM interactions**: Tracks all agent activities with LLM providers
+- **Real-time detection**: Identifies PII, credentials, and regulated information
+- **Security vulnerability detection**: Alerts on prompt injections and other attack vectors
+- **Comprehensive audit trails**: Maintains detailed logs of all agent operations
+- **Built-in data protection**: Automatically masks sensitive data in logs and telemetry
+
+The monitoring system itself is built with compliance in mind—all sensitive data detected in events is properly masked in logs and telemetry. The security detection patterns and rules are fully configurable to match specific regulatory and organizational requirements.
+
+For details about security configuration options, see [Security Configuration](sdk-reference/security-configuration.md).
 
 ## Examples
 

@@ -79,7 +79,6 @@ def mask_sensitive_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "key",
         "secret",
         "password",
-        "token",
         "auth_token",
         "authorization",
         "access_token",

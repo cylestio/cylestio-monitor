@@ -18,6 +18,7 @@ from cylestio_monitor.events.processing.security import (
 from cylestio_monitor.events.schema import StandardizedEvent
 from cylestio_monitor.utils.otel import (create_child_span,
                                          get_or_create_agent_trace_context)
+from cylestio_monitor.security_detection import SecurityScanner
 
 # Get configuration manager instance
 config_manager = ConfigManager()
@@ -268,16 +269,24 @@ def log_event(
     if parent_span_id:
         event["parent_span_id"] = parent_span_id
 
+    # Mask sensitive data in the whole event before logging/sending
+    scanner = SecurityScanner.get_instance()
+    masked_event = scanner.mask_event(event)
+    
+    # If masking didn't occur, use the original event
+    if masked_event is None:
+        masked_event = event
+
     # Get configured log file from the config manager
     log_file = config_manager.get("monitoring.log_file")
 
     # Log to file if log_file is set
     if log_file:
-        log_to_file(event, log_file)
+        log_to_file(masked_event, log_file)
 
     # Log to console
     if config_manager.get("monitoring.console_logging", False):
-        log_console_message(f"{otel_name}: {json.dumps(masked_attributes)[:100]}...")
+        log_console_message(f"{otel_name}: {json.dumps(masked_event['attributes'])[:100]}...")
 
     # Call process_and_log_event to handle additional processing
-    process_and_log_event(event)
+    process_and_log_event(masked_event)

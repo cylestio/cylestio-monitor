@@ -125,6 +125,20 @@ All events follow OpenTelemetry standards with trace context:
 - **PII detection**: Detect and redact personally identifiable information
 - **Content filtering**: Flag harmful or inappropriate content
 - **Security classification**: Events are automatically classified by security risk level
+- **Regulatory compliance**: Designed to help satisfy SOC2, GDPR, and HIPAA monitoring requirements
+- **Audit-ready logging**: Generate detailed logs suitable for security audits and compliance verification
+
+## Compliance for Agentic Workforces
+
+Cylestio Monitor enables organizations to maintain regulatory compliance as they transition to agentic workforces. The system:
+
+- **Monitors agent activities** across all interactions with LLM providers
+- **Detects sensitive data** including PII, credentials, and regulated information
+- **Alerts on potential prompt injections** and other security vulnerabilities
+- **Maintains comprehensive audit trails** for all agent operations
+- **Automatically masks sensitive data** in logs and telemetry
+
+The monitoring system itself is designed with compliance in mind, ensuring all sensitive data is properly masked in logs and events. Security patterns and detection rules are fully configurable to match your organization's specific compliance requirements.
 
 ## Complete Example
 
