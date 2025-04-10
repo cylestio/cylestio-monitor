@@ -180,10 +180,16 @@ class OpenAIPatcher(BasePatcher):
                         # Extract model and token usage if available
                         usage = response_data.get("usage", {})
 
+                        # Get model from response or fallback to the model from the request
+                        # (instead of using unknown as the fallback)
+                        response_model = response_data.get("model")
+                        if response_model == "unknown" or response_model is None:
+                            response_model = model
+
                         # Prepare attributes for the response event
                         response_attributes = {
                             "llm.vendor": "openai",
-                            "llm.model": response_data.get("model", model),
+                            "llm.model": response_model,
                             "llm.response.id": response_data.get("id", ""),
                             "llm.response.type": "chat_completion",
                             "llm.response.timestamp": datetime.now().isoformat(),
@@ -456,10 +462,16 @@ class OpenAIPatcher(BasePatcher):
                         # Extract model and token usage if available
                         usage = response_data.get("usage", {})
 
+                        # Get model from response or fallback to the model from the request
+                        # (instead of using unknown as the fallback)
+                        response_model = response_data.get("model")
+                        if response_model == "unknown" or response_model is None:
+                            response_model = model
+
                         # Prepare attributes for the response event
                         response_attributes = {
                             "llm.vendor": "openai",
-                            "llm.model": response_data.get("model", model),
+                            "llm.model": response_model,
                             "llm.response.id": response_data.get("id", ""),
                             "llm.response.type": "completion",
                             "llm.response.timestamp": datetime.now().isoformat(),
@@ -866,17 +878,22 @@ class OpenAIPatcher(BasePatcher):
             self.logger.error(f"Error extracting response data: {e}")
             # Return minimal data in case of error
             response_data = {
-                "id": (
-                    getattr(result, "id", "unknown")
-                    if hasattr(result, "id")
-                    else "unknown"
-                ),
-                "model": (
-                    getattr(result, "model", "unknown")
-                    if hasattr(result, "model")
-                    else "unknown"
-                ),
+                "id": "unknown",
+                "model": "unknown",
             }
+            
+            # Try to extract id and model directly
+            try:
+                if hasattr(result, "id"):
+                    response_data["id"] = result.id
+            except:
+                pass
+                
+            try:
+                if hasattr(result, "model"):
+                    response_data["model"] = result.model
+            except:
+                pass
 
         return response_data
 
@@ -949,17 +966,22 @@ class OpenAIPatcher(BasePatcher):
             self.logger.error(f"Error extracting response data: {e}")
             # Return minimal data in case of error
             response_data = {
-                "id": (
-                    getattr(result, "id", "unknown")
-                    if hasattr(result, "id")
-                    else "unknown"
-                ),
-                "model": (
-                    getattr(result, "model", "unknown")
-                    if hasattr(result, "model")
-                    else "unknown"
-                ),
+                "id": "unknown",
+                "model": "unknown",
             }
+            
+            # Try to extract id and model directly
+            try:
+                if hasattr(result, "id"):
+                    response_data["id"] = result.id
+            except:
+                pass
+                
+            try:
+                if hasattr(result, "model"):
+                    response_data["model"] = result.model
+            except:
+                pass
 
         return response_data
 
