@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added monitoring for LangChain tools and tool decorators
 - Improved chain execution tracking with better span context
 - Added token usage tracking for supported LLM providers
+- Enhanced security masking for sensitive data in security event logs
+- Improved consistent masking across all event fields including content samples
 
 ### Changed
 - Updated LangChain imports to use langchain-core and langchain-community packages
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling in tool execution monitoring
 - Fixed span context propagation in chain execution
 - Resolved deprecation warnings in LangChain imports
+- Fixed an issue where sensitive data in security event content samples wasn't properly masked
 
 ## [0.1.5] - 2024-03-27
 
