@@ -16,6 +16,7 @@ from cylestio_monitor.utils.context_attributes import (get_all_context,
                                                        get_library_versions)
 from cylestio_monitor.utils.event_context import (enrich_event_with_context,
                                                   get_session_id)
+from cylestio_monitor.utils.event_utils import format_timestamp
 from cylestio_monitor.utils.schema import (get_current_schema_version,
                                            validate_event_schema)
 from cylestio_monitor.utils.serialization import safe_event_serialize
@@ -65,8 +66,8 @@ def log_event(
             "parent_span_id"
         ) or TraceContext.get_parent_span_id(span_id)
 
-    # Create the event record
-    timestamp = datetime.now().isoformat()
+    # Create the event record with UTC timestamp and Z suffix
+    timestamp = format_timestamp()
 
     # Safely serialize the attributes first
     safe_attributes = safe_event_serialize(attributes or {})

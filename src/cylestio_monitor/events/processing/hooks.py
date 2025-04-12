@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.events.processing.logger import log_event
+from cylestio_monitor.utils.event_utils import format_timestamp, get_utc_timestamp
 from cylestio_monitor.events.processing.security import (contains_dangerous,
                                                          contains_suspicious)
 
@@ -54,7 +55,7 @@ def llm_call_hook(
         "provider": provider,
         "model": model,
         "call_id": call_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add the prompt to the data
@@ -129,7 +130,7 @@ def llm_response_hook(
         "provider": provider,
         "model": model,
         "call_id": call_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add the response content
@@ -230,7 +231,7 @@ def langchain_input_hook(
         "chain_name": chain_name,
         "execution_id": execution_id,
         "inputs": inputs,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add additional context
@@ -280,7 +281,7 @@ def langchain_output_hook(
         "chain_name": chain_name,
         "execution_id": execution_id,
         "outputs": outputs,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add additional context
@@ -327,7 +328,7 @@ def langgraph_state_update_hook(
         "agent_id": agent_id,
         "graph_name": graph_name,
         "state": state,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add node name if provided
@@ -362,7 +363,7 @@ def register_framework_patch(
     data = {
         "framework": framework,
         "patched_module": patched_module,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
         "agent_id": config_manager.get("monitoring.agent_id", "unknown"),
     }
 
@@ -409,7 +410,7 @@ def hook_decorator(
                     k: str(v) for k, v in kwargs.items() if k != "agent_id"
                 },  # Exclude agent_id
                 "result": str(result) if result is not None else None,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": format_timestamp(),
             }
 
             # Log the event

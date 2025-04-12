@@ -49,6 +49,7 @@ You can log custom events using the `log_event` function:
 
 ```python
 from cylestio_monitor.utils.event_logging import log_event
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 # Log a custom event
 log_event(
@@ -57,7 +58,19 @@ log_event(
         "records_processed": 1500,
         "processing_time_ms": 350,
         "success": True
-    }
+    },
+    # timestamp is automatically set using format_timestamp() if not provided
+)
+
+# Or explicitly provide a timestamp
+log_event(
+    name="data.processing.complete",
+    attributes={
+        "records_processed": 1500,
+        "processing_time_ms": 350,
+        "success": True
+    },
+    timestamp=format_timestamp()  # Explicitly using the timestamp utility
 )
 ```
 
@@ -68,7 +81,7 @@ All events in Cylestio Monitor follow a standard structure:
 ```python
 {
     "name": "llm.call.finish",          # Event type/name
-    "timestamp": "2023-07-14T12:34:56Z", # ISO 8601 timestamp
+    "timestamp": "2023-07-14T12:34:56.789Z", # ISO 8601 timestamp with UTC (Z suffix)
     "trace_id": "abc123...",            # Trace ID for correlation
     "span_id": "def456...",             # Span ID for this event
     "parent_span_id": "ghi789...",      # Parent span ID (optional)
@@ -81,6 +94,8 @@ All events in Cylestio Monitor follow a standard structure:
     }
 }
 ```
+
+> **Important**: All timestamps MUST use ISO8601 format with UTC timezone and the "Z" suffix. For details on timestamp handling, see the [Timestamp Guidelines](/docs/developers/timestamps.md).
 
 ## Trace Context Management
 

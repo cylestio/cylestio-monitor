@@ -8,7 +8,7 @@ functionality in the events module, focusing on OpenTelemetry-based interfaces.
 import json
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,6 +22,7 @@ from cylestio_monitor.events import (
     log_error
 )
 from cylestio_monitor.utils.trace_context import TraceContext
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 
 class TestEventSchema:
@@ -94,6 +95,109 @@ class TestEventSchema:
             name="tool.execution"
         )
         assert event.event_category == "tool"
+        
+    def test_standardized_event_timestamp_handling(self):
+        """Test standardized event handles various timestamp formats correctly."""
+        # Test with datetime without timezone (naive)
+        naive_dt = datetime(2023, 1, 1, 12, 0, 0)
+        event = StandardizedEvent(
+            timestamp=naive_dt,
+            level="INFO",
+            agent_id="test-agent",
+            name="test.event"
+        )
+        assert event.timestamp.endswith('Z')  # Should end with Z
+        assert "2023-01-01T12:00:00" in event.timestamp  # Base time should be preserved
+        
+        # Test with datetime with UTC timezone
+        utc_dt = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        event = StandardizedEvent(
+            timestamp=utc_dt,
+            level="INFO",
+            agent_id="test-agent",
+            name="test.event"
+        )
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T12:00:00" in event.timestamp
+        
+        # Test with ISO string with Z suffix
+        iso_z = "2023-01-01T12:00:00Z"
+        event = StandardizedEvent(
+            timestamp=iso_z,
+            level="INFO",
+            agent_id="test-agent",
+            name="test.event"
+        )
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T12:00:00" in event.timestamp
+        
+        # Test with ISO string with +00:00 suffix
+        iso_offset = "2023-01-01T12:00:00+00:00"
+        event = StandardizedEvent(
+            timestamp=iso_offset,
+            level="INFO",
+            agent_id="test-agent",
+            name="test.event"
+        )
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T12:00:00" in event.timestamp
+        assert "+00:00" not in event.timestamp
+        
+        # Test with non-UTC timezone string
+        non_utc = "2023-01-01T12:00:00+05:00"  # UTC+5
+        event = StandardizedEvent(
+            timestamp=non_utc,
+            level="INFO",
+            agent_id="test-agent",
+            name="test.event"
+        )
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T07:00:00" in event.timestamp  # Should be converted to UTC (12-5=7)
+        
+    def test_from_dict_timestamp_handling(self):
+        """Test from_dict method handles timestamps correctly."""
+        # Test with ISO string with Z suffix
+        event_dict = {
+            "timestamp": "2023-01-01T12:00:00Z",
+            "level": "INFO",
+            "agent_id": "test-agent",
+            "name": "test.event"
+        }
+        event = StandardizedEvent.from_dict(event_dict)
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T12:00:00" in event.timestamp
+        
+        # Test with ISO string with timezone offset
+        event_dict = {
+            "timestamp": "2023-01-01T12:00:00+05:00",
+            "level": "INFO",
+            "agent_id": "test-agent",
+            "name": "test.event"
+        }
+        event = StandardizedEvent.from_dict(event_dict)
+        assert event.timestamp.endswith('Z')
+        assert "2023-01-01T07:00:00" in event.timestamp  # Should be converted to UTC
+        
+        # Test with no timestamp (should use current time)
+        event_dict = {
+            "level": "INFO",
+            "agent_id": "test-agent",
+            "name": "test.event"
+        }
+        event = StandardizedEvent.from_dict(event_dict)
+        assert event.timestamp.endswith('Z')
+        
+        # Test that the timestamp is in the right format by comparing with format_timestamp output
+        iso_string = "2023-01-01T12:00:00Z"
+        expected = format_timestamp(iso_string)
+        event_dict = {
+            "timestamp": iso_string,
+            "level": "INFO",
+            "agent_id": "test-agent",
+            "name": "test.event"
+        }
+        event = StandardizedEvent.from_dict(event_dict)
+        assert event.timestamp == expected
         
     def test_from_dict_conversion(self):
         """Test creating StandardizedEvent from dictionary."""

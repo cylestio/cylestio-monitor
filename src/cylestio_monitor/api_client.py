@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.utils.serialization import safe_event_serialize
 from cylestio_monitor.security_detection import SecurityScanner
+from cylestio_monitor.utils.event_utils import get_utc_timestamp, format_timestamp
 
 # Configure logging
 logger = logging.getLogger("cylestio_monitor.api_client")
@@ -78,17 +79,24 @@ class ApiClient:
         """
         # Apply safe serialization to the event attributes
         event = self._ensure_serializable(event)
+        
+        # Ensure event has a properly formatted timestamp
+        event_copy = event.copy()
+        if 'timestamp' not in event_copy:
+            event_copy['timestamp'] = format_timestamp()
+        elif isinstance(event_copy['timestamp'], (str, datetime)):
+            event_copy['timestamp'] = format_timestamp(event_copy['timestamp'])
 
         # Check if we should send in background
         if self.send_in_background:
             # Add to background queue
-            _event_queue.put((self.endpoint, self.http_method, self.timeout, event))
+            _event_queue.put((self.endpoint, self.http_method, self.timeout, event_copy))
             _ensure_background_thread_running()
             return True
         else:
             # Send directly
             return self._send_event_direct(
-                self.endpoint, self.http_method, self.timeout, event
+                self.endpoint, self.http_method, self.timeout, event_copy
             )
 
     def _ensure_serializable(self, event: Dict[str, Any]) -> Dict[str, Any]:
@@ -300,11 +308,11 @@ def send_event_to_api_legacy(
     """
     # Get timestamp if not provided
     if timestamp is None:
-        timestamp = datetime.now()
+        timestamp = get_utc_timestamp()
 
     # Create the event payload in the new format
     event = {
-        "timestamp": timestamp.isoformat(),
+        "timestamp": format_timestamp(timestamp),
         "agent_id": agent_id,
         "name": event_type.lower().replace("_", "."),
         "level": level.upper(),

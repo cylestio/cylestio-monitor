@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 from cylestio_monitor.patchers.base import BasePatcher
 
 from ..utils.event_logging import log_error, log_event
+from ..utils.event_utils import format_timestamp
 from ..utils.trace_context import TraceContext
 
 logger = logging.getLogger("CylestioMonitor")
@@ -560,7 +561,7 @@ class LangGraphMonitor:
         """Initialize the LangGraph monitor."""
         self._start_times: Dict[str, float] = {}
         self._node_types: Dict[str, str] = {}
-        self._session_id = f"langgraph-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        self._session_id = f"langgraph-{format_timestamp()}"
         self._turn_counters: Dict[str, int] = {}
 
     def _get_langgraph_version(self) -> str:
@@ -682,7 +683,7 @@ class LangGraphMonitor:
                     "error_type": type(error).__name__,
                     "performance": {
                         "duration_ms": duration * 1000,
-                        "error_time": datetime.now().isoformat(),
+                        "error_time": format_timestamp(),
                     },
                 },
                 level="error",
@@ -789,7 +790,7 @@ class LangGraphMonitor:
                     "error_type": type(error).__name__,
                     "performance": {
                         "duration_ms": duration * 1000,
-                        "error_time": datetime.now().isoformat(),
+                        "error_time": format_timestamp(),
                     },
                 },
                 level="error",
@@ -839,7 +840,7 @@ class LangGraphMonitor:
                     "count": len(changed_keys),
                     "old_state": formatted_old_state,
                     "new_state": formatted_new_state,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": format_timestamp(),
                 },
             },
         )
@@ -863,7 +864,7 @@ class LangGraphMonitor:
                 "transition": {
                     "from_node": from_node,
                     "to_node": to_node,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": format_timestamp(),
                 },
                 "state": formatted_state,
             },
@@ -879,7 +880,7 @@ class LangGraphMonitor:
                 "graph_id": graph_id,
                 "agent_id": agent_id,
                 "action": action,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": format_timestamp(),
             },
         )
 
@@ -1115,7 +1116,7 @@ def patch_langgraph() -> None:
             attributes={
                 "framework": "langgraph",
                 "version": getattr(langgraph, "__version__", "unknown"),
-                "patch_time": datetime.now().isoformat(),
+                "patch_time": format_timestamp(),
                 "method": "monkey_patch",
                 "note": "Using monkey patching as callbacks module is not available",
             },

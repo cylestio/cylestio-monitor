@@ -6,10 +6,11 @@ transforming them into the standardized schema before they are logged.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from cylestio_monitor.events.registry import converter_factory
 from cylestio_monitor.events.schema import StandardizedEvent
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 
 def process_event(event: Dict[str, Any]) -> StandardizedEvent:
@@ -34,7 +35,7 @@ def create_standardized_event(
     data: Dict[str, Any],
     channel: str = "SYSTEM",
     level: str = "info",
-    timestamp: Optional[datetime] = None,
+    timestamp: Optional[Union[datetime, str]] = None,
     direction: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> StandardizedEvent:
@@ -47,16 +48,16 @@ def create_standardized_event(
         data: Event data
         channel: Event channel
         level: Log level
-        timestamp: Event timestamp
+        timestamp: Event timestamp (datetime or ISO8601 string, default: current UTC time)
         direction: Event direction
         session_id: Session ID
 
     Returns:
-        StandardizedEvent: The standardized event
+        StandardizedEvent: The standardized event with UTC timestamp and Z suffix
     """
     # Create the raw event
     event = {
-        "timestamp": timestamp.isoformat() if timestamp else datetime.now().isoformat(),
+        "timestamp": format_timestamp(timestamp),
         "level": level.upper(),
         "agent_id": agent_id,
         "event_type": event_type,

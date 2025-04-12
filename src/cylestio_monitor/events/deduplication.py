@@ -9,6 +9,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
+from cylestio_monitor.utils.event_utils import format_timestamp
+
 logger = logging.getLogger(__name__)
 
 # Track processed events to prevent duplicates
@@ -29,7 +31,7 @@ def get_event_id(
     Returns:
         str: Unique event identifier
     """
-    ts = timestamp.isoformat() if timestamp else datetime.now().isoformat()
+    ts = timestamp.isoformat() if timestamp else format_timestamp()
     # Create a simplified representation of the data for fingerprinting
     data_repr = str(
         sorted([(k, str(v)[:50]) for k, v in data.items() if k not in ["timestamp"]])

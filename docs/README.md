@@ -57,4 +57,18 @@ order: 1
 
 ## Standalone Usage
 
-While this documentation is designed to be integrated with a centralized system, it can also be used as standalone documentation for the Cylestio Monitor SDK. 
+While this documentation is designed to be integrated with a centralized system, it can also be used as standalone documentation for the Cylestio Monitor SDK.
+
+## Available Documentation
+
+- [Getting Started](getting-started/)
+- SDK Reference
+  - [Events](sdk-reference/events.md)
+  - [Monitor](sdk-reference/monitor.md)
+  - [Tracing](sdk-reference/tracing.md)
+  - [API Client](sdk-reference/api-client.md)
+- Developer Guidelines
+  - [Timestamps](developers/timestamps.md)
+  - [Events](developers/events.md)
+- [Troubleshooting](troubleshooting.md)
+- [Custom Integrations](custom-integrations.md) 
