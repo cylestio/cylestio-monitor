@@ -16,6 +16,7 @@ from cylestio_monitor.event_logger import (log_console_message, log_to_file,
 from cylestio_monitor.events.processing.security import (
     check_security_concerns, mask_sensitive_data)
 from cylestio_monitor.events.schema import StandardizedEvent
+from cylestio_monitor.utils.event_utils import format_timestamp, get_utc_timestamp
 from cylestio_monitor.utils.otel import (create_child_span,
                                          get_or_create_agent_trace_context)
 from cylestio_monitor.security_detection import SecurityScanner
@@ -106,7 +107,7 @@ def create_standardized_event(
     """
     # Use current timestamp if not provided
     if timestamp is None:
-        timestamp = datetime.now()
+        timestamp = get_utc_timestamp()
 
     # Create the standardized event
     return StandardizedEvent(
@@ -114,7 +115,7 @@ def create_standardized_event(
         name=name,
         attributes=attributes,
         level=level.upper(),
-        timestamp=timestamp.isoformat(),
+        timestamp=format_timestamp(timestamp),
         trace_id=trace_id,
         span_id=span_id,
         parent_span_id=parent_span_id,
@@ -254,9 +255,9 @@ def log_event(
         masked_attributes["security.alert"] = alert
 
     # Create a standardized event with OpenTelemetry structure
-    timestamp = datetime.now()
+    timestamp = get_utc_timestamp()
     event = {
-        "timestamp": timestamp.isoformat(),
+        "timestamp": format_timestamp(timestamp),
         "level": level.upper(),
         "agent_id": agent_id,
         "name": otel_name,

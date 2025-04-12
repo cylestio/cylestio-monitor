@@ -7,13 +7,14 @@ with a consistent format.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.event_logger import log_to_file, send_event_to_remote_api
 from cylestio_monitor.events.deduplication import (get_event_id,
                                                    is_duplicate_event,
                                                    mark_event_processed)
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def process_standardized_event(
     data: Dict[str, Any],
     channel: str = "SYSTEM",
     level: str = "info",
-    timestamp: Optional[datetime] = None,
+    timestamp: Optional[Union[datetime, str]] = None,
     direction: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> None:
@@ -41,7 +42,7 @@ def process_standardized_event(
         data: Event data dictionary
         channel: Event channel
         level: Log level
-        timestamp: Event timestamp
+        timestamp: Event timestamp (datetime or ISO8601 string, default: current UTC time)
         direction: Message direction
         session_id: Session identifier
     """
@@ -49,12 +50,11 @@ def process_standardized_event(
     if event_type in ["LLM_call_start", "LLM_call_finish", "LLM_call_blocked"]:
         logger.debug(f"Processing LLM call event: {event_type}")
 
-    # Get timestamp if not provided
-    if timestamp is None:
-        timestamp = datetime.now()
+    # Format timestamp using enhanced utilities
+    formatted_timestamp = format_timestamp(timestamp)
 
     # Generate event ID for duplicate detection
-    event_id = get_event_id(event_type, data, timestamp)
+    event_id = get_event_id(event_type, data, formatted_timestamp)
 
     # Check for duplicate events
     if is_duplicate_event(event_id):
@@ -66,7 +66,7 @@ def process_standardized_event(
 
     # Create base record with required fields
     record = {
-        "timestamp": timestamp.isoformat(),
+        "timestamp": formatted_timestamp,
         "level": level.upper(),
         "agent_id": agent_id,
         "event_type": event_type,
@@ -102,6 +102,6 @@ def process_standardized_event(
         data=data,
         channel=channel,
         level=level,
-        timestamp=timestamp,
+        timestamp=formatted_timestamp,
         direction=direction,
     )

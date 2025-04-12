@@ -18,6 +18,7 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
 
 from ..utils.event_logging import log_event
+from ..utils.event_utils import format_timestamp
 from ..utils.trace_context import TraceContext
 from .base import BasePatcher
 
@@ -128,7 +129,7 @@ class AnthropicPatcher(BasePatcher):
                         "llm.model": model,
                         "llm.request.type": "completion",
                         "llm.request.data": request_data,
-                        "llm.request.timestamp": datetime.now().isoformat(),
+                        "llm.request.timestamp": format_timestamp(),
                     }
 
                     # Add model configuration
@@ -197,7 +198,7 @@ class AnthropicPatcher(BasePatcher):
                             "llm.model": response_data.get("model", model),
                             "llm.response.id": response_data.get("id", ""),
                             "llm.response.type": "completion",
-                            "llm.response.timestamp": datetime.now().isoformat(),
+                            "llm.response.timestamp": format_timestamp(),
                             "llm.response.duration_ms": duration_ms,
                             "llm.response.stop_reason": response_data.get(
                                 "stop_reason"
@@ -546,7 +547,7 @@ class AnthropicPatcher(BasePatcher):
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
             "security.content_sample": masked_content_sample,
-            "security.detection_time": datetime.now().isoformat(),
+            "security.detection_time": format_timestamp(),
         }
         
         # Add new security attributes if available
@@ -722,14 +723,9 @@ class AnthropicPatcher(BasePatcher):
                 name="framework.initialization",
                 attributes={
                     "framework.name": "anthropic",
-                    "framework.type": "llm_provider",
-                    "framework.initialization_time": datetime.now().isoformat(),
-                    "api_key_present": bool(
-                        kwargs.get("api_key") or hasattr(self, "api_key")
-                    ),
-                    "auth_present": bool(
-                        kwargs.get("auth_token") or hasattr(self, "auth_token")
-                    ),
+                    "framework.type": "client",
+                    "framework.version": "1.0.0",  # Replace with actual version when available
+                    "framework.initialization_time": format_timestamp(),
                 },
                 level="INFO",
                 span_id=span_id,

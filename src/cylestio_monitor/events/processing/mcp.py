@@ -13,6 +13,7 @@ from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.events.processing.logger import log_event
 from cylestio_monitor.events.processing.security import (contains_dangerous,
                                                          contains_suspicious)
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 # Initialize logger
 logger = logging.getLogger("CylestioMonitor")
@@ -39,7 +40,7 @@ def log_mcp_connection_event(
     data = {
         "agent_id": agent_id,
         "connection_id": connection_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add client info if provided
@@ -82,7 +83,7 @@ def log_mcp_command_event(
         "agent_id": agent_id,
         "connection_id": connection_id,
         "command": command,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add response if provided
@@ -138,7 +139,7 @@ def log_mcp_heartbeat(
         "agent_id": agent_id,
         "connection_id": connection_id,
         "metrics": metrics,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Log the event
@@ -169,7 +170,7 @@ def log_mcp_file_transfer(
         "connection_id": connection_id,
         "file_info": file_info,
         "status": status,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add error if provided
@@ -214,7 +215,7 @@ def log_mcp_agent_status_change(
         "agent_id": agent_id,
         "connection_id": connection_id,
         "new_status": new_status,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add previous status if provided
@@ -262,7 +263,7 @@ def log_mcp_authentication_event(
         "connection_id": connection_id,
         "auth_method": auth_method,
         "success": success,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_timestamp(),
     }
 
     # Add details if provided

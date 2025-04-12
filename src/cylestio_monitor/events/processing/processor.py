@@ -16,6 +16,7 @@ from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.events.processing.security import (
     check_security_concerns, mask_sensitive_data)
 from cylestio_monitor.events.schema import StandardizedEvent
+from cylestio_monitor.utils.event_utils import format_timestamp, get_utc_timestamp
 
 # Set up module-level logger
 logger = logging.getLogger("CylestioMonitor")
@@ -83,7 +84,7 @@ def create_standardized_event(
     """
     # Use current timestamp if not provided
     if timestamp is None:
-        timestamp = datetime.now()
+        timestamp = get_utc_timestamp()
 
     # Create the standardized event
     return StandardizedEvent(
@@ -91,7 +92,7 @@ def create_standardized_event(
         name=name,
         attributes=attributes,
         level=level.upper(),
-        timestamp=timestamp.isoformat(),
+        timestamp=format_timestamp(timestamp),
         trace_id=trace_id,
         span_id=span_id,
         parent_span_id=parent_span_id,

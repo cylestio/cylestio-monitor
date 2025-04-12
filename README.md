@@ -39,6 +39,9 @@ response = client.messages.create(
 
 # When finished, stop monitoring
 cylestio_monitor.stop_monitoring()
+
+# All events will use ISO8601 format with UTC timezone and Z suffix
+# e.g., "2024-03-27T15:31:40.622Z"
 ```
 
 ## How It Works
@@ -106,7 +109,7 @@ All events follow OpenTelemetry standards with trace context:
 
 ```json
 {
-    "timestamp": "2024-03-27T15:31:40.622017",
+    "timestamp": "2024-03-27T15:31:40.622Z",
     "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",

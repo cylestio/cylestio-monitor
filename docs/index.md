@@ -59,7 +59,7 @@ All events follow OpenTelemetry standards with proper trace context:
 
 ```json
 {
-    "timestamp": "2024-03-27T15:31:40.622017",
+    "timestamp": "2024-03-27T15:31:40.622Z",
     "trace_id": "2a8ec755032d4e2ab0db888ab84ef595",
     "span_id": "96d8c2be667e4c78",
     "parent_span_id": "f1490a668d69d1dc",
@@ -71,6 +71,8 @@ All events follow OpenTelemetry standards with proper trace context:
     "agent_id": "weather-agent"
 }
 ```
+
+> **Note**: All timestamps use ISO8601 format with UTC timezone and Z suffix. See the [Timestamp Guidelines](developers/timestamps.md) for details.
 
 ## Security
 

@@ -46,6 +46,7 @@ class StandardizedEvent:
 
         Args:
             timestamp: Event timestamp (ISO format string or datetime)
+                      Will be converted to UTC with Z suffix if not already
             level: Log level (INFO, WARNING, ERROR, etc.)
             agent_id: Agent identifier
             name: Name of event (following OpenTelemetry naming conventions)
@@ -65,9 +66,12 @@ class StandardizedEvent:
             response: Structured response data - legacy field
             extra: Any unmapped data - legacy field
         """
-        self.timestamp = (
-            timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp
-        )
+        # Import the utilities here to avoid circular imports
+        from cylestio_monitor.utils.event_utils import format_timestamp
+        
+        # Normalize timestamp to UTC with Z suffix
+        self.timestamp = format_timestamp(timestamp)
+        
         self.level = level
         self.agent_id = agent_id
         self.name = name  # OpenTelemetry uses 'name' instead of 'event_type'
@@ -201,8 +205,14 @@ class StandardizedEvent:
             data: Dictionary containing event data
 
         Returns:
-            StandardizedEvent instance
+            StandardizedEvent instance with normalized UTC timestamp
         """
+        # Import the utilities here to avoid circular imports
+        from cylestio_monitor.utils.event_utils import format_timestamp, get_utc_timestamp
+        
+        # Extract timestamp or default to current UTC time
+        timestamp = data.get("timestamp", format_timestamp(get_utc_timestamp()))
+        
         # Handle different variations in field names (support legacy format)
         name = data.get("name") or data.get("event_type", "unknown")
         attributes = data.get("attributes", {})
@@ -221,7 +231,7 @@ class StandardizedEvent:
         extra = data.get("extra")
 
         return cls(
-            timestamp=data.get("timestamp", datetime.now().isoformat()),
+            timestamp=timestamp,
             level=data.get("level", "INFO"),
             agent_id=data.get("agent_id", "unknown"),
             name=name,

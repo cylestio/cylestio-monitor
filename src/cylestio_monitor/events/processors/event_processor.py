@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from cylestio_monitor.events.keyword_detection import get_alert_level
 from cylestio_monitor.events.standardized_event import \
     process_standardized_event
+from cylestio_monitor.utils.event_utils import format_timestamp
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ class EventProcessor:
 
         # Prepare metadata
         metadata = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": format_timestamp(),
             "agent_id": self.agent_id,
             "prompt": prompt,
             "alert": alert,
@@ -107,7 +108,7 @@ class EventProcessor:
 
         # Prepare metadata
         metadata = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": format_timestamp(),
             "agent_id": self.agent_id,
             "prompt": prompt,
             "response": response,

@@ -18,6 +18,7 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 from ..utils.event_logging import log_event
+from ..utils.event_utils import format_timestamp
 from ..utils.trace_context import TraceContext
 from .base import BasePatcher
 
@@ -121,7 +122,7 @@ class OpenAIPatcher(BasePatcher):
                         "llm.model": model,
                         "llm.request.type": "chat_completion",
                         "llm.request.data": request_data,
-                        "llm.request.timestamp": datetime.now().isoformat(),
+                        "llm.request.timestamp": format_timestamp(),
                     }
 
                     # Add model configuration
@@ -192,7 +193,7 @@ class OpenAIPatcher(BasePatcher):
                             "llm.model": response_model,
                             "llm.response.id": response_data.get("id", ""),
                             "llm.response.type": "chat_completion",
-                            "llm.response.timestamp": datetime.now().isoformat(),
+                            "llm.response.timestamp": format_timestamp(),
                             "llm.response.duration_ms": duration_ms,
                         }
 
@@ -403,7 +404,7 @@ class OpenAIPatcher(BasePatcher):
                         "llm.model": model,
                         "llm.request.type": "completion",
                         "llm.request.data": request_data,
-                        "llm.request.timestamp": datetime.now().isoformat(),
+                        "llm.request.timestamp": format_timestamp(),
                     }
 
                     # Add model configuration
@@ -474,7 +475,7 @@ class OpenAIPatcher(BasePatcher):
                             "llm.model": response_model,
                             "llm.response.id": response_data.get("id", ""),
                             "llm.response.type": "completion",
-                            "llm.response.timestamp": datetime.now().isoformat(),
+                            "llm.response.timestamp": format_timestamp(),
                             "llm.response.duration_ms": duration_ms,
                         }
 
@@ -774,10 +775,10 @@ class OpenAIPatcher(BasePatcher):
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
             "security.content_sample": masked_content_sample,
-            "security.detection_time": datetime.now().isoformat(),
+            "security.detection_time": format_timestamp(),
             "llm.vendor": "openai",
             "llm.model": sanitized_data.get("model"),
-            "llm.request.timestamp": datetime.now().isoformat(),
+            "llm.request.timestamp": format_timestamp(),
         }
         
         # Add new security attributes if available
