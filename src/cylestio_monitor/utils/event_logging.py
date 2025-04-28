@@ -37,6 +37,11 @@ def log_event(
     include_context: bool = True,
     context_type: str = "minimal",
     add_thread_context: bool = True,
+    channel: Optional[str] = None,
+    event_category: Optional[str] = None,
+    performance: Optional[Dict[str, Any]] = None,
+    model: Optional[Dict[str, Any]] = None,
+    security: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Log an event with OpenTelemetry-compliant structure.
 
@@ -50,6 +55,11 @@ def log_event(
         include_context: Whether to include environmental context attributes
         context_type: Type of context to include ("minimal", "standard", or "full")
         add_thread_context: Whether to add thread-local context from event_context
+        channel: Optional channel identifier for event converters (e.g., "OPENAI", "ANTHROPIC")
+        event_category: Optional category for the event
+        performance: Optional performance metrics
+        model: Optional model information
+        security: Optional security information
 
     Returns:
         Dict: The created event record
@@ -86,6 +96,26 @@ def log_event(
     # Add agent_id if available
     if agent_id:
         event["agent_id"] = agent_id
+        
+    # Add channel if provided
+    if channel:
+        event["channel"] = channel
+        
+    # Add event category if provided
+    if event_category:
+        event["event_category"] = event_category
+        
+    # Add performance metrics if provided
+    if performance and performance:
+        event["performance"] = safe_event_serialize(performance)
+        
+    # Add model information if provided
+    if model and model:
+        event["model"] = safe_event_serialize(model)
+        
+    # Add security information if provided
+    if security and security:
+        event["security"] = safe_event_serialize(security)
 
     # Add session_id to attributes
     event["attributes"]["session.id"] = get_session_id()

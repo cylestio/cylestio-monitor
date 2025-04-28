@@ -179,21 +179,37 @@ class EventProcessor:
         self.logger = logging.getLogger("CylestioMonitor")
 
     def process_event(self, name: str, attributes: Dict[str, Any], **kwargs) -> None:
-        """Process a general event.
+        """Process an event.
 
         Args:
-            name: Name of the event (OpenTelemetry convention)
-            attributes: Event attributes
-            **kwargs: Additional parameters for log_event
+            name: Event name following OTel conventions
+            attributes: Dictionary of attributes to include in the event
+            **kwargs: Additional parameters for event processing
         """
-        # Add agent_id to attributes if not present
-        if "agent_id" not in attributes:
-            attributes["agent_id"] = self.agent_id
+        # Add event category based on name
+        event_category = name.split(".")[0] if "." in name else "custom"
 
-        # Log the event
-        from cylestio_monitor.events.processing.logger import log_event
+        # Force attributes to be a dict if it's not already
+        if attributes is None:
+            attributes = {}
 
-        log_event(name, attributes, **kwargs)
+        # Add performance metrics if available
+        performance = kwargs.pop("performance", {}) 
+
+        # Extract token usage from attributes if not in performance section
+        if event_category == "llm" and not any(key.startswith("llm.usage.") for key in performance):
+            for key in list(attributes.keys()):
+                if key.startswith("llm.usage."):
+                    performance[key] = attributes[key]
+
+        # Log event with attributes
+        log_event(
+            name=name,
+            event_category=event_category,
+            attributes=attributes,
+            performance=performance,
+            **kwargs,
+        )
 
     def process_llm_request(
         self,
@@ -273,24 +289,48 @@ class EventProcessor:
             attributes["llm.request.prompt"] = prompt
 
         # Add usage statistics if available
+        performance = {}
         if isinstance(response, dict) and "usage" in response:
             usage = response["usage"]
             if "input_tokens" in usage:
                 attributes["llm.response.usage.input_tokens"] = usage["input_tokens"]
+                performance["llm.usage.input_tokens"] = usage["input_tokens"]
             if "output_tokens" in usage:
                 attributes["llm.response.usage.output_tokens"] = usage["output_tokens"]
+                performance["llm.usage.output_tokens"] = usage["output_tokens"]
+            if "total_tokens" in usage:
+                attributes["llm.response.usage.total_tokens"] = usage.get("total_tokens", 
+                    usage.get("input_tokens", 0) + usage.get("output_tokens", 0))
+                performance["llm.usage.total_tokens"] = attributes["llm.response.usage.total_tokens"]
+        
+        # Look for usage metrics in kwargs
+        usage_keys = {
+            "input_tokens": "llm.usage.input_tokens",
+            "output_tokens": "llm.usage.output_tokens",
+            "total_tokens": "llm.usage.total_tokens",
+            "llm.usage.input_tokens": "llm.usage.input_tokens",
+            "llm.usage.output_tokens": "llm.usage.output_tokens",
+            "llm.usage.total_tokens": "llm.usage.total_tokens",
+        }
+        
+        for src_key, dst_key in usage_keys.items():
+            if src_key in kwargs:
+                attributes[dst_key] = kwargs[src_key]
+                performance[dst_key] = kwargs[src_key]
 
         # Add any additional attributes
         for key, value in kwargs.items():
             if key not in ("agent_id", "trace_id", "span_id", "parent_span_id"):
-                attributes[f"llm.response.{key}"] = value
+                if key not in usage_keys:
+                    attributes[f"llm.response.{key}"] = value
 
         # Add agent_id
         if "agent_id" not in attributes and self.agent_id:
             attributes["agent_id"] = self.agent_id
 
-        # Log the response
-        self.process_event("llm.response", attributes)
+        # Log the response with performance data
+        kwargs["performance"] = performance
+        self.process_event("llm.response", attributes, **kwargs)
 
     def process_mcp_connection(
         self,

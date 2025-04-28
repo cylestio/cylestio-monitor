@@ -14,6 +14,7 @@ from cylestio_monitor.events.converters.factory import EventConverterFactory
 from cylestio_monitor.events.converters.langchain import \
     LangChainEventConverter
 from cylestio_monitor.events.converters.mcp import MCPEventConverter
+from cylestio_monitor.events.converters.openai import OpenAIEventConverter
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ def create_converter_factory() -> EventConverterFactory:
         logger.debug("LangGraph not available, skipping event converter registration")
 
     factory.register_converter("ANTHROPIC", AnthropicEventConverter())
+    factory.register_converter("OPENAI", OpenAIEventConverter())
     factory.register_converter("SYSTEM", MCPEventConverter())
     factory.register_converter("MCP", MCPEventConverter())
 
