@@ -79,7 +79,7 @@ class MCPPatcher(BasePatcher):
             self.original_funcs["call_tool"] = original_call_tool
 
             @functools.wraps(original_call_tool)
-            async def wrapped_call_tool(tool_name, tool_args, *args, **kwargs):
+            async def wrapped_call_tool(tool_name, **kwargs):
                 """Wrapped call_tool with monitoring."""
                 # Log the call start
                 start_time = time.time()
@@ -88,17 +88,14 @@ class MCPPatcher(BasePatcher):
                     {
                         "method": "call_tool",
                         "tool": tool_name,
-                        "args": str(tool_args),
-                        "kwargs": str(kwargs),
+                        "args": str(kwargs),
                     },
                     "MCP",
                 )
 
                 # Call the original method
                 try:
-                    result = await original_call_tool(
-                        tool_name, tool_args, *args, **kwargs
-                    )
+                    result = await original_call_tool(tool_name, **kwargs)
 
                     # Log the call finish
                     duration = time.time() - start_time

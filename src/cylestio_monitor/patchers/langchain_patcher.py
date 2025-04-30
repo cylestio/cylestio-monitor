@@ -5,6 +5,9 @@ allowing automatic monitoring of all LangChain operations in an application.
 """
 
 import logging
+import functools
+import inspect
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar
 
 from cylestio_monitor.patchers.base import BasePatcher
 from cylestio_monitor.utils.event_logging import log_error, log_event
@@ -47,21 +50,17 @@ class LangChainPatcher(BasePatcher):
             return False
 
         try:
-            # Log patch event
+            # Log patch attempt
+            context = TraceContext.get_current_context()
             log_event(
                 name="framework.patch",
                 attributes={
                     "framework.name": "langchain",
                     "patch.type": "monkey_patch",
-                    "patch.components": [
-                        "chains",
-                        "llms",
-                        "retrievers",
-                        "documents",
-                        "chat_models",
-                        "agent_executor",
-                    ],
+                    "patch.components": ["LLMChain", "ChatModel", "Retriever", "AgentExecutor"],
                 },
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
 
             # Apply individual patches
@@ -83,6 +82,8 @@ class LangChainPatcher(BasePatcher):
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "langchain"},
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangChain: {e}")
             return False

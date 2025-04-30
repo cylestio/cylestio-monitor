@@ -69,6 +69,13 @@ def log_event(
     trace_id = trace_id or context.get("trace_id")
     span_id = span_id or context.get("span_id")
     agent_id = context.get("agent_id")
+    
+    # Ensure we have default values for agent_id and trace_id
+    # This ensures early patch events still have identifiable values
+    if trace_id is None:
+        trace_id = "null-trace"
+    if agent_id is None:
+        agent_id = "unknown-agent"
 
     # Get parent_span_id from context if not provided
     if parent_span_id is None and span_id is not None:
@@ -91,12 +98,9 @@ def log_event(
         "name": name,
         "level": level.upper(),
         "attributes": safe_attributes,
+        "agent_id": agent_id,  # Always include agent_id now
     }
 
-    # Add agent_id if available
-    if agent_id:
-        event["agent_id"] = agent_id
-        
     # Add channel if provided
     if channel:
         event["channel"] = channel
@@ -215,7 +219,11 @@ def _send_to_api(event: Dict[str, Any]) -> None:
 
 
 def log_error(
-    name: str, error: Exception, attributes: Optional[Dict[str, Any]] = None
+    name: str, 
+    error: Exception, 
+    attributes: Optional[Dict[str, Any]] = None,
+    trace_id: Optional[str] = None,
+    agent_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Log an error event with structured error information.
 
@@ -223,6 +231,8 @@ def log_error(
         name: Event name (should follow the pattern "category.error")
         error: The exception that occurred
         attributes: Additional attributes to include
+        trace_id: Optional trace ID (uses current context if None)
+        agent_id: Optional agent ID (uses current context if None)
 
     Returns:
         Dict: The created event record
@@ -235,7 +245,7 @@ def log_error(
         }
     )
 
-    return log_event(name=name, attributes=error_attributes, level="ERROR")
+    return log_event(name=name, attributes=error_attributes, level="ERROR", trace_id=trace_id, agent_id=agent_id)
 
 
 def log_info(

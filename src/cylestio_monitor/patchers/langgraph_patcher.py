@@ -48,6 +48,7 @@ class LangGraphPatcher(BasePatcher):
             import langgraph
 
             # Log patch attempt
+            context = TraceContext.get_current_context()
             log_event(
                 name="framework.patch",
                 attributes={
@@ -55,6 +56,8 @@ class LangGraphPatcher(BasePatcher):
                     "patch.type": "module",
                     "patch.components": ["StateGraph", "Graph"],
                 },
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
 
             # Patch Graph module if available
@@ -89,6 +92,8 @@ class LangGraphPatcher(BasePatcher):
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "langgraph"},
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangGraph: {e}")
             return False

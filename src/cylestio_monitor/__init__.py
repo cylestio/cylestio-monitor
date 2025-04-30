@@ -60,6 +60,9 @@ __all__ = [
     "api_client",
 ]
 
+# Patching is now done in start_monitoring() to ensure trace context is initialized first
+# These auto-patching blocks are disabled to prevent early patching before trace context is set
+'''
 # Try to apply all patchers automatically
 # These will only apply if the related libraries are imported
 try:
@@ -97,3 +100,4 @@ try:
     patch_decorated_tools()
 except Exception:
     pass
+'''
