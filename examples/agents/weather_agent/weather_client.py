@@ -49,6 +49,14 @@ cylestio_monitor.start_monitoring(
     }
 )
 
+# Apply MCP patch fix to handle parameter name changes in MCP 1.6.0
+try:
+    from patch_fix import apply_fix
+    apply_fix()
+    print("Applied MCP parameter name compatibility fix")
+except Exception as e:
+    print(f"Warning: Failed to apply MCP compatibility fix: {e}")
+
 
 class WeatherAIAgent:
     """Weather AI Agent that uses MCP and LLM with monitoring."""

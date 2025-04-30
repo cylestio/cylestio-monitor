@@ -8,6 +8,8 @@ import functools
 import inspect
 import logging
 import sys
+import importlib
+import types
 from typing import Any, Callable
 
 from cylestio_monitor.patchers.base import BasePatcher
@@ -45,14 +47,17 @@ class DecoratedToolsPatcher(BasePatcher):
             return False
 
         try:
-            # Log patch attempt
+            # Log patch event
+            context = TraceContext.get_current_context()
             log_event(
                 name="framework.patch",
                 attributes={
                     "framework.name": "decorated_tools",
-                    "patch.type": "function_wrapper",
-                    "patch.components": ["@tool functions"],
+                    "patch.type": "decorator",
+                    "patch.components": ["functions", "tools"],
                 },
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
 
             # Reset patch count
@@ -85,6 +90,8 @@ class DecoratedToolsPatcher(BasePatcher):
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "decorated_tools"},
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching decorated tools: {e}")
             return False

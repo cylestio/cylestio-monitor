@@ -37,6 +37,7 @@ class MCPPatcher(BasePatcher):
 
         try:
             # Log patch event
+            context = TraceContext.get_current_context()
             log_event(
                 name="framework.patch",
                 attributes={
@@ -44,6 +45,8 @@ class MCPPatcher(BasePatcher):
                     "patch.type": "monkey_patch",
                     "patch.components": ["client", "tool_calls"],
                 },
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
 
             # Apply patches
@@ -60,6 +63,8 @@ class MCPPatcher(BasePatcher):
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "mcp"},
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching MCP: {e}")
             raise RuntimeError(f"Failed to patch MCP: {e}")
@@ -120,6 +125,7 @@ class MCPPatcher(BasePatcher):
         try:
             # Import here to avoid dependency if not used
             import mcp
+            import inspect
             # ClientSession is a top-level class in MCP module
             from mcp import ClientSession
 
@@ -131,12 +137,25 @@ class MCPPatcher(BasePatcher):
             # Store the original method
             original_call_tool = ClientSession.call_tool
             self._original_methods["call_tool"] = original_call_tool
+            
+            # Check the signature of call_tool to determine parameter names
+            signature = inspect.signature(original_call_tool)
+            param_names = list(signature.parameters.keys())
+            
+            # Determine if we're using 'params' (older MCP) or 'arguments' (newer MCP 1.6.0+)
+            uses_arguments = 'arguments' in param_names
+            param_name = 'arguments' if uses_arguments else 'params'
+            
+            logger.debug(f"Detected MCP ClientSession.call_tool using parameter name: {param_name}")
 
             # Define the patched async method wrapper
-            async def instrumented_call_tool(self, name, params=None, *args, **kwargs):
+            async def instrumented_call_tool(self, name, **kwargs):
                 """Instrumented version of ClientSession.call_tool."""
                 # Start a new span for this tool call
                 span_info = TraceContext.start_span(f"tool.{name}")
+                
+                # Get the parameters based on the detected parameter name
+                tool_params = kwargs.get(param_name)
 
                 # Extract relevant attributes
                 tool_attributes = {
@@ -147,20 +166,18 @@ class MCPPatcher(BasePatcher):
                 }
 
                 # Capture parameters (safely)
-                if params:
-                    if isinstance(params, dict):
-                        tool_attributes["tool.params"] = list(params.keys())
+                if tool_params:
+                    if isinstance(tool_params, dict):
+                        tool_attributes["tool.params"] = list(tool_params.keys())
                     else:
-                        tool_attributes["tool.params.type"] = type(params).__name__
+                        tool_attributes["tool.params.type"] = type(tool_params).__name__
 
                 # Log tool execution start event
                 log_event(name="tool.execution", attributes=tool_attributes)
 
                 try:
-                    # Call the original method
-                    result = await original_call_tool(
-                        self, name, params, *args, **kwargs
-                    )
+                    # Call the original method with the same kwargs
+                    result = await original_call_tool(self, name, **kwargs)
 
                     # Prepare result attributes
                     result_attributes = tool_attributes.copy()

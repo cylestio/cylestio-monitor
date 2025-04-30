@@ -7,6 +7,9 @@ allowing automatic monitoring of all tool calls in an application.
 import functools
 import logging
 import sys
+import inspect
+import uuid
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar
 
 from cylestio_monitor.patchers.base import BasePatcher
 from cylestio_monitor.utils.event_logging import log_error, log_event
@@ -48,7 +51,8 @@ class ToolDecoratorPatcher(BasePatcher):
             # Try to patch both langchain and langchain_core if available
             patched_any = False
 
-            # Log patch attempt
+            # Log patch event
+            context = TraceContext.get_current_context()
             log_event(
                 name="framework.patch",
                 attributes={
@@ -56,6 +60,8 @@ class ToolDecoratorPatcher(BasePatcher):
                     "patch.type": "tool_decorator",
                     "patch.components": ["@tool"],
                 },
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
 
             # Try to patch langchain_core first (newer versions)
@@ -81,6 +87,8 @@ class ToolDecoratorPatcher(BasePatcher):
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "langchain_tools"},
+                trace_id=context.get("trace_id"),
+                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangChain @tool decorator: {e}")
             return False
