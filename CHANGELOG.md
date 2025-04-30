@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.6] - 2024-04-02
+## [0.1.6] - 2025-04-30
 
 ### Added
 - Added support for OpenAI Chat Completions and Completions APIs
@@ -17,12 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added token usage tracking for supported LLM providers
 - Enhanced security masking for sensitive data in security event logs
 - Improved consistent masking across all event fields including content samples
+- Added support for additional LLM providers
+- Enhanced monitoring capabilities for prompt templates
+- Improved documentation with more examples
+- Better error handling for API requests
 
 ### Changed
 - Updated LangChain imports to use langchain-core and langchain-community packages
 - Improved tool monitoring with better error handling and context capture
 - Enhanced chain execution monitoring with more detailed metrics
 - Updated compatibility matrix to reflect new framework support
+- Refined event schema for better interoperability
+- Enhanced security features with improved data masking
+- Updated dependencies to latest versions
+- Improved performance of event processing pipeline
 
 ### Fixed
 - Fixed import issues with LangChain components
@@ -30,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed span context propagation in chain execution
 - Resolved deprecation warnings in LangChain imports
 - Fixed an issue where sensitive data in security event content samples wasn't properly masked
+- Fixed minor issues with token counting
+- Improved reliability of event logging
+- Fixed configuration handling in multi-environment setups
 
 ## [0.1.5] - 2024-03-27
 

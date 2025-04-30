@@ -53,6 +53,7 @@ Cylestio Monitor works by automatically patching supported LLM clients and frame
 - **LLM Clients**:
   - Anthropic Claude (all versions)
   - OpenAI (Chat Completions and Completions APIs)
+  - Additional LLM providers
 - **Agent Frameworks**:
   - MCP (Model Context Protocol)
   - LangChain (v0.1.0+)
@@ -155,13 +156,13 @@ Example source: [examples/agents/weather_agent/weather_client.py](examples/agent
 
 ## Version History
 
-Latest release: v0.1.5 (March 27, 2024)
+Latest release: v0.1.6 (April 30, 2025)
 
 Highlights:
-- Enhanced sensitive data masking for security
-- Added OpenTelemetry-compliant schema
-- Improved tracing context and span support
-- Full response tracking for all frameworks
+- Added support for OpenAI Chat Completions and Completions APIs
+- Enhanced LangChain support with improved monitoring
+- Added support for additional LLM providers
+- Improved security features with better data masking
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history.
 
