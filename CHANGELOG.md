@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added compatibility layer to handle version mismatches between LangChain components
+- Implemented a fail-soft approach for functions with changing signatures like `convert_to_openai_function`
+- Added flexible kwarg handling to support both older and newer library versions
+
+### Changed
+- Improved error handling to ensure monitor never crashes the host application
+- Enhanced patching to handle incompatible library versions gracefully
+- Added unique message IDs to security alerts for better tracking and identification
+- Improved security scanning to only focus on the latest user message in conversations, reducing alert fatigue
+
+### Fixed
+- Fixed TypeError when using the monitor with mismatched LangChain component versions
+- Resolved issue with `convert_to_openai_function` when called with the 'strict' kwarg on older versions
+- Fixed issue where repeated security alerts were generated for the same content in conversation history
+
 ## [0.1.6] - 2025-04-30
 
 ### Added

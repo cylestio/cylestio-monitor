@@ -486,7 +486,7 @@ class AnthropicPatcher(BasePatcher):
         # Get the scanner instance
         scanner = SecurityScanner.get_instance()
         
-        # Find the last user message in the conversation
+        # Find the last user message in the conversation - avoid rescanning history
         last_user_message = None
         if isinstance(messages, list):
             for message in reversed(messages):
@@ -529,6 +529,10 @@ class AnthropicPatcher(BasePatcher):
             security_info: Security scan results
             request_data: Original request data
         """
+        # Only log if there's something to report
+        if security_info["alert_level"] == "none" or not security_info["keywords"]:
+            return
+            
         # Extract a sample of content for logging
         content_sample = (
             str(request_data)[:100] + "..."
@@ -540,6 +544,14 @@ class AnthropicPatcher(BasePatcher):
         from cylestio_monitor.security_detection import SecurityScanner
         scanner = SecurityScanner.get_instance()
         masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
+        
+        # Generate a unique timestamp for this alert
+        detection_timestamp = format_timestamp()
+        
+        # Generate a unique message ID based on timestamp and keywords
+        import hashlib
+        alert_hash = hashlib.md5(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
+        message_id = f"security-{alert_hash}"
 
         # Create event attributes
         security_attributes = {
@@ -547,7 +559,8 @@ class AnthropicPatcher(BasePatcher):
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
             "security.content_sample": masked_content_sample,
-            "security.detection_time": format_timestamp(),
+            "security.detection_time": detection_timestamp,
+            "security.message_id": message_id,
         }
         
         # Add new security attributes if available
@@ -572,7 +585,7 @@ class AnthropicPatcher(BasePatcher):
 
         # Log to console as well
         self.logger.warning(
-            f"SECURITY ALERT: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
+            f"SECURITY ALERT {message_id}: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
         )
 
     def _extract_response_data(self, result: Any) -> Dict[str, Any]:
