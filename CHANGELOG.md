@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-05-01
+
 ### Added
 - Added compatibility layer to handle version mismatches between LangChain components
 - Implemented a fail-soft approach for functions with changing signatures like `convert_to_openai_function`
