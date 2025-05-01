@@ -22,6 +22,9 @@ from ..utils.event_utils import format_timestamp
 from ..utils.trace_context import TraceContext
 from .base import BasePatcher
 
+# Import security scanner
+from ..security_detection import SecurityScanner
+
 # Track patched clients to prevent duplicate patching
 _patched_clients = set()
 _is_module_patched = False
@@ -47,6 +50,13 @@ class OpenAIPatcher(BasePatcher):
         self.original_funcs = {}
         self.logger = logging.getLogger("CylestioMonitor.OpenAI")
         self.debug_mode = config.get("debug", False) if config else False
+        
+        # Initialize security scanner
+        try:
+            self.security_scanner = SecurityScanner.get_instance()
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize security scanner: {e}")
+            self.security_scanner = None
 
     def patch(self) -> None:
         """Apply monitoring patches to OpenAI client."""
@@ -1121,20 +1131,37 @@ class OpenAIPatcher(BasePatcher):
             messages: List of messages to scan
 
         Returns:
-            bool: True if content is safe, False otherwise
+            Dict with security scan results
         """
         try:
             if not self.security_scanner:
                 return {"alert_level": "none", "keywords": []}
 
-            for message in messages:
-                if isinstance(message, dict):
-                    content = message.get("content", "")
+            # Find the latest user message to scan - avoid rescanning history
+            latest_message = None
+            if isinstance(messages, list) and messages:
+                # For single prompt input (common in completions API)
+                if len(messages) == 1 and not isinstance(messages[0], dict):
+                    latest_message = {"content": messages[0]}
+                # For chat completions, get the last user message
                 else:
-                    content = getattr(message, "content", "")
+                    for message in reversed(messages):
+                        if isinstance(message, dict) and message.get("role") == "user":
+                            latest_message = message
+                            break
 
-                if content and not self.security_scanner.scan(content):
-                    return {"alert_level": "dangerous", "keywords": ["sensitive"]}
+            # If we found a message to scan
+            if latest_message:
+                if isinstance(latest_message, dict):
+                    content = latest_message.get("content", "")
+                else:
+                    content = getattr(latest_message, "content", "")
+
+                if content:
+                    # Scan just the latest message
+                    scan_result = self.security_scanner.scan_text(content)
+                    if scan_result["alert_level"] != "none":
+                        return scan_result
 
             return {"alert_level": "none", "keywords": []}
         except Exception as e:
@@ -1167,7 +1194,6 @@ class OpenAIPatcher(BasePatcher):
         )
         
         # Mask sensitive data in the content sample
-        from cylestio_monitor.security_detection import SecurityScanner
         scanner = SecurityScanner.get_instance()
         masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
         
@@ -1179,12 +1205,21 @@ class OpenAIPatcher(BasePatcher):
             "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
         )
 
+        # Generate a unique timestamp for this alert
+        detection_timestamp = format_timestamp()
+        
+        # Generate a unique message ID based on timestamp and keywords
+        import hashlib
+        alert_hash = hashlib.md5(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
+        message_id = f"security-{alert_hash}"
+
         # Create security attributes
         security_attributes = {
             "security.alert_level": security_info["alert_level"],
             "security.keywords": security_info["keywords"],
             "security.content_sample": masked_content_sample,
-            "security.detection_time": format_timestamp(),
+            "security.detection_time": detection_timestamp,
+            "security.message_id": message_id,
             "llm.vendor": "openai",
             "llm.model": sanitized_data.get("model"),
             "llm.request.timestamp": format_timestamp(),
@@ -1208,7 +1243,7 @@ class OpenAIPatcher(BasePatcher):
         )
 
         self.logger.warning(
-            f"SECURITY ALERT: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
+            f"SECURITY ALERT {message_id}: {security_info['alert_level'].upper()} content detected: {security_info['keywords']}"
         )
 
     def _extract_chat_response_data(self, response):

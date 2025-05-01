@@ -25,6 +25,17 @@ stop_monitoring()
 ```
 """
 
+# Apply compatibility patches to handle version differences safely
+# This must be done first, before any instrumentation patching
+try:
+    from cylestio_monitor._compat.langchain import apply_patches as apply_langchain_compat_patches
+    apply_langchain_compat_patches()
+except Exception as e:
+    import logging
+    logger = logging.getLogger("CylestioMonitor")
+    logger.debug(f"Failed to apply compatibility patches: {e}")
+    # Continue without compatibility patches - we should never crash the host application
+
 # Import essential typing modules early to ensure they're in the module namespace
 # This prevents errors when patching tools with annotated types
 
