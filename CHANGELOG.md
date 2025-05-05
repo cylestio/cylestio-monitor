@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2025-05-05
+
+### Fixed
+- Fixed MCP patching failure caused by API compatibility issues with parameter handling
+- Reimplemented MCP patcher with version-specific method signatures for different MCP versions
+- Added robust error handling to prevent logging failures from interrupting patching
+- Improved SDK resilience with graceful fallbacks for parameter incompatibilities
+- Enhanced MCP tool call monitoring with proper error recovery and context maintenance
+
 ## [0.1.8] - 2025-05-05
 
 ### Fixed

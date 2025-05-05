@@ -156,14 +156,15 @@ Example source: [examples/agents/weather_agent/weather_client.py](examples/agent
 
 ## Version History
 
-Latest release: v0.1.8 (May 5, 2025)
+Latest release: v0.1.9 (May 5, 2025)
 
 Highlights:
-- Fixed MCP patching compatibility issue for tool call monitoring
-- Improved error handling and recovery in event logging
-- Enhanced compatibility between different API versions
+- Reimplemented MCP patching with version-specific method signatures
+- Added robust error handling in logging to prevent patching failures
+- Improved SDK resilience with graceful parameter compatibility fallbacks
 
 Previous releases:
+- v0.1.8 (May 5, 2025): Fixed MCP patching compatibility issue for tool call monitoring
 - v0.1.7 (May 1, 2025): Added compatibility layer for various framework versions
 - v0.1.6 (April 30, 2025): Added OpenAI API support and enhanced LangChain integration
 

@@ -48,8 +48,8 @@ cylestio_monitor.start_monitoring(
     }
 )
 
-# Note: As of v0.1.8, the SDK automatically handles MCP patching
-# with proper versioning and error handling
+# Note: As of v0.1.9, the SDK automatically handles MCP patching
+# with proper versioning and robust error handling
 
 class WeatherAIAgent:
     """Weather AI Agent that uses MCP and LLM with monitoring."""
