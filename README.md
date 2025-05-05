@@ -86,6 +86,7 @@ cylestio_monitor.start_monitoring(
         "debug_level": "INFO",  # Logging level (DEBUG, INFO, WARNING, ERROR)
         "log_file": "output/my_logs.json",  # Path for local JSON logs
         "api_endpoint": "https://api.example.com/events",  # Remote endpoint
+        "telemetry_endpoint": "http://custom.telemetry.server:9000",  # Custom telemetry host/port
         "development_mode": False  # Enable additional development features
     }
 )
@@ -156,14 +157,15 @@ Example source: [examples/agents/weather_agent/weather_client.py](examples/agent
 
 ## Version History
 
-Latest release: v0.1.9 (May 5, 2025)
+Latest release: v0.1.10 (May 12, 2025)
 
 Highlights:
-- Reimplemented MCP patching with version-specific method signatures
-- Added robust error handling in logging to prevent patching failures
-- Improved SDK resilience with graceful parameter compatibility fallbacks
+- Added configurable telemetry endpoint to allow custom host/port configuration
+- Improved error handling for endpoint connections
+- Documentation improvements for configuration options
 
 Previous releases:
+- v0.1.9 (May 5, 2025): Reimplemented MCP patching with version-specific method signatures
 - v0.1.8 (May 5, 2025): Fixed MCP patching compatibility issue for tool call monitoring
 - v0.1.7 (May 1, 2025): Added compatibility layer for various framework versions
 - v0.1.6 (April 30, 2025): Added OpenAI API support and enhanced LangChain integration

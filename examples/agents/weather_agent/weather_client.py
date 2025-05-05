@@ -45,6 +45,9 @@ cylestio_monitor.start_monitoring(
         # Debug configuration
         "debug_mode": True,
         "debug_log_file": "output/cylestio_debug.log",
+        
+        # Custom telemetry endpoint (optional, defaults to http://127.0.0.1:8000)
+        "telemetry_endpoint": "http://127.0.0.1:9000", 
     }
 )
 

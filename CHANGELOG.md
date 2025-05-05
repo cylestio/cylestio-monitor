@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2025-05-12
+
+### Added
+- Added configurable telemetry endpoint to allow custom host/port configuration
+- Enhanced API client to automatically append the /v1/telemetry path to endpoint URLs
+
+### Changed
+- Updated documentation to better describe configuration options
+- Improved examples to demonstrate telemetry endpoint configuration
+- Enhanced error handling for endpoint connections
+
+### Fixed
+- Fixed issue with telemetry endpoint configuration requiring full path specification
+
 ## [0.1.9] - 2025-05-05
 
 ### Fixed

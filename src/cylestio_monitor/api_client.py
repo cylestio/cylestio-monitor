@@ -12,6 +12,7 @@ import urllib.request
 from datetime import datetime
 from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
+import os
 
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.utils.serialization import safe_event_serialize
@@ -45,12 +46,22 @@ class ApiClient:
         # Load configuration
         config = ConfigManager()
 
-        # Set endpoint
-        self.endpoint = (
-            endpoint
-            or config.get("api.endpoint")
-            or "http://127.0.0.1:8000/v1/telemetry"
-        )
+        # Set endpoint - prioritize:
+        # 1. Directly provided endpoint
+        # 2. Environment variable
+        # 3. Config file setting
+        # 4. Default value
+        env_endpoint = os.environ.get("CYLESTIO_TELEMETRY_ENDPOINT")
+        telemetry_endpoint = endpoint or env_endpoint or config.get("api.endpoint") or "http://127.0.0.1:8000"
+        
+        # Ensure the endpoint ends with /v1/telemetry
+        if not telemetry_endpoint.endswith("/v1/telemetry"):
+            # Remove trailing slash if present
+            if telemetry_endpoint.endswith("/"):
+                telemetry_endpoint = telemetry_endpoint[:-1]
+            telemetry_endpoint = f"{telemetry_endpoint}/v1/telemetry"
+            
+        self.endpoint = telemetry_endpoint
 
         # Set HTTP method (defaulting to POST)
         self.http_method = http_method or config.get("api.http_method") or "POST"

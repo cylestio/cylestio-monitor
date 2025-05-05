@@ -39,6 +39,8 @@ def start_monitoring(
             - debug_log_file: Path to file for debug logs (if provided, debug logs go to this file instead of console)
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             - api_endpoint: URL of the remote API endpoint to send events to
+            - telemetry_endpoint: Host and port for the telemetry API (default: http://127.0.0.1:8000)
+              The "/v1/telemetry" path will be automatically appended.
             - development_mode: Enable additional development features like detailed logging
 
     Note:
@@ -183,6 +185,15 @@ def start_monitoring(
     config_manager.set("monitoring.events_output_file", events_output_file)
     config_manager.set("monitoring.debug_mode", debug_mode)
     config_manager.set("monitoring.debug_log_file", debug_log_file)
+    
+    # Configure the telemetry endpoint if provided
+    telemetry_endpoint = config.get("telemetry_endpoint")
+    if telemetry_endpoint:
+        config_manager.set("api.endpoint", telemetry_endpoint)
+        # Set environment variable for immediate use by API client
+        os.environ["CYLESTIO_TELEMETRY_ENDPOINT"] = telemetry_endpoint
+        logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
+    
     config_manager.save()
 
     # Initialize the API client if endpoint is provided
