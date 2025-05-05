@@ -38,7 +38,6 @@ def start_monitoring(
             - debug_mode: Whether to show debug output (default: False)
             - debug_log_file: Path to file for debug logs (if provided, debug logs go to this file instead of console)
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            - api_endpoint: URL of the remote API endpoint to send events to
             - telemetry_endpoint: Host and port for the telemetry API (default: http://127.0.0.1:8000)
               The "/v1/telemetry" path will be automatically appended.
             - development_mode: Enable additional development features like detailed logging
@@ -195,21 +194,6 @@ def start_monitoring(
         logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
     
     config_manager.save()
-
-    # Initialize the API client if endpoint is provided
-    api_endpoint = config.get("api_endpoint")
-    if api_endpoint:
-        # Set the environment variable for the API endpoint
-        os.environ["CYLESTIO_API_ENDPOINT"] = api_endpoint
-
-        # Initialize the API client
-        api_client = get_api_client()
-        if api_client.endpoint:
-            logger.info(f"API client initialized with endpoint: {api_client.endpoint}")
-        else:
-            logger.warning(
-                "API endpoint not configured. Events will only be logged to file."
-            )
 
     # Initialize trace context
     trace_id = TraceContext.initialize_trace(agent_id)
@@ -488,15 +472,4 @@ def stop_monitoring() -> None:
     logger.info("Monitoring stopped")
 
 
-def get_api_endpoint() -> str:
-    """
-    Get the currently configured API endpoint.
-
-    Returns:
-        str: The API endpoint URL or an empty string if not configured
-    """
-    api_client = get_api_client()
-    return api_client.endpoint or ""
-
-
-__all__ = ["start_monitoring", "stop_monitoring", "get_api_endpoint"]
+__all__ = ["start_monitoring", "stop_monitoring"]

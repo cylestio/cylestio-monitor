@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated documentation to better describe configuration options
 - Improved examples to demonstrate telemetry endpoint configuration
 - Enhanced error handling for endpoint connections
+- Removed deprecated `api_endpoint` parameter and `get_api_endpoint()` function in favor of `telemetry_endpoint`
 
 ### Fixed
 - Fixed issue with telemetry endpoint configuration requiring full path specification

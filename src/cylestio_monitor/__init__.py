@@ -39,8 +39,7 @@ except Exception as e:
 # Import essential typing modules early to ensure they're in the module namespace
 # This prevents errors when patching tools with annotated types
 
-from cylestio_monitor.monitor import (get_api_endpoint, start_monitoring,
-                                      stop_monitoring)
+from cylestio_monitor.monitor import (start_monitoring, stop_monitoring)
 # Apply patchers automatically on import
 # This ensures all supported frameworks are automatically patched
 from cylestio_monitor.patchers import (patch_anthropic_module,
@@ -56,7 +55,7 @@ from cylestio_monitor.utils.trace_context import TraceContext
 # Import the API client module to make it available
 from . import api_client
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"
 
 __all__ = [
     "start_monitoring",
@@ -67,7 +66,6 @@ __all__ = [
     "instrument_function",
     "instrument_method",
     "Span",
-    "get_api_endpoint",
     "api_client",
 ]
 
