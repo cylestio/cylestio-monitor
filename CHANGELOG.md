@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed MCP patching failure caused by an API compatibility issue with agent_id parameter 
+- Improved MCP patcher to handle different versions automatically without requiring custom patches
 - Added error handling in event logging to prevent patching failures
+- Enhanced SDK's robustness with graceful fallbacks for compatibility issues
 - Improved compatibility between different versions of the monitoring API
 - Enhanced MCP tool call logging with more robust error recovery
 

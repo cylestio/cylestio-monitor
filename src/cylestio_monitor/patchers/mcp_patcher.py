@@ -38,16 +38,20 @@ class MCPPatcher(BasePatcher):
         try:
             # Log patch event
             context = TraceContext.get_current_context()
-            log_event(
-                name="framework.patch",
-                attributes={
-                    "framework.name": "mcp",
-                    "patch.type": "monkey_patch",
-                    "patch.components": ["client", "tool_calls"],
-                },
-                trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
-            )
+            
+            # Log event with error handling for agent_id parameter
+            try:
+                log_event(
+                    name="framework.patch",
+                    attributes={
+                        "framework.name": "mcp",
+                        "patch.type": "monkey_patch",
+                        "patch.components": ["client", "tool_calls"],
+                    },
+                    trace_id=context.get("trace_id"),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log framework.patch event: {e}")
 
             # Apply patches
             self._patch_client()
@@ -59,13 +63,17 @@ class MCPPatcher(BasePatcher):
             logger.warning(f"Failed to patch MCP: {e}")
             raise
         except Exception as e:
-            log_error(
-                name="framework.patch.error",
-                error=e,
-                attributes={"framework.name": "mcp"},
-                trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
-            )
+            # Log error with error handling for agent_id parameter
+            try:
+                log_error(
+                    name="framework.patch.error",
+                    error=e,
+                    attributes={"framework.name": "mcp"},
+                    trace_id=context.get("trace_id"),
+                )
+            except Exception as log_e:
+                logger.warning(f"Failed to log framework.patch.error event: {log_e}")
+            
             logger.exception(f"Error patching MCP: {e}")
             raise RuntimeError(f"Failed to patch MCP: {e}")
 
@@ -148,68 +156,151 @@ class MCPPatcher(BasePatcher):
             
             logger.debug(f"Detected MCP ClientSession.call_tool using parameter name: {param_name}")
 
-            # Define the patched async method wrapper
-            async def instrumented_call_tool(self, name, **kwargs):
-                """Instrumented version of ClientSession.call_tool."""
-                # Start a new span for this tool call
-                span_info = TraceContext.start_span(f"tool.{name}")
-                
-                # Get the parameters based on the detected parameter name
-                tool_params = kwargs.get(param_name)
+            # Define a patched method with the correct signature based on MCP version
+            if uses_arguments:
+                async def instrumented_call_tool(self, name, arguments=None):
+                    """Instrumented version of ClientSession.call_tool for MCP 1.6.0+."""
+                    # Start a new span for this tool call
+                    span_info = TraceContext.start_span(f"tool.{name}")
+                    
+                    # Extract relevant attributes
+                    tool_attributes = {
+                        "tool.name": name,
+                        "tool.id": str(id(self)),
+                        "framework.name": "mcp",
+                        "framework.type": "tool",
+                    }
 
-                # Extract relevant attributes
-                tool_attributes = {
-                    "tool.name": name,
-                    "tool.id": str(id(self)),
-                    "framework.name": "mcp",
-                    "framework.type": "tool",
-                }
+                    # Capture parameters (safely)
+                    if arguments:
+                        if isinstance(arguments, dict):
+                            tool_attributes["tool.params"] = list(arguments.keys())
+                        else:
+                            tool_attributes["tool.params.type"] = type(arguments).__name__
 
-                # Capture parameters (safely)
-                if tool_params:
-                    if isinstance(tool_params, dict):
-                        tool_attributes["tool.params"] = list(tool_params.keys())
-                    else:
-                        tool_attributes["tool.params.type"] = type(tool_params).__name__
+                    # Log tool execution start event with error handling
+                    try:
+                        log_event(name="tool.execution", attributes=tool_attributes)
+                    except Exception as e:
+                        logger.warning(f"Failed to log tool execution: {e}")
 
-                # Log tool execution start event
-                log_event(name="tool.execution", attributes=tool_attributes)
+                    try:
+                        # Call the original method with the same parameters
+                        result = await original_call_tool(self, name, arguments)
 
-                try:
-                    # Call the original method with the same kwargs
-                    result = await original_call_tool(self, name, **kwargs)
+                        # Prepare result attributes
+                        result_attributes = tool_attributes.copy()
+                        result_attributes.update(
+                            {
+                                "tool.status": "success",
+                            }
+                        )
 
-                    # Prepare result attributes
-                    result_attributes = tool_attributes.copy()
-                    result_attributes.update(
-                        {
-                            "tool.status": "success",
-                        }
-                    )
+                        # Process the result
+                        if result is not None:
+                            result_attributes["tool.result.type"] = type(result).__name__
 
-                    # Process the result
-                    if result is not None:
-                        result_attributes["tool.result.type"] = type(result).__name__
+                            # For dict results, include keys but not values
+                            if hasattr(result, "content") and isinstance(
+                                result.content, dict
+                            ):
+                                result_attributes["tool.result.keys"] = list(
+                                    result.content.keys()
+                                )
 
-                        # For dict results, include keys but not values
-                        if hasattr(result, "content") and isinstance(
-                            result.content, dict
-                        ):
-                            result_attributes["tool.result.keys"] = list(
-                                result.content.keys()
+                        # Log tool result event with error handling
+                        try:
+                            log_event(name="tool.result", attributes=result_attributes)
+                        except Exception as e:
+                            logger.warning(f"Failed to log tool result: {e}")
+
+                        return result
+                    except Exception as e:
+                        # Log tool error event with error handling
+                        try:
+                            log_error(
+                                name="tool.error", 
+                                error=e, 
+                                attributes=tool_attributes
                             )
+                        except Exception as log_e:
+                            logger.warning(f"Failed to log tool error: {log_e}")
+                        raise
+                    finally:
+                        # End the span
+                        TraceContext.end_span()
+            else:
+                async def instrumented_call_tool(self, name, params=None):
+                    """Instrumented version of ClientSession.call_tool for older MCP."""
+                    # Start a new span for this tool call
+                    span_info = TraceContext.start_span(f"tool.{name}")
+                    
+                    # Extract relevant attributes
+                    tool_attributes = {
+                        "tool.name": name,
+                        "tool.id": str(id(self)),
+                        "framework.name": "mcp",
+                        "framework.type": "tool",
+                    }
 
-                    # Log tool result event
-                    log_event(name="tool.result", attributes=result_attributes)
+                    # Capture parameters (safely)
+                    if params:
+                        if isinstance(params, dict):
+                            tool_attributes["tool.params"] = list(params.keys())
+                        else:
+                            tool_attributes["tool.params.type"] = type(params).__name__
 
-                    return result
-                except Exception as e:
-                    # Log tool error event
-                    log_error(name="tool.error", error=e, attributes=tool_attributes)
-                    raise
-                finally:
-                    # End the span
-                    TraceContext.end_span()
+                    # Log tool execution start event with error handling
+                    try:
+                        log_event(name="tool.execution", attributes=tool_attributes)
+                    except Exception as e:
+                        logger.warning(f"Failed to log tool execution: {e}")
+
+                    try:
+                        # Call the original method with the same parameters
+                        result = await original_call_tool(self, name, params)
+
+                        # Prepare result attributes
+                        result_attributes = tool_attributes.copy()
+                        result_attributes.update(
+                            {
+                                "tool.status": "success",
+                            }
+                        )
+
+                        # Process the result
+                        if result is not None:
+                            result_attributes["tool.result.type"] = type(result).__name__
+
+                            # For dict results, include keys but not values
+                            if hasattr(result, "content") and isinstance(
+                                result.content, dict
+                            ):
+                                result_attributes["tool.result.keys"] = list(
+                                    result.content.keys()
+                                )
+
+                        # Log tool result event with error handling
+                        try:
+                            log_event(name="tool.result", attributes=result_attributes)
+                        except Exception as e:
+                            logger.warning(f"Failed to log tool result: {e}")
+
+                        return result
+                    except Exception as e:
+                        # Log tool error event with error handling
+                        try:
+                            log_error(
+                                name="tool.error", 
+                                error=e, 
+                                attributes=tool_attributes
+                            )
+                        except Exception as log_e:
+                            logger.warning(f"Failed to log tool error: {log_e}")
+                        raise
+                    finally:
+                        # End the span
+                        TraceContext.end_span()
 
             # Apply the patch to the ClientSession class
             logger.debug("Patching ClientSession.call_tool (async method)")
