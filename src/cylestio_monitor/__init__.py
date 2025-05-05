@@ -56,7 +56,7 @@ from cylestio_monitor.utils.trace_context import TraceContext
 # Import the API client module to make it available
 from . import api_client
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 __all__ = [
     "start_monitoring",

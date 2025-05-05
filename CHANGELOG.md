@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2025-05-05
+
+### Fixed
+- Fixed MCP patching failure caused by an API compatibility issue with agent_id parameter 
+- Added error handling in event logging to prevent patching failures
+- Improved compatibility between different versions of the monitoring API
+- Enhanced MCP tool call logging with more robust error recovery
+
 ## [0.1.7] - 2025-05-01
 
 ### Added

@@ -156,13 +156,16 @@ Example source: [examples/agents/weather_agent/weather_client.py](examples/agent
 
 ## Version History
 
-Latest release: v0.1.6 (April 30, 2025)
+Latest release: v0.1.8 (May 5, 2025)
 
 Highlights:
-- Added support for OpenAI Chat Completions and Completions APIs
-- Enhanced LangChain support with improved monitoring
-- Added support for additional LLM providers
-- Improved security features with better data masking
+- Fixed MCP patching compatibility issue for tool call monitoring
+- Improved error handling and recovery in event logging
+- Enhanced compatibility between different API versions
+
+Previous releases:
+- v0.1.7 (May 1, 2025): Added compatibility layer for various framework versions
+- v0.1.6 (April 30, 2025): Added OpenAI API support and enhanced LangChain integration
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete version history.
 

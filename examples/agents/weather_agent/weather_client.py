@@ -49,14 +49,15 @@ cylestio_monitor.start_monitoring(
     }
 )
 
-# Apply MCP patch fix to handle parameter name changes in MCP 1.6.0
+# Note: The start_monitoring() function above attempts to patch MCP but fails with:
+# "Error patching MCP: log_event() got an unexpected keyword argument 'agent_id'"
+# Apply our custom MCP patch to work around the issue
 try:
-    from patch_fix import apply_fix
-    apply_fix()
-    print("Applied MCP parameter name compatibility fix")
+    from mcp_patch_fix import apply_custom_mcp_patch
+    apply_custom_mcp_patch()
+    print("Applied custom MCP patch for tool call monitoring")
 except Exception as e:
-    print(f"Warning: Failed to apply MCP compatibility fix: {e}")
-
+    print(f"Warning: Failed to apply custom MCP patch: {e}")
 
 class WeatherAIAgent:
     """Weather AI Agent that uses MCP and LLM with monitoring."""
