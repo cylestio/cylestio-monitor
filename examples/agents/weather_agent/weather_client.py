@@ -48,8 +48,15 @@ cylestio_monitor.start_monitoring(
     }
 )
 
-# Note: The start_monitoring() function above already handles MCP patching
-# For examples with older versions, see mcp_patch_fix.py for a custom patching solution
+# Note: The start_monitoring() function above tries to patch MCP but fails with:
+# "Error patching MCP: log_event() got an unexpected keyword argument 'agent_id'"
+# Apply our custom MCP patch to work around this issue
+try:
+    from mcp_patch_fix import apply_custom_mcp_patch
+    apply_custom_mcp_patch()
+    print("Applied custom MCP patch for tool call monitoring")
+except Exception as e:
+    print(f"Warning: Failed to apply custom MCP patch: {e}")
 
 
 class WeatherAIAgent:
