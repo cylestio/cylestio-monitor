@@ -32,10 +32,6 @@ logger = logging.getLogger("Weather AI Agent")
 # Load environment variables from .env file
 load_dotenv()
 
-# Create output directory if it doesn't exist
-output_dir = Path("output")
-output_dir.mkdir(exist_ok=True)
-
 # Configure Cylestio monitoring with simplified configuration
 cylestio_monitor.start_monitoring(
     agent_id="weather-agent",
@@ -48,17 +44,6 @@ cylestio_monitor.start_monitoring(
         "debug_log_file": "output/cylestio_debug.log",  # Optional: Send debug to file
     }
 )
-
-# Note: The start_monitoring() function above attempts to patch MCP but fails with:
-# "Error patching MCP: log_event() got an unexpected keyword argument 'agent_id'"
-# Apply our custom MCP patch to work around the issue
-try:
-    from mcp_patch_fix import apply_custom_mcp_patch
-    apply_custom_mcp_patch()
-    print("Applied custom MCP patch for tool call monitoring")
-except Exception as e:
-    print(f"Warning: Failed to apply custom MCP patch: {e}")
-
 class WeatherAIAgent:
     """Weather AI Agent that uses MCP and LLM with monitoring."""
 
@@ -197,12 +182,12 @@ class WeatherAIAgent:
                     # Don't log tool arguments as they may contain sensitive information
                     logger.info(f"Calling tool: {tool_name}")
 
-                    # Execute tool call
+                    # Execute tool call - the MCP patching will handle the monitoring
                     result = await self.session.call_tool(tool_name, tool_args)
                     tool_results.append({"call": tool_name, "result": result})
-                    final_text.append(
-                        f"[Calling tool {tool_name} with args {tool_args}]"
-                    )
+                    
+                    # Add a generic placeholder that doesn't expose tool arguments
+                    final_text.append(f"[Tool call: {tool_name}]")
 
                     # Add the tool call and result to the conversation
                     assistant_message_content.append(content)
