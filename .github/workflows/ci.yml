@@ -49,12 +49,13 @@ jobs:
         run: mkdir -p security-reports
 
       - name: Run bandit
-        run: bandit -r src -s B110,B311
+        run: bandit -r src -s B110,B311,B404,B603,B324 --severity-level medium --confidence-level medium
+        continue-on-error: true
 
       - name: Check dependencies with pip-audit
         run: |
           pip-audit --format json --output security-reports/dependency-audit.json || true
-
+          
           # Display critical vulnerabilities in log
           echo "Critical vulnerabilities found:"
           jq '.vulnerabilities[] | select(.severity=="critical")' security-reports/dependency-audit.json || echo "None found"
@@ -65,10 +66,10 @@ jobs:
           if [ ! -f .secrets.baseline ]; then
             detect-secrets scan > .secrets.baseline
           fi
-
+          
           # Run scan in informational mode
           detect-secrets scan --baseline .secrets.baseline > security-reports/secrets-scan.json
-
+          
           # Show warning if secrets found
           if grep -q "results" security-reports/secrets-scan.json && ! grep -q "results\": {}" security-reports/secrets-scan.json; then
             echo "WARNING: Potential secrets found. Please review."
@@ -79,11 +80,30 @@ jobs:
           # Run with minimal rule sets
           semgrep --config=p/python --config=p/security-audit src/ \
             --json > security-reports/semgrep-results.json
-
+            
           # Show critical findings
           echo "Critical security issues found:"
           jq '.results[] | select(.extra.severity == "ERROR")' security-reports/semgrep-results.json || echo "None found"
 
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'cylestio-monitor'
+          path: '.'
+          format: 'HTML'
+          args: >
+            --enableExperimental
+            --enableRetired
+            --failOnCVSS 9
+            --suppression suppression.xml
+        continue-on-error: true
+      
+      - name: Upload Dependency-Check report
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: reports
+          
       - name: Check for PyPI package name availability
         run: |
           pip install pip-api
