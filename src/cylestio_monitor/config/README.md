@@ -102,7 +102,7 @@ security:
     - "CLEAR"
     - "HACK"
     - "BOMB"
-  
+
   dangerous_keywords:
     - "DROP"
     - "DELETE"
@@ -130,9 +130,9 @@ monitoring:
     - "none"
     - "suspicious"
     - "dangerous"
-  
+
 # Dashboard integration
 dashboard:
   enabled: true
   metrics_retention_days: 30
-``` 
+```

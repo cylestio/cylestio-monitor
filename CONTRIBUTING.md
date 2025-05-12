@@ -60,16 +60,16 @@ All modules, classes, and functions must have Google-style docstrings:
 def example_function(param1: str, param2: int) -> bool:
     """
     Short description of the function.
-    
+
     Longer description explaining the function's purpose and behavior.
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2
-        
+
     Returns:
         Description of the return value
-        
+
     Raises:
         ValueError: When param1 is empty
     """
@@ -162,4 +162,4 @@ The GitHub Actions workflow will automatically build, test, and publish to PyPI.
 
 ## Questions?
 
-If you have questions or need help, please open an issue on GitHub or contact the maintainers directly. 
+If you have questions or need help, please open an issue on GitHub or contact the maintainers directly.

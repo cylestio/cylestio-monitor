@@ -273,7 +273,7 @@ def log_event(
     # Mask sensitive data in the whole event before logging/sending
     scanner = SecurityScanner.get_instance()
     masked_event = scanner.mask_event(event)
-    
+
     # If masking didn't occur, use the original event
     if masked_event is None:
         masked_event = event

@@ -79,4 +79,4 @@ All timestamp-related tests should pass after implementing Tasks 1-6 of the UTC 
 1. The timestamp utilities in `utils/event_utils.py` are properly implemented
 2. The StandardizedEvent class correctly normalizes timestamps
 3. Factory functions use the standardized timestamp utilities
-4. Patchers correctly format timestamps in events they generate 
+4. Patchers correctly format timestamps in events they generate

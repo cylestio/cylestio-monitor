@@ -1,0 +1,25 @@
+repos:
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+  - id: detect-secrets
+    args: ['--baseline', '.secrets.baseline']
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-added-large-files
+  - id: check-json
+  - id: check-toml
+  - id: debug-statements
+  - id: detect-private-key
+
+- repo: https://github.com/pycqa/bandit
+  rev: 1.8.3
+  hooks:
+  - id: bandit
+    args: ['-s', 'B110,B311,B404,B603,B112,B310,B324', '-r', 'src']
+    exclude: 'tests/'

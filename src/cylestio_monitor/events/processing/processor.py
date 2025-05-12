@@ -194,7 +194,7 @@ class EventProcessor:
             attributes = {}
 
         # Add performance metrics if available
-        performance = kwargs.pop("performance", {}) 
+        performance = kwargs.pop("performance", {})
 
         # Extract token usage from attributes if not in performance section
         if event_category == "llm" and not any(key.startswith("llm.usage.") for key in performance):
@@ -299,10 +299,10 @@ class EventProcessor:
                 attributes["llm.response.usage.output_tokens"] = usage["output_tokens"]
                 performance["llm.usage.output_tokens"] = usage["output_tokens"]
             if "total_tokens" in usage:
-                attributes["llm.response.usage.total_tokens"] = usage.get("total_tokens", 
+                attributes["llm.response.usage.total_tokens"] = usage.get("total_tokens",
                     usage.get("input_tokens", 0) + usage.get("output_tokens", 0))
                 performance["llm.usage.total_tokens"] = attributes["llm.response.usage.total_tokens"]
-        
+
         # Look for usage metrics in kwargs
         usage_keys = {
             "input_tokens": "llm.usage.input_tokens",
@@ -312,7 +312,7 @@ class EventProcessor:
             "llm.usage.output_tokens": "llm.usage.output_tokens",
             "llm.usage.total_tokens": "llm.usage.total_tokens",
         }
-        
+
         for src_key, dst_key in usage_keys.items():
             if src_key in kwargs:
                 attributes[dst_key] = kwargs[src_key]

@@ -76,7 +76,7 @@ cylestio_monitor.start_monitoring(
     agent_id="weather-agent",
     config={
         "events_output_file": "output/weather_monitoring.json",
-        
+
         # Debug configuration - simple and direct
         "debug_mode": False,  # Set to True to enable debug output
         "debug_log_file": "output/cylestio_debug.log",  # Optional: Send debug to file

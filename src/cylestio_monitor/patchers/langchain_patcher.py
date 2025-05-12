@@ -41,7 +41,7 @@ class LangChainPatcher(BasePatcher):
 
     def patch(self) -> None:
         """Apply the LangChain patches.
-        
+
         Implementation of the required abstract method from BasePatcher.
         """
         self.apply()

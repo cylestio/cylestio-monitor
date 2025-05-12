@@ -48,10 +48,10 @@ class TestOpenAIConverter:
         # Check that token usage metrics are included in the attributes
         assert "performance.llm.usage.input_tokens" in standardized_event.attributes
         assert standardized_event.attributes["performance.llm.usage.input_tokens"] == 100
-        
+
         assert "performance.llm.usage.output_tokens" in standardized_event.attributes
         assert standardized_event.attributes["performance.llm.usage.output_tokens"] == 50
-        
+
         assert "performance.llm.usage.total_tokens" in standardized_event.attributes
         assert standardized_event.attributes["performance.llm.usage.total_tokens"] == 150
 
@@ -79,9 +79,9 @@ class TestOpenAIConverter:
         # Check that token usage metrics are included in the attributes
         assert "performance.llm.usage.input_tokens" in standardized_event.attributes
         assert standardized_event.attributes["performance.llm.usage.input_tokens"] == 100
-        
+
         assert "performance.llm.usage.output_tokens" in standardized_event.attributes
         assert standardized_event.attributes["performance.llm.usage.output_tokens"] == 50
-        
+
         assert "performance.llm.usage.total_tokens" in standardized_event.attributes
-        assert standardized_event.attributes["performance.llm.usage.total_tokens"] == 150 
+        assert standardized_event.attributes["performance.llm.usage.total_tokens"] == 150

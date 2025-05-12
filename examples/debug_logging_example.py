@@ -23,7 +23,7 @@ logger = logging.getLogger("debug_example")
 def run_with_no_debug():
     """Run the monitor with debug disabled (default)"""
     logger.info("Starting monitor with debug disabled (default)")
-    
+
     start_monitoring(
         agent_id="example-agent-no-debug",
         config={
@@ -31,11 +31,11 @@ def run_with_no_debug():
             "events_output_file": "logs/event_logs.json"
         }
     )
-    
+
     # Simulate some activity
     logger.info("Agent running without debug output...")
     time.sleep(1)
-    
+
     # Stop monitoring
     stop_monitoring()
     logger.info("Monitor stopped\n")
@@ -44,7 +44,7 @@ def run_with_no_debug():
 def run_with_console_debug():
     """Run the monitor with debug to console"""
     logger.info("Starting monitor with debug enabled to console")
-    
+
     start_monitoring(
         agent_id="example-agent-console-debug",
         config={
@@ -53,11 +53,11 @@ def run_with_console_debug():
             "debug_level": "DEBUG",  # Optional, sets the verbosity level
         }
     )
-    
+
     # Simulate some activity
     logger.info("Agent running with debug to console...")
     time.sleep(1)
-    
+
     # Stop monitoring
     stop_monitoring()
     logger.info("Monitor stopped\n")
@@ -65,15 +65,15 @@ def run_with_console_debug():
 
 def run_with_file_debug():
     """Run the monitor with debug to file"""
-    
+
     # Create logs directory if it doesn't exist
     log_dir = Path("./logs")
     log_dir.mkdir(exist_ok=True)
-    
+
     debug_log_path = log_dir / "debug_example.log"
-    
+
     logger.info(f"Starting monitor with debug enabled to file: {debug_log_path}")
-    
+
     start_monitoring(
         agent_id="example-agent-file-debug",
         config={
@@ -83,11 +83,11 @@ def run_with_file_debug():
             "debug_level": "DEBUG",  # Optional
         }
     )
-    
+
     # Simulate some activity
     logger.info("Agent running with debug to file...")
     time.sleep(1)
-    
+
     # Stop monitoring
     stop_monitoring()
     logger.info(f"Monitor stopped. Debug logs written to: {debug_log_path}\n")
@@ -95,14 +95,14 @@ def run_with_file_debug():
 
 if __name__ == "__main__":
     logger.info("=== Cylestio Monitor Debug Logging Example ===")
-    
+
     # Example 1: No debug (default behavior)
     run_with_no_debug()
-    
+
     # Example 2: Debug to console
     run_with_console_debug()
-    
+
     # Example 3: Debug to file
     run_with_file_debug()
-    
-    logger.info("All examples completed!") 
+
+    logger.info("All examples completed!")

@@ -50,7 +50,7 @@ class OpenAIPatcher(BasePatcher):
         self.original_funcs = {}
         self.logger = logging.getLogger("CylestioMonitor.OpenAI")
         self.debug_mode = config.get("debug", False) if config else False
-        
+
         # Initialize security scanner
         try:
             self.security_scanner = SecurityScanner.get_instance()
@@ -202,7 +202,7 @@ class OpenAIPatcher(BasePatcher):
                                 self.logger.debug(f"Raw OpenAI usage data found: {result.usage}")
                             else:
                                 self.logger.debug("No usage data found in OpenAI response")
-                            
+
                             if "usage" in response_data:
                                 self.logger.debug(f"Extracted usage data: {response_data['usage']}")
                             else:
@@ -263,7 +263,7 @@ class OpenAIPatcher(BasePatcher):
                                     content_length = len(content["content"])
                                 elif isinstance(content, str):
                                     content_length = len(content)
-                            
+
                             # Use tiktoken if available for more accurate estimation
                             try:
                                 import tiktoken
@@ -429,7 +429,7 @@ class OpenAIPatcher(BasePatcher):
                                 self.logger.debug(f"Raw OpenAI usage data found: {result.usage}")
                             else:
                                 self.logger.debug("No usage data found in OpenAI response")
-                            
+
                             if "usage" in response_data:
                                 self.logger.debug(f"Extracted usage data: {response_data['usage']}")
                             else:
@@ -488,7 +488,7 @@ class OpenAIPatcher(BasePatcher):
                                 content = response_attributes["llm.response.content"]
                                 if isinstance(content, str):
                                     content_length = len(content)
-                            
+
                             # Use tiktoken if available for more accurate estimation
                             try:
                                 import tiktoken
@@ -659,7 +659,7 @@ class OpenAIPatcher(BasePatcher):
                                 self.logger.debug(f"Raw OpenAI usage data found: {result.usage}")
                             else:
                                 self.logger.debug("No usage data found in OpenAI response")
-                            
+
                             if "usage" in response_data:
                                 self.logger.debug(f"Extracted usage data: {response_data['usage']}")
                             else:
@@ -720,7 +720,7 @@ class OpenAIPatcher(BasePatcher):
                                     content_length = len(content["content"])
                                 elif isinstance(content, str):
                                     content_length = len(content)
-                            
+
                             # Use tiktoken if available for more accurate estimation
                             try:
                                 import tiktoken
@@ -892,7 +892,7 @@ class OpenAIPatcher(BasePatcher):
                                 self.logger.debug(f"Raw OpenAI usage data found: {result.usage}")
                             else:
                                 self.logger.debug("No usage data found in OpenAI response")
-                            
+
                             if "usage" in response_data:
                                 self.logger.debug(f"Extracted usage data: {response_data['usage']}")
                             else:
@@ -951,7 +951,7 @@ class OpenAIPatcher(BasePatcher):
                                 content = response_attributes["llm.response.content"]
                                 if isinstance(content, str):
                                     content_length = len(content)
-                            
+
                             # Use tiktoken if available for more accurate estimation
                             try:
                                 import tiktoken
@@ -1185,21 +1185,21 @@ class OpenAIPatcher(BasePatcher):
 
         # Create a sanitized version of the request data
         sanitized_data = {"model": request_data.get("model", "unknown")}
-        
+
         # Extract a sample of content for logging
         content_sample = (
             str(request_data)[:100] + "..."
             if len(str(request_data)) > 100
             else str(request_data)
         )
-        
+
         # Mask sensitive data in the content sample
         scanner = SecurityScanner.get_instance()
         masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
-        
+
         # Create more specific event name based on severity
         event_name = f"security.content.{security_info['alert_level']}"
-        
+
         # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
         event_level = (
             "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
@@ -1207,7 +1207,7 @@ class OpenAIPatcher(BasePatcher):
 
         # Generate a unique timestamp for this alert
         detection_timestamp = format_timestamp()
-        
+
         # Generate a unique message ID based on timestamp and keywords
         import hashlib
         alert_hash = hashlib.md5(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
@@ -1224,14 +1224,14 @@ class OpenAIPatcher(BasePatcher):
             "llm.model": sanitized_data.get("model"),
             "llm.request.timestamp": format_timestamp(),
         }
-        
+
         # Add new security attributes if available
         if "category" in security_info and security_info["category"]:
             security_attributes["security.category"] = security_info["category"]
-        
+
         if "severity" in security_info and security_info["severity"]:
             security_attributes["security.severity"] = security_info["severity"]
-            
+
         if "description" in security_info and security_info["description"]:
             security_attributes["security.description"] = security_info["description"]
 
@@ -1267,31 +1267,31 @@ class OpenAIPatcher(BasePatcher):
                 "usage": {},
                 "choices": [],
             }
-            
+
             # Try different ways to access the model
             if hasattr(response, "model"):
                 data["model"] = response.model
-            
+
             # Try different ways to access the ID
             if hasattr(response, "id"):
                 data["id"] = response.id
-                
+
             # Try different ways to access the created timestamp
             if hasattr(response, "created"):
                 data["created"] = response.created
-                
+
             # Try different ways to access the usage information
             usage = {}
-            
+
             # First attempt - direct attribute
             if hasattr(response, "usage"):
                 usage_obj = response.usage
-                
+
                 # Check if usage is an object with attributes or a dict
                 if hasattr(usage_obj, "prompt_tokens"):
                     usage["prompt_tokens"] = usage_obj.prompt_tokens
                     usage["completion_tokens"] = getattr(usage_obj, "completion_tokens", 0)
-                    usage["total_tokens"] = getattr(usage_obj, "total_tokens", 
+                    usage["total_tokens"] = getattr(usage_obj, "total_tokens",
                                                    usage["prompt_tokens"] + usage["completion_tokens"])
                 elif isinstance(usage_obj, dict):
                     usage = usage_obj
@@ -1304,7 +1304,7 @@ class OpenAIPatcher(BasePatcher):
                 elif hasattr(usage_obj, "to_dict") and callable(usage_obj.to_dict):
                     # OpenAI-style conversion
                     usage = usage_obj.to_dict()
-                    
+
             # If we still don't have usage data, try to estimate from content length
             if not usage and hasattr(response, "choices") and response.choices:
                 first_choice = response.choices[0]
@@ -1317,14 +1317,14 @@ class OpenAIPatcher(BasePatcher):
                         "completion_tokens": completion_tokens,
                         "total_tokens": prompt_tokens + completion_tokens
                     }
-                    
+
                     # Log that we're using estimated values
                     if self.debug_mode:
                         self.logger.debug(f"Using estimated token counts: {usage}")
-                        
+
             # Store the usage data
             data["usage"] = usage
-            
+
             # Extract choices
             if hasattr(response, "choices"):
                 for choice in response.choices:
@@ -1343,7 +1343,7 @@ class OpenAIPatcher(BasePatcher):
                         }
 
                     data["choices"].append(choice_data)
-                
+
             # If debug mode is enabled, log the extracted data
             if self.debug_mode:
                 self.logger.debug(f"Extracted response data: {data}")
@@ -1465,7 +1465,7 @@ class OpenAIPatcher(BasePatcher):
             def patched_init(self, *args, **kwargs):
                 # Call original init
                 original_init(self, *args, **kwargs)
-                
+
                 # Patch this instance automatically
                 logger.debug("Auto-patching new OpenAI client instance")
                 patcher = cls(client=self)
@@ -1475,7 +1475,7 @@ class OpenAIPatcher(BasePatcher):
             def patched_async_init(self, *args, **kwargs):
                 # Call original init
                 async_original_init(self, *args, **kwargs)
-                
+
                 # Patch this instance automatically
                 logger.debug("Auto-patching new AsyncOpenAI client instance")
                 patcher = cls(client=self)
@@ -1491,7 +1491,7 @@ class OpenAIPatcher(BasePatcher):
 
             _is_module_patched = True
             logger.info("OpenAI module patched - all new client instances will be automatically monitored")
-            
+
         except Exception as e:
             logger.error(f"Failed to patch OpenAI module: {e}")
             if logger.level <= logging.DEBUG:

@@ -149,4 +149,4 @@ require_updated_docs = true
 # Security report requirements
 require_compliance_status_update = true
 update_security_scan_results = true
-report_dependency_vulnerabilities = true 
+report_dependency_vulnerabilities = true

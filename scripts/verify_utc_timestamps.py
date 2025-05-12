@@ -27,13 +27,13 @@ def validate_event_file(file_path):
     valid_count = 0
     invalid_count = 0
     invalid_lines = []
-    
+
     with open(file_path, 'r', encoding='utf-8') as f:
         for line_num, line in enumerate(f, 1):
             try:
                 # Parse JSON event
                 event = json.loads(line.strip())
-                
+
                 # Check primary timestamp
                 if "timestamp" in event:
                     timestamp = event["timestamp"]
@@ -42,7 +42,7 @@ def validate_event_file(file_path):
                         invalid_count += 1
                     else:
                         valid_count += 1
-                
+
                 # Check nested timestamps in attributes
                 if "attributes" in event and isinstance(event["attributes"], dict):
                     for key, value in event["attributes"].items():
@@ -54,16 +54,16 @@ def validate_event_file(file_path):
                                 valid_count += 1
             except json.JSONDecodeError:
                 print(f"Warning: Line {line_num} is not valid JSON")
-    
+
     # Print results
     print(f"Found {valid_count} valid timestamps and {invalid_count} invalid timestamps")
-    
+
     if invalid_lines:
         print("\nInvalid timestamps:")
         for line_num, key, value in invalid_lines:
             print(f"Line {line_num}, {key}: {value}")
         return False
-    
+
     return True
 
 
@@ -73,7 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description="Validate event timestamp formatting")
     parser.add_argument("files", nargs="+", help="Event log files to validate")
     args = parser.parse_args()
-    
+
     # Validate each file
     all_valid = True
     for file_pattern in args.files:
@@ -81,10 +81,10 @@ def main():
         for file_path in Path().glob(file_pattern):
             if not validate_event_file(file_path):
                 all_valid = False
-    
+
     # Return appropriate exit code
     sys.exit(0 if all_valid else 1)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

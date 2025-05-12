@@ -110,16 +110,16 @@ class NewFrameworkConverter(BaseEventConverter):
     def convert(self, event):
         # Start with common fields
         common_fields = self._copy_common_fields(event)
-        
+
         # Extract data field
         data = event.get("data", {})
-        
+
         # Extract trace/span IDs
         trace_span_ids = self._extract_trace_span_ids(event)
-        
+
         # Extract framework-specific fields
         # ...
-        
+
         # Return the standardized event
         return StandardizedEvent(
             # Common fields
@@ -181,4 +181,4 @@ Events are categorized into the following types:
 - **framework**: Framework information
 - **request**: Structured request data
 - **response**: Structured response data
-- **extra**: Any unmapped data 
+- **extra**: Any unmapped data

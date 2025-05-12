@@ -54,7 +54,7 @@ event = create_system_event(
    ```python
    # Incorrect
    timestamp = datetime.now().isoformat()  # No timezone info, no Z suffix
-   
+
    # Correct
    timestamp = format_timestamp()  # Has UTC timezone and Z suffix
    ```
@@ -64,7 +64,7 @@ event = create_system_event(
    ```python
    # Incorrect
    timestamp = datetime.now()  # Uses local timezone
-   
+
    # Correct
    timestamp = get_utc_timestamp()  # Uses UTC timezone
    ```
@@ -74,7 +74,7 @@ event = create_system_event(
    ```python
    # When parsing timestamps from external sources, convert to UTC
    from cylestio_monitor.utils.event_utils import parse_timestamp
-   
+
    utc_dt = parse_timestamp(external_timestamp)
    ```
 
@@ -83,4 +83,4 @@ event = create_system_event(
 - **Consistency**: All events have the same timezone reference
 - **Sorting**: Events can be chronologically ordered without timezone conversion
 - **Interoperability**: Compatible with most timestamp parsing libraries
-- **Clarity**: "Z" suffix clearly indicates UTC timezone 
+- **Clarity**: "Z" suffix clearly indicates UTC timezone

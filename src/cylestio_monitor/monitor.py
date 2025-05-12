@@ -64,7 +64,7 @@ def start_monitoring(
 
     # Extract debug level from config
     debug_level = config.get("debug_level", "INFO")
-    
+
     # Extract debug mode settings
     debug_mode = config.get("debug_mode", False)
     debug_log_file = config.get("debug_log_file", None)
@@ -90,7 +90,7 @@ def start_monitoring(
 
     # Set up logging configuration for the monitor
     monitor_logger = logging.getLogger("CylestioMonitor")
-    
+
     # Prevent logs from propagating to the root logger
     monitor_logger.propagate = False
 
@@ -101,13 +101,13 @@ def start_monitoring(
     # Remove any existing handlers to avoid duplicate logs
     for handler in monitor_logger.handlers[:]:
         monitor_logger.removeHandler(handler)
-        
+
     # Get all other SDK loggers and configure them too
     sdk_loggers = [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict 
+        logging.getLogger(name) for name in logging.root.manager.loggerDict
         if name.startswith("cylestio_") or name.startswith("CylestioMonitor")
     ]
-    
+
     # Process events output file path if provided
     if events_output_file:
         # If events_output_file is a directory, create a file with the agent_id in the name
@@ -123,7 +123,7 @@ def start_monitoring(
         log_dir = os.path.dirname(events_output_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
-    
+
     # Setup debug logging based on configuration
     if debug_mode:
         if debug_log_file:
@@ -131,7 +131,7 @@ def start_monitoring(
             debug_log_dir = os.path.dirname(debug_log_file)
             if debug_log_dir and not os.path.exists(debug_log_dir):
                 os.makedirs(debug_log_dir, exist_ok=True)
-                
+
             # Add file handler for debug logs
             debug_file_handler = logging.FileHandler(debug_log_file)
             debug_file_handler.setLevel(level)
@@ -139,14 +139,14 @@ def start_monitoring(
                 logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             monitor_logger.addHandler(debug_file_handler)
-            
+
             # Apply the same file handler to all SDK loggers
             for sdk_logger in sdk_loggers:
                 sdk_logger.setLevel(level)
                 sdk_logger.propagate = False
                 if not any(isinstance(h, logging.FileHandler) for h in sdk_logger.handlers):
                     sdk_logger.addHandler(logging.FileHandler(debug_log_file))
-            
+
             # Log to file that we're starting with debug output to file
             monitor_logger.info(f"Debug logging enabled, writing to: {debug_log_file}")
         else:
@@ -157,7 +157,7 @@ def start_monitoring(
                 logging.Formatter("CylestioSDK - %(levelname)s: %(message)s")
             )
             monitor_logger.addHandler(console_handler)
-            
+
             # Apply the same console handler to all SDK loggers
             for sdk_logger in sdk_loggers:
                 sdk_logger.setLevel(level)
@@ -168,7 +168,7 @@ def start_monitoring(
         # Suppress all debug logging from the SDK
         null_handler = logging.NullHandler()
         monitor_logger.addHandler(null_handler)
-        
+
         # Suppress logging for all SDK loggers
         for sdk_logger in sdk_loggers:
             sdk_logger.setLevel(logging.CRITICAL)  # Set very high threshold
@@ -184,7 +184,7 @@ def start_monitoring(
     config_manager.set("monitoring.events_output_file", events_output_file)
     config_manager.set("monitoring.debug_mode", debug_mode)
     config_manager.set("monitoring.debug_log_file", debug_log_file)
-    
+
     # Configure the telemetry endpoint if provided
     telemetry_endpoint = config.get("telemetry_endpoint")
     if telemetry_endpoint:
@@ -192,7 +192,7 @@ def start_monitoring(
         # Set environment variable for immediate use by API client
         os.environ["CYLESTIO_TELEMETRY_ENDPOINT"] = telemetry_endpoint
         logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
-    
+
     config_manager.save()
 
     # Initialize trace context
@@ -437,10 +437,10 @@ def stop_monitoring() -> None:
 
     # Reset the trace context
     TraceContext.reset()
-    
+
     # Clean up all SDK loggers
     monitor_logger = logging.getLogger("CylestioMonitor")
-    
+
     # Close and remove all handlers from the main logger
     for handler in monitor_logger.handlers[:]:
         try:
@@ -448,16 +448,16 @@ def stop_monitoring() -> None:
         except:
             pass
         monitor_logger.removeHandler(handler)
-    
+
     # Add a null handler to prevent "No handlers could be found" warnings
     monitor_logger.addHandler(logging.NullHandler())
-    
+
     # Clean up all other SDK loggers
     sdk_loggers = [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict 
+        logging.getLogger(name) for name in logging.root.manager.loggerDict
         if name.startswith("cylestio_") or name.startswith("CylestioMonitor")
     ]
-    
+
     for sdk_logger in sdk_loggers:
         for handler in sdk_logger.handlers[:]:
             try:
@@ -467,7 +467,7 @@ def stop_monitoring() -> None:
             sdk_logger.removeHandler(handler)
         sdk_logger.addHandler(logging.NullHandler())
         sdk_logger.setLevel(logging.CRITICAL)
-    
+
     # Final log message through standard logger (not SDK logger)
     logger.info("Monitoring stopped")
 

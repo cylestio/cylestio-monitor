@@ -62,4 +62,4 @@ For more complex cases, you should manually migrate to the new event utilities:
 
 - If the migration script doesn't update a particular file, check if it has unusual patterns of creating timestamps
 - For custom timestamp formats, you may need to manually refactor the code
-- If verification fails, examine the specific fields that have incorrect formatting 
+- If verification fails, examine the specific fields that have incorrect formatting

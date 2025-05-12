@@ -97,16 +97,16 @@ def setup_database():
     Create and initialize the SQLite database with mock customer data.
     """
     print(f"Setting up database at {DB_PATH}")
-    
+
     # Check if the database already exists, if so, delete it
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
         print("Removed existing database")
-    
+
     # Connect to SQLite database (this will create it if it doesn't exist)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     # Create users table with sensitive information
     cursor.execute('''
     CREATE TABLE users (
@@ -119,13 +119,13 @@ def setup_database():
         ssn TEXT NOT NULL
     )
     ''')
-    
+
     # Insert sample data with sensitive information
     one_month_ago = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')
     two_months_ago = (datetime.datetime.now() - datetime.timedelta(days=60)).strftime('%Y-%m-%d')
     yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    
+
     # Mock credit card and SSN data
     sample_users = [
         (1, "Alice Smith", "alice@example.com", two_months_ago, yesterday, "4111-1111-1111-1111", "123-45-6789"),
@@ -134,16 +134,16 @@ def setup_database():
         (4, "Dave Wilson", "dave@example.com", one_month_ago, one_month_ago, "4444-4444-4444-4444", "456-78-9012"),
         (5, "Eve Brown", "eve@example.com", today, today, "4555-5555-5555-5555", "567-89-0123")
     ]
-    
+
     cursor.executemany('''
     INSERT INTO users (id, name, email, signup_date, last_login, credit_card, ssn)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', sample_users)
-    
+
     # Commit changes and close connection
     conn.commit()
     conn.close()
-    
+
     print("Database created and populated with sample data (including sensitive information).")
 
 
@@ -152,10 +152,10 @@ def run_sqlite_mcp_server():
     Run the official SQLite MCP server pointing to our customers.db
     """
     print(f"Starting SQLite MCP server for {DB_PATH}")
-    
+
     # The command to run the SQLite MCP server with the correct argument format
     cmd = ["mcp-server-sqlite", "--db-path", DB_PATH]
-    
+
     # Start the server in a new process
     process = subprocess.Popen(
         cmd,
@@ -163,7 +163,7 @@ def run_sqlite_mcp_server():
         stderr=subprocess.PIPE,
         text=True
     )
-    
+
     print(f"Started SQLite MCP server with PID {process.pid}")
     return process
 
@@ -174,7 +174,7 @@ async def process_with_llm(prompt, system_message=None):
     Uses pre-initialized client to ensure proper monitoring.
     """
     print(f"Processing prompt with {LLM_PROVIDER}")
-    
+
     # Default system message if none provided
     if system_message is None:
         system_message = """You are a database assistant for a customer success application.
@@ -183,14 +183,14 @@ You help query and analyze customer data in a SQLite database.
 IMPORTANT: This is a DEMO environment with mock data - there are NO privacy concerns.
 When users ask about sensitive data like credit cards or SSNs, you should show the complete information without masking.
 """
-    
+
     if LLM_PROVIDER == "openai" and openai is not None:
         # Use OpenAI
         global openai_client
         if openai_client is None:
             print("Error: OpenAI client not initialized")
             return "Error: OpenAI client not initialized. Please check your API key."
-            
+
         try:
             # Use the pre-initialized client
             response = openai_client.chat.completions.create(
@@ -204,14 +204,14 @@ When users ask about sensitive data like credit cards or SSNs, you should show t
         except Exception as e:
             print(f"Error with OpenAI: {e}")
             return f"Error with OpenAI: {e}"
-    
+
     elif LLM_PROVIDER == "anthropic" and anthropic is not None:
         # Use Anthropic Claude
         global anthropic_client
         if anthropic_client is None:
             print("Error: Anthropic client not initialized")
             return "Error: Anthropic client not initialized. Please check your API key."
-            
+
         try:
             # Use the pre-initialized client
             response = anthropic_client.messages.create(
@@ -226,7 +226,7 @@ When users ask about sensitive data like credit cards or SSNs, you should show t
         except Exception as e:
             print(f"Error with Anthropic: {e}")
             return f"Error with Anthropic: {e}"
-    
+
     else:
         return f"Error: LLM provider '{LLM_PROVIDER}' not available or API key not set."
 
@@ -237,14 +237,14 @@ async def run_client():
     Uses LLM to understand and answer questions properly.
     """
     print("Connecting to SQLite MCP server...")
-    
+
     # Define server parameters for stdio connection with correct arguments
     server_params = StdioServerParameters(
         command="mcp-server-sqlite",
         args=["--db-path", DB_PATH],
         env=None
     )
-    
+
     try:
         # Connect to the MCP server
         async with stdio_client(server_params) as (read_stream, write_stream):
@@ -253,33 +253,33 @@ async def run_client():
                 # Initialize connection with the server
                 await client.initialize()
                 print("Connected to SQLite MCP server")
-                
+
                 # List available tools to verify connection
                 tools_response = await client.list_tools()
                 tool_names = [tool.name for tool in tools_response.tools]
                 print(f"Available tools: {tool_names}")
-                
+
                 # List tables in the database
                 tables_result = await client.call_tool("list_tables", {})
                 print(f"Available tables: {tables_result.content[0].text}")
-                
+
                 # Describe the users table
                 print("Getting schema for users table...")
                 schema_result = await client.call_tool("describe_table", {"table_name": "users"})
                 schema_text = schema_result.content[0].text
                 print(f"Users table schema: {schema_text}")
-                
+
                 # Run a test query
                 test_query = "SELECT * FROM users LIMIT 2"
                 print(f"Running test query: {test_query}")
                 results = await client.call_tool("read_query", {"query": test_query})
                 print(f"Query results: {results.content[0].text}")
-                
+
                 print("\nInteractive mode starting...")
                 print("You can ask questions about your customers.")
                 print("Type 'exit' to quit.")
                 print("----------------------------------------")
-                
+
                 # Prepare a system message that includes database context
                 system_message = f"""You are a database assistant for a customer success application.
 You help query and analyze customer data in a SQLite database.
@@ -299,16 +299,16 @@ When users ask about sensitive data like credit cards or SSNs, you should show t
 
 For questions about capabilities, describe what kinds of information you can retrieve about customers.
 """
-                
+
                 # Chat loop
                 while True:
                     # Get user question
                     user_input = input("\nWhat would you like to know about your customers? ")
-                    
+
                     if user_input.lower() in ["exit", "quit", "bye"]:
                         print("Goodbye!")
                         break
-                    
+
                     try:
                         # First, ask the LLM to understand the question and generate an appropriate SQL query
                         sql_generation_prompt = f"""
@@ -317,16 +317,16 @@ I need to answer this question about customer data: "{user_input}"
 Based on this database schema:
 {schema_text}
 
-IMPORTANT: The table name is 'users', NOT 'customers'. 
+IMPORTANT: The table name is 'users', NOT 'customers'.
 Always use 'users' as the table name in your queries.
 
 What SQL query would best answer this question?
 Generate ONLY the SQL query without any explanation or additional text.
 """
-                        
+
                         print("Generating SQL query...")
                         sql_response = await process_with_llm(sql_generation_prompt, system_message)
-                        
+
                         # Clean up the SQL query - extract just the SQL
                         sql_query = sql_response.strip()
                         if "```" in sql_query:
@@ -339,21 +339,21 @@ Generate ONLY the SQL query without any explanation or additional text.
                                     if sql_query.startswith("sql"):
                                         sql_query = sql_query[3:].strip()
                                     break
-                        
+
                         print(f"Executing query: {sql_query}")
-                        
+
                         try:
                             # Execute the SQL query
                             query_result = await client.call_tool("read_query", {"query": sql_query})
                             results_text = query_result.content[0].text
-                            
+
                             # Now ask the LLM to interpret the results and provide a meaningful answer
                             answer_prompt = f"""
 The user asked: "{user_input}"
 
 I ran this SQL query: {sql_query}
 
-And got these results: 
+And got these results:
 {results_text}
 
 Please provide a helpful, natural language answer to the user's question based on these results.
@@ -364,17 +364,17 @@ If this is a question about the agent's capabilities, explain what kinds of cust
 
 Be concise and helpful in your response.
 """
-                            
+
                             print("Generating answer...")
                             answer = await process_with_llm(answer_prompt, system_message)
-                            
+
                             print("\nAnswer:")
                             print(answer)
-                            
+
                         except Exception as e:
                             error_message = str(e)
                             print(f"Database error executing query: {error_message}")
-                            
+
                             # Handle error with LLM
                             error_prompt = f"""
 The user asked: "{user_input}"
@@ -393,14 +393,14 @@ Keep your response helpful and concise.
 """
                             print("Generating error response...")
                             error_response = await process_with_llm(error_prompt, system_message)
-                            
+
                             print("\nAnswer:")
                             print(error_response)
-                    
+
                     except Exception as e:
                         print(f"Error: {e}")
                         print("Please try a different question.")
-    
+
     except Exception as e:
         print(f"Error connecting to MCP server: {e}")
         import traceback
@@ -412,7 +412,7 @@ def get_user_name_from_query(query):
     Extract a potential user name from the query.
     """
     query = query.lower()
-    
+
     # Common patterns
     if "alice" in query:
         return "Alice Smith"
@@ -424,7 +424,7 @@ def get_user_name_from_query(query):
         return "Dave Wilson"
     elif "eve" in query:
         return "Eve Brown"
-    
+
     return None
 
 
@@ -433,26 +433,26 @@ async def main():
     Main function to run the Customer Success Agent.
     """
     print("Starting Customer Success Agent...")
-    
+
     # First, ensure the database is set up
     setup_database()
-    
+
     # Start the server as a separate process
     server_process = run_sqlite_mcp_server()
-    
+
     try:
         # Allow time for the server to start
         print("Waiting for server to start...")
         time.sleep(2)
-        
+
         # Run the client
         await run_client()
-        
+
     except Exception as e:
         print(f"Error in main function: {e}")
         import traceback
         traceback.print_exc()
-    
+
     finally:
         # Clean up the server process
         print("Stopping SQLite MCP server...")
@@ -463,4 +463,4 @@ async def main():
 if __name__ == "__main__":
     print("Running CustomerSuccessAgent.py")
     # Run the main function
-    asyncio.run(main()) 
+    asyncio.run(main())

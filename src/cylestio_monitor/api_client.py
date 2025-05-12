@@ -53,14 +53,14 @@ class ApiClient:
         # 4. Default value
         env_endpoint = os.environ.get("CYLESTIO_TELEMETRY_ENDPOINT")
         telemetry_endpoint = endpoint or env_endpoint or config.get("api.endpoint") or "http://127.0.0.1:8000"
-        
+
         # Ensure the endpoint ends with /v1/telemetry
         if not telemetry_endpoint.endswith("/v1/telemetry"):
             # Remove trailing slash if present
             if telemetry_endpoint.endswith("/"):
                 telemetry_endpoint = telemetry_endpoint[:-1]
             telemetry_endpoint = f"{telemetry_endpoint}/v1/telemetry"
-            
+
         self.endpoint = telemetry_endpoint
 
         # Set HTTP method (defaulting to POST)
@@ -90,7 +90,7 @@ class ApiClient:
         """
         # Apply safe serialization to the event attributes
         event = self._ensure_serializable(event)
-        
+
         # Ensure event has a properly formatted timestamp
         event_copy = event.copy()
         if 'timestamp' not in event_copy:
@@ -282,14 +282,14 @@ def send_event_to_api(event: Dict[str, Any]) -> bool:
     # Mask sensitive data in the event before sending
     scanner = SecurityScanner.get_instance()
     masked_event = scanner.mask_event(event)
-    
+
     # If masking didn't occur, use the original event
     if masked_event is None:
         masked_event = event
-    
+
     # Create client
     client = ApiClient()
-    
+
     # Send event
     return client.send_event(masked_event)
 
