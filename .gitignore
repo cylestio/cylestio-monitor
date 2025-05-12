@@ -300,3 +300,4 @@ deploy_docs.sh
 temp*/
 build_test*/
 tasks/
+security_pipeline/

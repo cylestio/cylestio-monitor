@@ -132,6 +132,32 @@ All events follow OpenTelemetry standards with trace context:
 - **Regulatory compliance**: Designed to help satisfy SOC2, GDPR, and HIPAA monitoring requirements
 - **Audit-ready logging**: Generate detailed logs suitable for security audits and compliance verification
 
+### Security Pipeline
+
+Cylestio Monitor maintains security through a comprehensive security pipeline that includes:
+
+- **Dependency scanning**: Automated scanning for vulnerable dependencies using pip-audit
+- **Secret detection**: Detection of potential leaked credentials or API keys with detect-secrets
+- **Static analysis**: Code vulnerability scanning with Semgrep and Bandit
+- **Secure package validation**: Verification that packages don't contain sensitive information
+- **Pre-commit hooks**: Local security checks before code is committed
+
+For more details on our security approach and best practices, see [our security documentation](docs/security/security.md).
+
+## Development
+
+This repository uses pre-commit hooks to ensure code quality and security:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Set up the git hooks
+pre-commit install
+```
+
+After installation, the hooks will run automatically on `git commit`.
+
 ## Compliance for Agentic Workforces
 
 Cylestio Monitor enables organizations to maintain regulatory compliance as they transition to agentic workforces. The system:

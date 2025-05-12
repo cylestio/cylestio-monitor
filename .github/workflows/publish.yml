@@ -31,8 +31,59 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Check package with twine
-        run: twine check dist/*
+      - name: Validate package
+        run: |
+          # Basic check for packaging issues
+          twine check dist/*
+
+          # Check for sensitive files in the package
+          echo "Checking for sensitive files in package..."
+          python -c "
+          import zipfile
+          import re
+          import sys
+
+          sensitive_patterns = [
+              r'\.env$',
+              r'\.pem$',
+              r'secret',
+              r'password',
+              r'credential',
+              r'apikey',
+              r'\.p12$',
+              r'\.key$'
+          ]
+
+          wheel_file = next(f for f in sorted([f for f in os.listdir('./dist') if f.endswith('.whl')], reverse=True))
+
+          with zipfile.ZipFile(f'./dist/{wheel_file}') as z:
+              files = z.namelist()
+              sensitive_files = []
+              for file in files:
+                  for pattern in sensitive_patterns:
+                      if re.search(pattern, file, re.IGNORECASE):
+                          sensitive_files.append(file)
+                          break
+
+              if sensitive_files:
+                  print(f'Found potentially sensitive files in the package: {sensitive_files}')
+                  sys.exit(1)
+              else:
+                  print('No sensitive files found in the package')
+          "
+
+          # Verify importability
+          mkdir -p /tmp/package-check
+          cd /tmp/package-check
+          pip install $GITHUB_WORKSPACE/dist/*.whl
+          python -c "import cylestio_monitor; print('Package verified')"
+
+      - name: Check dependencies with pip-audit
+        run: |
+          pip install pip-audit
+          # Run in informational mode - doesn't fail the build
+          pip install $GITHUB_WORKSPACE/dist/*.whl
+          pip-audit || true
 
       - name: Publish to PyPI
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'

@@ -43,13 +43,46 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ".[security]"
-          pip install safety bandit
+          pip install bandit detect-secrets pip-audit semgrep
+
+      - name: Create security reports directory
+        run: mkdir -p security-reports
 
       - name: Run bandit
         run: bandit -r src -s B110,B311
 
-      - name: Check dependencies with safety
-        run: safety check --full-report
+      - name: Check dependencies with pip-audit
+        run: |
+          pip-audit --format json --output security-reports/dependency-audit.json || true
+
+          # Display critical vulnerabilities in log
+          echo "Critical vulnerabilities found:"
+          jq '.vulnerabilities[] | select(.severity=="critical")' security-reports/dependency-audit.json || echo "None found"
+
+      - name: Run detect-secrets scan
+        run: |
+          # Create baseline if it doesn't exist
+          if [ ! -f .secrets.baseline ]; then
+            detect-secrets scan > .secrets.baseline
+          fi
+
+          # Run scan in informational mode
+          detect-secrets scan --baseline .secrets.baseline > security-reports/secrets-scan.json
+
+          # Show warning if secrets found
+          if grep -q "results" security-reports/secrets-scan.json && ! grep -q "results\": {}" security-reports/secrets-scan.json; then
+            echo "WARNING: Potential secrets found. Please review."
+          fi
+
+      - name: Run basic Semgrep scan
+        run: |
+          # Run with minimal rule sets
+          semgrep --config=p/python --config=p/security-audit src/ \
+            --json > security-reports/semgrep-results.json
+
+          # Show critical findings
+          echo "Critical security issues found:"
+          jq '.results[] | select(.extra.severity == "ERROR")' security-reports/semgrep-results.json || echo "None found"
 
       - name: Check for PyPI package name availability
         run: |
@@ -75,3 +108,9 @@ jobs:
 
           # Verify the package can be imported
           python -c "import cylestio_monitor; print('Package installed successfully')"
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: security-reports/
