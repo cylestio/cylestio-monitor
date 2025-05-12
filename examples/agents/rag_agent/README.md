@@ -123,4 +123,4 @@ This example can be extended with:
 - Different embedding models
 - More sophisticated retrieval mechanisms
 - Integration with web search or other data sources
-- Custom logging and monitoring for domain-specific metrics 
+- Custom logging and monitoring for domain-specific metrics

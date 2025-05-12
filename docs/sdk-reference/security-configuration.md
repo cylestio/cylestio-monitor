@@ -180,21 +180,21 @@ Security events are logged with detailed information about the detected content:
 
 ```json
 {
-  "schema_version": "1.0", 
-  "timestamp": "2024-04-10T11:43:14.312935", 
-  "trace_id": "d773c49ac81542aeb0a19c957c162d53", 
-  "span_id": "9b2e531efe9ac834", 
-  "name": "security.content.dangerous", 
-  "level": "SECURITY_ALERT", 
+  "schema_version": "1.0",
+  "timestamp": "2024-04-10T11:43:14.312935",
+  "trace_id": "d773c49ac81542aeb0a19c957c162d53",
+  "span_id": "9b2e531efe9ac834",
+  "name": "security.content.dangerous",
+  "level": "SECURITY_ALERT",
   "attributes": {
-    "security.alert_level": "dangerous", 
-    "security.keywords": ["credit_card:8989-****-****-8989"], 
-    "security.content_sample": "{'messages': [{'role': 'user', 'content': 'ok any alert for card 8989-****-****-8989 in sf?'}], 'mod...", 
-    "security.category": "sensitive_data", 
-    "security.severity": "high", 
+    "security.alert_level": "dangerous",
+    "security.keywords": ["credit_card:8989-****-****-8989"],
+    "security.content_sample": "{'messages': [{'role': 'user', 'content': 'ok any alert for card 8989-****-****-8989 in sf?'}], 'mod...",
+    "security.category": "sensitive_data",
+    "security.severity": "high",
     "security.description": "Credit Card Number"
   }
 }
 ```
 
-All sensitive data in security events is properly masked to ensure the security system itself doesn't become a vector for data leakage. 
+All sensitive data in security events is properly masked to ensure the security system itself doesn't become a vector for data leakage.

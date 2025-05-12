@@ -38,7 +38,7 @@ class MCPPatcher(BasePatcher):
         try:
             # Log patch event
             context = TraceContext.get_current_context()
-            
+
             # Log event with error handling for agent_id parameter
             try:
                 log_event(
@@ -73,7 +73,7 @@ class MCPPatcher(BasePatcher):
                 )
             except Exception as log_e:
                 logger.warning(f"Failed to log framework.patch.error event: {log_e}")
-            
+
             logger.exception(f"Error patching MCP: {e}")
             raise RuntimeError(f"Failed to patch MCP: {e}")
 
@@ -145,15 +145,15 @@ class MCPPatcher(BasePatcher):
             # Store the original method
             original_call_tool = ClientSession.call_tool
             self._original_methods["call_tool"] = original_call_tool
-            
+
             # Check the signature of call_tool to determine parameter names
             signature = inspect.signature(original_call_tool)
             param_names = list(signature.parameters.keys())
-            
+
             # Determine if we're using 'params' (older MCP) or 'arguments' (newer MCP 1.6.0+)
             uses_arguments = 'arguments' in param_names
             param_name = 'arguments' if uses_arguments else 'params'
-            
+
             logger.debug(f"Detected MCP ClientSession.call_tool using parameter name: {param_name}")
 
             # Define a patched method with the correct signature based on MCP version
@@ -162,7 +162,7 @@ class MCPPatcher(BasePatcher):
                     """Instrumented version of ClientSession.call_tool for MCP 1.6.0+."""
                     # Start a new span for this tool call
                     span_info = TraceContext.start_span(f"tool.{name}")
-                    
+
                     # Extract relevant attributes
                     tool_attributes = {
                         "tool.name": name,
@@ -219,8 +219,8 @@ class MCPPatcher(BasePatcher):
                         # Log tool error event with error handling
                         try:
                             log_error(
-                                name="tool.error", 
-                                error=e, 
+                                name="tool.error",
+                                error=e,
                                 attributes=tool_attributes
                             )
                         except Exception as log_e:
@@ -234,7 +234,7 @@ class MCPPatcher(BasePatcher):
                     """Instrumented version of ClientSession.call_tool for older MCP."""
                     # Start a new span for this tool call
                     span_info = TraceContext.start_span(f"tool.{name}")
-                    
+
                     # Extract relevant attributes
                     tool_attributes = {
                         "tool.name": name,
@@ -291,8 +291,8 @@ class MCPPatcher(BasePatcher):
                         # Log tool error event with error handling
                         try:
                             log_error(
-                                name="tool.error", 
-                                error=e, 
+                                name="tool.error",
+                                error=e,
                                 attributes=tool_attributes
                             )
                         except Exception as log_e:

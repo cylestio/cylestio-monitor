@@ -62,4 +62,4 @@ except Exception as e:
     print(f'OpenAI error: {e}')
 
 # Stop monitoring
-stop_monitoring() 
+stop_monitoring()

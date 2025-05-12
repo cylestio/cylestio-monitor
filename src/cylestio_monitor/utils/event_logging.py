@@ -69,7 +69,7 @@ def log_event(
     trace_id = trace_id or context.get("trace_id")
     span_id = span_id or context.get("span_id")
     agent_id = context.get("agent_id")
-    
+
     # Ensure we have default values for agent_id and trace_id
     # This ensures early patch events still have identifiable values
     if trace_id is None:
@@ -104,19 +104,19 @@ def log_event(
     # Add channel if provided
     if channel:
         event["channel"] = channel
-        
+
     # Add event category if provided
     if event_category:
         event["event_category"] = event_category
-        
+
     # Add performance metrics if provided
     if performance and performance:
         event["performance"] = safe_event_serialize(performance)
-        
+
     # Add model information if provided
     if model and model:
         event["model"] = safe_event_serialize(model)
-        
+
     # Add security information if provided
     if security and security:
         event["security"] = safe_event_serialize(security)
@@ -160,7 +160,7 @@ def log_event(
     # Mask sensitive data in the event before logging/sending
     scanner = SecurityScanner.get_instance()
     masked_event = scanner.mask_event(event)
-    
+
     # If masking didn't occur, use the original event
     if masked_event is None:
         masked_event = event
@@ -170,7 +170,7 @@ def log_event(
 
     # Send to API if configured
     _send_to_api(masked_event)
-    
+
     # Return the original unmasked event to the caller
     # This ensures internal processing isn't affected
     return event
@@ -219,8 +219,8 @@ def _send_to_api(event: Dict[str, Any]) -> None:
 
 
 def log_error(
-    name: str, 
-    error: Exception, 
+    name: str,
+    error: Exception,
     attributes: Optional[Dict[str, Any]] = None,
     trace_id: Optional[str] = None,
     **kwargs
@@ -244,11 +244,11 @@ def log_error(
             "error.message": str(error),
         }
     )
-    
+
     return log_event(
-        name=name, 
-        attributes=error_attributes, 
-        level="ERROR", 
+        name=name,
+        attributes=error_attributes,
+        level="ERROR",
         trace_id=trace_id,
         **kwargs
     )

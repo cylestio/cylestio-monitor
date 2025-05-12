@@ -7,4 +7,4 @@ with patterns compiled once at load time for performance.
 
 from .matcher import PatternRegistry
 
-__all__ = ["PatternRegistry"] 
+__all__ = ["PatternRegistry"]

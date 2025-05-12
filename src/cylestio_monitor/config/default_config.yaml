@@ -19,7 +19,7 @@ security:
         - "social security"
         - "account number"
         - "personal data"
-    
+
     dangerous_commands:
       enabled: true
       severity: high
@@ -42,7 +42,7 @@ security:
         - "alter table"
         - "truncate"
         - "destroy"
-    
+
     prompt_manipulation:
       enabled: true
       severity: medium
@@ -64,7 +64,7 @@ security:
         - "malware"
         - "compromise"
         - "vulnerable"
-  
+
   # Regex patterns for security scanning
   patterns:
     # API keys
@@ -74,21 +74,21 @@ security:
       severity: "high"
       description: "OpenAI API Key"
       mask_method: "partial"
-      
+
     aws_access_key:
       regex: "AKIA[0-9A-Z]{16}"
       category: "sensitive_data"
       severity: "high"
       description: "AWS Access Key ID"
       mask_method: "partial"
-      
+
     anthropic_api_key:
       regex: "sk-ant-[a-zA-Z0-9]{32,}"
       category: "sensitive_data"
       severity: "high"
       description: "Anthropic API Key"
       mask_method: "partial"
-      
+
     # PII patterns
     credit_card:
       regex: "\\b\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b"
@@ -96,21 +96,21 @@ security:
       severity: "high"
       description: "Credit Card Number"
       mask_method: "credit_card"
-      
+
     email_address:
       regex: "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b"
       category: "sensitive_data"
       severity: "medium"
       description: "Email Address"
       mask_method: "email"
-      
+
     phone_number:
       regex: "\\b\\d{3}[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b"
       category: "sensitive_data"
       severity: "medium"
       description: "Phone Number"
       mask_method: "phone"
-      
+
     ssn:
       regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
       category: "sensitive_data"
@@ -189,20 +189,20 @@ data_masking:
 compliance:
   # Database retention policy (in days)
   retention_days: 30
-  
+
   # Regulatory frameworks
   frameworks:
     soc2:
       enabled: true
       audit_logging: true
       access_control: true
-    
+
     gdpr:
       enabled: true
       data_minimization: true
       right_to_be_forgotten: true
-    
+
     hipaa:
       enabled: false
       phi_protection: true
-      audit_trails: true 
+      audit_trails: true

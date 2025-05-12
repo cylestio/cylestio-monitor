@@ -71,4 +71,4 @@ While this documentation is designed to be integrated with a centralized system,
   - [Timestamps](developers/timestamps.md)
   - [Events](developers/events.md)
 - [Troubleshooting](troubleshooting.md)
-- [Custom Integrations](custom-integrations.md) 
+- [Custom Integrations](custom-integrations.md)

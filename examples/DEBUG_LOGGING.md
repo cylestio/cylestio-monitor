@@ -9,7 +9,7 @@ from cylestio_monitor import start_monitoring
 
 # Start monitoring with minimal debug configuration
 start_monitoring(
-    agent_id="my-agent", 
+    agent_id="my-agent",
     config={
         "events_output_file": "logs/events.json",  # Path for storing event data
         "debug_mode": True,  # Enable debug output
@@ -88,4 +88,4 @@ See the [debug_logging_example.py](./debug_logging_example.py) file for a comple
 
 3. **Production Environment**:
    - Disable debug mode: `"debug_mode": False` (or omit the parameter)
-   - Or send debugging to a separate file: `"debug_log_file": "logs/production_debug.log"` 
+   - Or send debugging to a separate file: `"debug_log_file": "logs/production_debug.log"`

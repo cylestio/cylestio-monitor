@@ -24,7 +24,7 @@ def create_llm_request_event(
 ) -> Dict[str, Any]:
     """
     Create an LLM request event.
-    
+
     Args:
         agent_id: Agent identifier
         provider: LLM provider (e.g., OpenAI, Anthropic)
@@ -34,24 +34,24 @@ def create_llm_request_event(
         request_timestamp: When the request was sent (default: same as timestamp)
         trace_id: Trace identifier
         attributes: Additional attributes
-        
+
     Returns:
         Dict: Standardized event dictionary
     """
     # Create base attributes
     attrs = attributes or {}
-    
+
     # Add LLM-specific attributes
     attrs["llm.provider"] = provider
     attrs["llm.model"] = model
     attrs["llm.request.prompt"] = prompt
-    
+
     # Ensure request_timestamp is properly formatted
     if request_timestamp is not None:
         attrs["llm.request.request_timestamp"] = format_timestamp(request_timestamp)
     else:
         attrs["llm.request.timestamp"] = format_timestamp(timestamp)
-    
+
     # Create the event
     event = create_event_dict(
         name="llm.request",
@@ -61,7 +61,7 @@ def create_llm_request_event(
         timestamp=timestamp,
         trace_id=trace_id,
     )
-    
+
     return event
 
 
@@ -78,7 +78,7 @@ def create_llm_response_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized LLM response event.
-    
+
     Args:
         agent_id: Agent identifier
         provider: LLM provider (e.g., 'openai', 'anthropic')
@@ -89,7 +89,7 @@ def create_llm_response_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: LLM response event with UTC timestamp and Z suffix
     """
@@ -100,16 +100,16 @@ def create_llm_response_event(
         "llm.response.content": response,
         "llm.response.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add prompt if provided
     if prompt is not None:
         attributes["llm.request.prompt"] = prompt
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"llm.response.{key}"] = value
-    
+
     return create_event_dict(
         name="llm.response",
         attributes=attributes,
@@ -133,7 +133,7 @@ def create_tool_call_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized tool call event.
-    
+
     Args:
         agent_id: Agent identifier
         tool_name: Name of the tool being called
@@ -142,7 +142,7 @@ def create_tool_call_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: Tool call event with UTC timestamp and Z suffix
     """
@@ -152,12 +152,12 @@ def create_tool_call_event(
         "tool.call.inputs": inputs,
         "tool.call.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"tool.{key}"] = value
-    
+
     return create_event_dict(
         name="tool.call",
         attributes=attributes,
@@ -181,7 +181,7 @@ def create_tool_result_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized tool result event.
-    
+
     Args:
         agent_id: Agent identifier
         tool_name: Name of the tool that was called
@@ -191,7 +191,7 @@ def create_tool_result_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: Tool result event with UTC timestamp and Z suffix
     """
@@ -202,12 +202,12 @@ def create_tool_result_event(
         "tool.result.output": output,
         "tool.result.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"tool.{key}"] = value
-    
+
     return create_event_dict(
         name="tool.result",
         attributes=attributes,
@@ -232,7 +232,7 @@ def create_system_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized system event.
-    
+
     Args:
         agent_id: Agent identifier
         event_type: Type of system event
@@ -242,7 +242,7 @@ def create_system_event(
         span_id: Optional span ID
         level: Log level
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: System event with UTC timestamp and Z suffix
     """
@@ -251,15 +251,15 @@ def create_system_event(
         "system.type": event_type,
         **data
     }
-    
+
     # Add timestamp attribute
     attributes["system.timestamp"] = format_timestamp(timestamp)
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"system.{key}"] = value
-    
+
     return create_event_dict(
         name=f"system.{event_type}",
         attributes=attributes,
@@ -285,7 +285,7 @@ def create_agent_startup_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized agent startup event.
-    
+
     Args:
         agent_id: Agent identifier
         version: Agent version
@@ -294,7 +294,7 @@ def create_agent_startup_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: Agent startup event with UTC timestamp and Z suffix
     """
@@ -304,12 +304,12 @@ def create_agent_startup_event(
         "agent.configuration": configuration,
         "agent.startup.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"agent.{key}"] = value
-    
+
     return create_event_dict(
         name="agent.startup",
         attributes=attributes,
@@ -332,7 +332,7 @@ def create_agent_shutdown_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized agent shutdown event.
-    
+
     Args:
         agent_id: Agent identifier
         reason: Shutdown reason
@@ -341,7 +341,7 @@ def create_agent_shutdown_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: Agent shutdown event with UTC timestamp and Z suffix
     """
@@ -350,16 +350,16 @@ def create_agent_shutdown_event(
         "agent.shutdown.reason": reason,
         "agent.shutdown.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add metrics if provided
     if metrics is not None:
         attributes["agent.metrics"] = metrics
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"agent.{key}"] = value
-    
+
     return create_event_dict(
         name="agent.shutdown",
         attributes=attributes,
@@ -383,7 +383,7 @@ def create_error_event(
 ) -> Dict[str, Any]:
     """
     Create a standardized error event.
-    
+
     Args:
         agent_id: Agent identifier
         error_type: Type of error
@@ -393,7 +393,7 @@ def create_error_event(
         trace_id: Optional trace ID
         span_id: Optional span ID
         **kwargs: Additional attributes
-        
+
     Returns:
         Dict: Error event with UTC timestamp and Z suffix
     """
@@ -403,16 +403,16 @@ def create_error_event(
         "error.message": message,
         "error.timestamp": format_timestamp(timestamp),
     }
-    
+
     # Add stack trace if provided
     if stack_trace is not None:
         attributes["error.stack_trace"] = stack_trace
-    
+
     # Add additional attributes
     for key, value in kwargs.items():
         if key not in ("parent_span_id"):
             attributes[f"error.{key}"] = value
-    
+
     return create_event_dict(
         name="error",
         attributes=attributes,
@@ -421,4 +421,4 @@ def create_error_event(
         timestamp=timestamp,
         trace_id=trace_id,
         span_id=span_id
-    ) 
+    )

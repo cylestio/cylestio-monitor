@@ -31,23 +31,23 @@ class OpenAIEventConverter(BaseEventConverter):
         """
         # Extract common fields
         common_fields = self._copy_common_fields(event)
-        
+
         # Extract data for processing
         data = event.get("data", {})
-        
+
         # Initialize attribute containers
         attributes = {}
         model = {}
         performance = {}
         security = {}
-        
+
         # Determine provider and model
         provider = "openai"
         model_name = data.get("model", "unknown")
-        
+
         # Default event category
         event_category = "llm"
-        
+
         # Process based on event type or direction
         if (
             event.get("event_type") in ["model_request", "completion_request", "llm.call.start"]
@@ -55,33 +55,33 @@ class OpenAIEventConverter(BaseEventConverter):
         ):
             request = self._convert_openai_request(data)
             attributes.update(request)
-            
+
             # Extract model parameters if available
             if model_name != "unknown":
                 model["llm.model"] = model_name
-                
+
             # Add temperature if available
             temperature = data.get("temperature")
             if temperature is not None:
                 model["llm.temperature"] = temperature
-                
+
             # Add max_tokens if available
             max_tokens = data.get("max_tokens")
             if max_tokens is not None:
                 model["llm.request.max_tokens"] = max_tokens
                 attributes["llm.request.max_tokens"] = max_tokens
-                
+
         elif (
             event.get("event_type") in ["model_response", "completion_response", "llm.call.finish", "llm.response"]
             or event.get("direction") == "incoming"
         ):
             response = self._convert_openai_response(data)
             attributes.update(response)
-            
+
             # Extract model info
             if model_name != "unknown":
                 model["llm.model"] = model_name
-                
+
             # Extract performance metrics - specifically token usage
             if "usage" in data:
                 usage = data["usage"]
@@ -94,7 +94,7 @@ class OpenAIEventConverter(BaseEventConverter):
                 if "total_tokens" in usage:
                     performance["llm.usage.total_tokens"] = usage["total_tokens"]
                     attributes["llm.usage.total_tokens"] = usage["total_tokens"]
-            
+
             # Check for usage data in attributes field
             for key in ["llm.usage.input_tokens", "llm.usage.output_tokens", "llm.usage.total_tokens"]:
                 # First try in nested attributes if available
@@ -103,7 +103,7 @@ class OpenAIEventConverter(BaseEventConverter):
                 # Then try in top-level data
                 elif key in data:
                     performance[key] = data[key]
-                
+
         # If this is a raw event coming directly from the OpenAI patcher
         # It might have response_attributes with llm.usage keys in a different structure
         if "attributes" in event and isinstance(event["attributes"], dict):
@@ -115,7 +115,7 @@ class OpenAIEventConverter(BaseEventConverter):
 
         # Add vendor information to attributes
         attributes["llm.vendor"] = provider
-        
+
         # Create standardized event
         return StandardizedEvent(
             timestamp=common_fields.get("timestamp"),
@@ -167,7 +167,7 @@ class OpenAIEventConverter(BaseEventConverter):
         if "prompt" in request:
             standardized["input"] = request["prompt"]
             standardized["last_user_message"] = (
-                request["prompt"] if isinstance(request["prompt"], str) 
+                request["prompt"] if isinstance(request["prompt"], str)
                 else str(request["prompt"])
             )
 
@@ -198,17 +198,17 @@ class OpenAIEventConverter(BaseEventConverter):
         # Extract response based on possible structures
         if "choices" in response and response["choices"]:
             first_choice = response["choices"][0]
-            
+
             # Chat completions format
             if "message" in first_choice:
                 message = first_choice["message"]
                 if isinstance(message, dict) and "content" in message:
                     standardized["output"] = message["content"]
-                
-            # Completions format    
+
+            # Completions format
             elif "text" in first_choice:
                 standardized["output"] = first_choice["text"]
-                
+
             # Add finish reason if available
             if "finish_reason" in first_choice:
                 standardized["finish_reason"] = first_choice["finish_reason"]
@@ -220,7 +220,7 @@ class OpenAIEventConverter(BaseEventConverter):
                 standardized["input_tokens"] = usage.get("prompt_tokens", 0)
                 standardized["output_tokens"] = usage.get("completion_tokens", 0)
                 standardized["total_tokens"] = usage.get("total_tokens", 0)
-                
+
         # Also check for usage values added by the patcher
         if "llm.usage.input_tokens" in response:
             standardized["input_tokens"] = response["llm.usage.input_tokens"]
@@ -229,4 +229,4 @@ class OpenAIEventConverter(BaseEventConverter):
         if "llm.usage.total_tokens" in response:
             standardized["total_tokens"] = response["llm.usage.total_tokens"]
 
-        return standardized 
+        return standardized

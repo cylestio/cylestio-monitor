@@ -58,4 +58,4 @@ This fix improves reliability of token tracking for all users, especially those 
 - Use frameworks that might create new clients internally
 - Have complex applications with multiple components that might each create their own clients
 
-The improvements ensure that Cylestio Monitor provides accurate token usage metrics regardless of how client instances are created or used in the application. 
+The improvements ensure that Cylestio Monitor provides accurate token usage metrics regardless of how client instances are created or used in the application.

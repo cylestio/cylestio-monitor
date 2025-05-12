@@ -52,12 +52,12 @@ def contains_suspicious(text: str) -> bool:
 
     # Use the scanner to check for suspicious content
     result = scanner.scan_text(text)
-    
+
     # If any category with alert_level "suspicious" is found, return True
     if result["alert_level"] == "suspicious":
         logger.info(f"Suspicious content detected: category={result['category']}, keywords={result['keywords']}")
         return True
-        
+
     logger.debug(f"No suspicious keywords found in: '{text[:50]}...'")
     return False
 
@@ -77,12 +77,12 @@ def contains_dangerous(text: str) -> bool:
 
     # Use the scanner to check for dangerous content
     result = scanner.scan_text(text)
-    
+
     # Check if dangerous commands category was found
     if result["alert_level"] == "dangerous":
         logger.info(f"Dangerous content detected: category={result['category']}, keywords={result['keywords']}")
         return True
-        
+
     logger.debug(f"No dangerous keywords found in: '{text[:50]}...'")
     return False
 
@@ -101,13 +101,13 @@ def get_alert_level(text: str) -> str:
 
     # Use the scanner directly
     result = scanner.scan_text(text)
-    
+
     # Return the alert level
     alert_level = result["alert_level"]
-    
+
     if alert_level != "none":
         logger.info(f"{alert_level.capitalize()} content detected: '{text[:50]}...'")
     else:
         logger.debug(f"No alert for: '{text[:50]}...'")
-        
+
     return alert_level

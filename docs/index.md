@@ -80,7 +80,7 @@ Cylestio Monitor includes several security features:
 
 - **Content safety monitoring**: Identify potentially suspicious or dangerous content
 - **PII detection**: Detect and redact personally identifiable information
-- **Content filtering**: Flag harmful or inappropriate content  
+- **Content filtering**: Flag harmful or inappropriate content
 - **Security classification**: Events are automatically classified by security risk level
 - **Regulatory compliance**: Designed to help satisfy SOC2, GDPR, and HIPAA monitoring requirements
 - **Audit-ready logging**: Generate detailed logs suitable for security audits and compliance verification

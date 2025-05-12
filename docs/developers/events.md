@@ -102,4 +102,4 @@ utc_time = parse_timestamp(external_time)
 formatted_time = format_timestamp(utc_time)
 ```
 
-For more detailed information about timestamp handling, see the [Timestamp Guidelines](timestamps.md). 
+For more detailed information about timestamp handling, see the [Timestamp Guidelines](timestamps.md).

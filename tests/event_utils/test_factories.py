@@ -28,7 +28,7 @@ class TestEventFactoryFunctions:
         """Test LLM request event creation with datetime timestamp."""
         # Create a timezone-aware datetime
         test_dt = datetime.datetime(2023, 9, 15, 14, 30, 45, 123456, tzinfo=timezone.utc)
-        
+
         # Create event with datetime
         event = create_llm_request_event(
             agent_id="test-agent",
@@ -37,7 +37,7 @@ class TestEventFactoryFunctions:
             prompt="Test prompt",
             timestamp=test_dt
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.123456Z"
         # Verify timestamp in attributes
@@ -53,7 +53,7 @@ class TestEventFactoryFunctions:
             prompt="Test prompt",
             timestamp="2023-09-15T14:30:45.123456+00:00"
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.123456Z"
         # Verify timestamp in attributes
@@ -63,7 +63,7 @@ class TestEventFactoryFunctions:
         """Test LLM request event creation with naive datetime timestamp."""
         # Create a naive datetime (no timezone)
         test_dt = datetime.datetime(2023, 9, 15, 14, 30, 45, 123456)
-        
+
         # Create event with naive datetime
         event = create_llm_request_event(
             agent_id="test-agent",
@@ -72,7 +72,7 @@ class TestEventFactoryFunctions:
             prompt="Test prompt",
             timestamp=test_dt
         )
-        
+
         # Verify timestamp in event (should have Z suffix)
         assert event["timestamp"].endswith("Z")
         # Verify timestamp in attributes
@@ -88,7 +88,7 @@ class TestEventFactoryFunctions:
             response="Test response",
             timestamp="2023-09-15T14:30:45Z"
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.000000Z"
         # Verify timestamp in attributes
@@ -98,7 +98,7 @@ class TestEventFactoryFunctions:
         """Test tool call event creation with datetime timestamp."""
         # Create a timezone-aware datetime
         test_dt = datetime.datetime(2023, 9, 15, 14, 30, 45, 123456, tzinfo=timezone.utc)
-        
+
         # Create event with datetime
         event = create_tool_call_event(
             agent_id="test-agent",
@@ -106,7 +106,7 @@ class TestEventFactoryFunctions:
             inputs={"param1": "value1"},
             timestamp=test_dt
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.123456Z"
         # Verify timestamp in attributes
@@ -122,7 +122,7 @@ class TestEventFactoryFunctions:
             output="Tool result",
             timestamp="2023-09-15T14:30:45+00:00"
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.000000Z"
         # Verify timestamp in attributes
@@ -132,7 +132,7 @@ class TestEventFactoryFunctions:
         """Test system event creation with datetime timestamp."""
         # Create a timezone-aware datetime
         test_dt = datetime.datetime(2023, 9, 15, 14, 30, 45, 123456, tzinfo=timezone.utc)
-        
+
         # Create event with datetime
         event = create_system_event(
             agent_id="test-agent",
@@ -140,7 +140,7 @@ class TestEventFactoryFunctions:
             data={"key1": "value1"},
             timestamp=test_dt
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.123456Z"
         # Verify timestamp in attributes
@@ -155,7 +155,7 @@ class TestEventFactoryFunctions:
             configuration={"setting1": "value1"},
             timestamp="2023-09-15T14:30:45Z"
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.000000Z"
         # Verify timestamp in attributes
@@ -165,7 +165,7 @@ class TestEventFactoryFunctions:
         """Test error event creation with datetime timestamp."""
         # Create a timezone-aware datetime
         test_dt = datetime.datetime(2023, 9, 15, 14, 30, 45, 123456, tzinfo=timezone.utc)
-        
+
         # Create event with datetime
         event = create_error_event(
             agent_id="test-agent",
@@ -173,7 +173,7 @@ class TestEventFactoryFunctions:
             message="Test error message",
             timestamp=test_dt
         )
-        
+
         # Verify timestamp in event
         assert event["timestamp"] == "2023-09-15T14:30:45.123456Z"
         # Verify timestamp in attributes
@@ -188,12 +188,12 @@ class TestEventFactoryFunctions:
             model="gpt-4",
             prompt="Test prompt"
         )
-        
+
         # Verify timestamp exists and has correct format
         assert "timestamp" in event
         assert event["timestamp"].endswith("Z")  # Should end with Z suffix
         assert "T" in event["timestamp"]  # Should have T separator
-        
+
         # Verify timestamp in attributes
         assert "llm.request.timestamp" in event["attributes"]
-        assert event["attributes"]["llm.request.timestamp"].endswith("Z") 
+        assert event["attributes"]["llm.request.timestamp"].endswith("Z")

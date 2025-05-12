@@ -6,7 +6,7 @@ security:
   suspicious_keywords:
     - "TEST1"
     - "TEST2"
-  
+
   dangerous_keywords:
     - "DANGER1"
     - "DANGER2"
@@ -17,4 +17,4 @@ logging:
   format: "json"
   file_rotation: true
   max_file_size_mb: 10
-  backup_count: 5 
+  backup_count: 5

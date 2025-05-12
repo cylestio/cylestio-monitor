@@ -68,10 +68,10 @@ class StandardizedEvent:
         """
         # Import the utilities here to avoid circular imports
         from cylestio_monitor.utils.event_utils import format_timestamp
-        
+
         # Normalize timestamp to UTC with Z suffix
         self.timestamp = format_timestamp(timestamp)
-        
+
         self.level = level
         self.agent_id = agent_id
         self.name = name  # OpenTelemetry uses 'name' instead of 'event_type'
@@ -209,10 +209,10 @@ class StandardizedEvent:
         """
         # Import the utilities here to avoid circular imports
         from cylestio_monitor.utils.event_utils import format_timestamp, get_utc_timestamp
-        
+
         # Extract timestamp or default to current UTC time
         timestamp = data.get("timestamp", format_timestamp(get_utc_timestamp()))
-        
+
         # Handle different variations in field names (support legacy format)
         name = data.get("name") or data.get("event_type", "unknown")
         attributes = data.get("attributes", {})

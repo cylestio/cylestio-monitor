@@ -225,13 +225,13 @@ class AnthropicPatcher(BasePatcher):
                         for item in response_data.get("content", []):
                             if isinstance(item, dict) and "text" in item:
                                 extracted_text += item["text"] + " "
-                        
+
                         if extracted_text:
                             # Security scanning for response content
                             from cylestio_monitor.security_detection import SecurityScanner
                             scanner = SecurityScanner.get_instance()
                             security_info = scanner.scan_text(extracted_text)
-                            
+
                             # If security issues found, add to attributes and log a separate event
                             if security_info["alert_level"] != "none":
                                 response_attributes["security.alert_level"] = security_info["alert_level"]
@@ -239,10 +239,10 @@ class AnthropicPatcher(BasePatcher):
                                 response_attributes["security.category"] = security_info["category"]
                                 response_attributes["security.severity"] = security_info["severity"]
                                 response_attributes["security.description"] = security_info["description"]
-                                
+
                                 # Log security event for response content
                                 self._log_security_event(security_info, {"content": extracted_text[:100] + "..."})
-                                
+
                                 # Log warning
                                 self.logger.warning(
                                     f"SECURITY ALERT in LLM RESPONSE: {security_info['alert_level'].upper()} content "
@@ -482,10 +482,10 @@ class AnthropicPatcher(BasePatcher):
             Dict with security scan results
         """
         from cylestio_monitor.security_detection import SecurityScanner
-        
+
         # Get the scanner instance
         scanner = SecurityScanner.get_instance()
-        
+
         # Find the last user message in the conversation - avoid rescanning history
         last_user_message = None
         if isinstance(messages, list):
@@ -493,14 +493,14 @@ class AnthropicPatcher(BasePatcher):
                 if isinstance(message, dict) and message.get("role") == "user":
                     last_user_message = message
                     break
-        
+
         # If we found a last user message, only scan that
         if last_user_message:
             scan_result = scanner.scan_text(last_user_message.get("content", ""))
         else:
             # Fallback to scanning the entire conversation if we can't identify the last user message
             scan_result = scanner.scan_event(messages)
-        
+
         # Map the scanner result to the expected format
         result = {
             "alert_level": scan_result["alert_level"],
@@ -509,7 +509,7 @@ class AnthropicPatcher(BasePatcher):
             "severity": scan_result.get("severity"),
             "description": scan_result.get("description")
         }
-        
+
         # Log the result if it's not "none"
         if result["alert_level"] != "none":
             self.logger.warning(
@@ -517,7 +517,7 @@ class AnthropicPatcher(BasePatcher):
                 f"category={result['category']}, severity={result['severity']}, "
                 f"description='{result['description']}', keywords={result['keywords']}"
             )
-            
+
         return result
 
     def _log_security_event(
@@ -532,7 +532,7 @@ class AnthropicPatcher(BasePatcher):
         # Only log if there's something to report
         if security_info["alert_level"] == "none" or not security_info["keywords"]:
             return
-            
+
         # Extract a sample of content for logging
         content_sample = (
             str(request_data)[:100] + "..."
@@ -544,10 +544,10 @@ class AnthropicPatcher(BasePatcher):
         from cylestio_monitor.security_detection import SecurityScanner
         scanner = SecurityScanner.get_instance()
         masked_content_sample = scanner._pattern_registry.mask_text_in_place(content_sample)
-        
+
         # Generate a unique timestamp for this alert
         detection_timestamp = format_timestamp()
-        
+
         # Generate a unique message ID based on timestamp and keywords
         import hashlib
         alert_hash = hashlib.md5(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
@@ -562,20 +562,20 @@ class AnthropicPatcher(BasePatcher):
             "security.detection_time": detection_timestamp,
             "security.message_id": message_id,
         }
-        
+
         # Add new security attributes if available
         if "category" in security_info and security_info["category"]:
             security_attributes["security.category"] = security_info["category"]
-        
+
         if "severity" in security_info and security_info["severity"]:
             security_attributes["security.severity"] = security_info["severity"]
-            
+
         if "description" in security_info and security_info["description"]:
             security_attributes["security.description"] = security_info["description"]
 
         # Log appropriate event based on severity
         event_name = f"security.content.{security_info['alert_level']}"
-        
+
         # Use SECURITY_ALERT level for dangerous content, WARNING for suspicious
         event_level = (
             "SECURITY_ALERT" if security_info["alert_level"] == "dangerous" else "WARNING"
@@ -639,14 +639,14 @@ class AnthropicPatcher(BasePatcher):
                     elif hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
                         content += block.text
                         data["content"].append({"type": "text", "text": block.text})
-            
+
             # Extract usage information - try multiple approaches
             usage = {}
-            
+
             # Direct attribute access
             if hasattr(result, "usage"):
                 usage_obj = result.usage
-                
+
                 # Check if usage is an object with attributes or a dict
                 if hasattr(usage_obj, "input_tokens"):
                     usage["input_tokens"] = usage_obj.input_tokens
@@ -662,7 +662,7 @@ class AnthropicPatcher(BasePatcher):
                 elif hasattr(usage_obj, "to_dict") and callable(usage_obj.to_dict):
                     # Anthropic-style conversion
                     usage = usage_obj.to_dict()
-            
+
             # If we don't have usage data, estimate from content length
             if not usage and content:
                 # Anthropic has good token usage reporting, but as fallback:
@@ -672,11 +672,11 @@ class AnthropicPatcher(BasePatcher):
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens
                 }
-                
+
                 # Log that we're using estimated values
                 if self.debug_mode:
                     self.logger.debug(f"Using estimated token counts for Anthropic: {usage}")
-            
+
             data["usage"] = usage
 
             # Extract custom fields
@@ -740,7 +740,7 @@ class AnthropicPatcher(BasePatcher):
             def patched_init(self, *args, **kwargs):
                 # Call original init
                 original_init(self, *args, **kwargs)
-                
+
                 # Patch this instance automatically
                 logger.debug("Auto-patching new Anthropic client instance")
                 patcher = cls(client=self)
@@ -754,7 +754,7 @@ class AnthropicPatcher(BasePatcher):
 
             _is_module_patched = True
             logger.info("Anthropic module patched - all new client instances will be automatically monitored")
-            
+
         except Exception as e:
             logger.error(f"Failed to patch Anthropic module: {e}")
             if logger.level <= logging.DEBUG:

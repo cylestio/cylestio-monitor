@@ -28,7 +28,7 @@ The Anthropic auto-patching mechanism works by patching the `__init__` method of
 def patched_init(self, *args, **kwargs):
     # Call original init
     original_init(self, *args, **kwargs)
-    
+
     # Automatically patch this instance
     patcher = AnthropicPatcher(client=self)
     patcher.patch()
@@ -83,21 +83,21 @@ from .base import BasePatcher
 
 class NewLibraryPatcher(BasePatcher):
     """Patcher for New Library."""
-    
+
     def __init__(self, client=None, config=None):
         super().__init__(config)
         self.client = client
         self.original_funcs = {}
-    
+
     def patch(self):
         """Patch a specific instance."""
         if not self.client:
             return
-            
+
         # Store original method
         original_method = self.client.some_method
         self.original_funcs["some_method"] = original_method
-        
+
         # Create wrapped method
         def wrapped_method(*args, **kwargs):
             # Log before call
@@ -105,44 +105,44 @@ class NewLibraryPatcher(BasePatcher):
             result = original_method(*args, **kwargs)
             # Log after call
             return result
-            
+
         # Replace method
         self.client.some_method = wrapped_method
         self.is_patched = True
-    
+
     def unpatch(self):
         """Unpatch a specific instance."""
         if not self.is_patched:
             return
-            
+
         # Restore original method
         self.client.some_method = self.original_funcs["some_method"]
         self.is_patched = False
-    
+
     @classmethod
     def patch_module(cls):
         """Apply global patches to the module."""
         # Import the library (safely)
         try:
             import new_library
-            
+
             # Patch the constructor
             original_init = new_library.Client.__init__
-            
+
             @functools.wraps(original_init)
             def patched_init(self, *args, **kwargs):
                 original_init(self, *args, **kwargs)
                 # Patch this instance
                 patcher = cls(client=self)
                 patcher.patch()
-                
+
             # Apply the patch
             new_library.Client.__init__ = patched_init
-            
+
         except ImportError:
             # Library not available
             pass
-            
+
     @classmethod
     def unpatch_module(cls):
         """Remove global patches from the module."""
@@ -163,4 +163,4 @@ If auto-patching isn't working as expected:
 1. Make sure you call `enable_monitoring()` before importing the libraries you want to monitor
 2. Check if the library you're using is supported for auto-patching
 3. Enable debug logs by setting the debug level: `enable_monitoring(agent_id="my-agent", config={"debug_level": "DEBUG"})`
-4. For older code that explicitly passes clients, the explicit patching will take precedence 
+4. For older code that explicitly passes clients, the explicit patching will take precedence

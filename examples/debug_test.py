@@ -21,13 +21,13 @@ logger = logging.getLogger("debug_test")
 
 def main():
     debug_mode = "--debug" in sys.argv
-    
+
     # Create logs directory if it doesn't exist
     Path("logs").mkdir(exist_ok=True)
-    
+
     logger.info("Starting debug test script")
     logger.info(f"Debug mode is {'enabled' if debug_mode else 'disabled'}")
-    
+
     # Configure monitoring
     start_monitoring(
         agent_id="debug-test-agent",
@@ -37,17 +37,17 @@ def main():
             "debug_level": "DEBUG",  # Use highest verbosity for testing
         }
     )
-    
+
     # Perform some actions that would generate debug logging
     logger.info("Performing test actions...")
     time.sleep(1)  # Allow time for any logs to be processed
-    
+
     # Stop monitoring
     stop_monitoring()
-    
+
     logger.info("Test completed")
     logger.info("If debug_mode is False, you should see NO Cylestio SDK debug output above")
     logger.info("If debug_mode is True, you should see Cylestio SDK debug output above")
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -7,4 +7,4 @@ ensuring comprehensive coverage and thread-safe operation.
 
 from .scanner import SecurityScanner
 
-__all__ = ["SecurityScanner"] 
+__all__ = ["SecurityScanner"]

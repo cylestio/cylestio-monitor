@@ -41,13 +41,13 @@ cylestio_monitor.start_monitoring(
     config={
         # Event data output file
         "events_output_file": str(output_dir / "weather_monitoring.json"),
-        
+
         # Debug configuration
         "debug_mode": True,
         "debug_log_file": str(output_dir / "cylestio_debug.log"),
-        
+
         # Custom telemetry endpoint (optional, defaults to http://127.0.0.1:8000)
-        "telemetry_endpoint": "http://127.0.0.1:8000", 
+        "telemetry_endpoint": "http://127.0.0.1:8000",
     }
 )
 
@@ -72,7 +72,7 @@ class WeatherAIAgent:
         logger.info(f"Connecting to Weather MCP server: {server_script_path}")
 
         # Set up server parameters
-        command = "python" if server_script_path.endswith(".py") else "node" 
+        command = "python" if server_script_path.endswith(".py") else "node"
         server_params = StdioServerParameters(
             command=command, args=[server_script_path], env=None
         )
@@ -99,7 +99,7 @@ class WeatherAIAgent:
         """Process a user query using Claude and available weather tools."""
         logger.info("Processing user query")
 
-        # Get available tools 
+        # Get available tools
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -120,7 +120,7 @@ class WeatherAIAgent:
                 messages=messages,
                 tools=available_tools,
             )
-            
+
             # If Claude wants to use a tool, let it do so and continue the conversation
             if hasattr(response, "content") and any(
                 getattr(content, "type", None) == "tool_use" for content in response.content
@@ -131,21 +131,21 @@ class WeatherAIAgent:
                         tool_name = content.name
                         tool_args = content.input
                         logger.info(f"Claude is calling tool: {tool_name}")
-                        
+
                         # Call the tool - the SDK's MCP patching handles monitoring
                         result = await self.session.call_tool(tool_name, tool_args)
-                        
+
                         # Continue conversation with tool results
                         messages.append({"role": "assistant", "content": response.content})
                         messages.append({
-                            "role": "user", 
+                            "role": "user",
                             "content": [{
                                 "type": "tool_result",
                                 "tool_use_id": content.id,
                                 "content": result.content,
                             }]
                         })
-                        
+
                         # Get the final response with tool results
                         response = self.anthropic.messages.create(
                             model="claude-3-haiku-20240307",
@@ -153,15 +153,15 @@ class WeatherAIAgent:
                             messages=messages,
                         )
                         break
-                
+
             # Return the response text - just the first text content for simplicity
             for content in response.content:
                 if getattr(content, "type", None) == "text":
                     return content.text
-                    
+
             # Fallback case
             return "No response text found"
-                
+
         except Exception as e:
             logger.error(f"Error: {type(e).__name__}: {str(e)}")
             raise

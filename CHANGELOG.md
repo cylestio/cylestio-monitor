@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Security pipeline implementation:
+  - Added pip-audit for dependency scanning
+  - Added detect-secrets for credential detection
+  - Added Semgrep for static analysis
+  - Added package validation to prevent sensitive data leakage
+  - Added pre-commit hooks for local security checks
+  - Created security documentation with best practices
+
 ## [0.1.11] - 2025-05-12
 
 ### Fixed
@@ -49,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.8] - 2025-05-05
 
 ### Fixed
-- Fixed MCP patching failure caused by an API compatibility issue with agent_id parameter 
+- Fixed MCP patching failure caused by an API compatibility issue with agent_id parameter
 - Improved MCP patcher to handle different versions automatically without requiring custom patches
 - Added error handling in event logging to prevent patching failures
 - Enhanced SDK's robustness with graceful fallbacks for compatibility issues
