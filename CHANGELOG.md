@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2025-05-12
+
+### Fixed
+- Fixed token usage tracking for OpenAI clients created after initial patching
+- Improved token extraction from OpenAI response formats for more reliable token usage tracking
+- Fixed event converter issues with StandardizedEvent parameter handling
+- Fixed patchers to work with updated log_event interface (removed explicit agent_id parameter)
+- Fixed LangChainPatcher to implement required abstract methods
+- Fixed output paths in weather agent example for proper logging
+
+### Changed
+- Enhanced patching to better intercept all client instance creations
+- Improved error reporting for patching failures
+- Updated event logging architecture to handle agent_id more consistently
+
 ## [0.1.10] - 2025-05-12
 
 ### Added

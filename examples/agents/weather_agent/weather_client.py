@@ -32,7 +32,7 @@ logger = logging.getLogger("Weather AI Agent")
 load_dotenv()
 
 # Create output directory if it doesn't exist
-output_dir = Path("output")
+output_dir = Path(__file__).parent / "output"
 output_dir.mkdir(exist_ok=True)
 
 # Configure Cylestio monitoring with simplified configuration
@@ -40,14 +40,14 @@ cylestio_monitor.start_monitoring(
     agent_id="weather-agent",
     config={
         # Event data output file
-        "events_output_file": "output/weather_monitoring.json",
+        "events_output_file": str(output_dir / "weather_monitoring.json"),
         
         # Debug configuration
         "debug_mode": True,
-        "debug_log_file": "output/cylestio_debug.log",
+        "debug_log_file": str(output_dir / "cylestio_debug.log"),
         
         # Custom telemetry endpoint (optional, defaults to http://127.0.0.1:8000)
-        "telemetry_endpoint": "http://127.0.0.1:9000", 
+        "telemetry_endpoint": "http://127.0.0.1:8000", 
     }
 )
 

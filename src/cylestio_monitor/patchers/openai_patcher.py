@@ -1259,13 +1259,73 @@ class OpenAIPatcher(BasePatcher):
             if not response:
                 return {}
 
+            # Initialize with defaults
             data = {
-                "model": getattr(response, "model", None),
-                "created": getattr(response, "created", None),
-                "usage": getattr(response, "usage", {}),
+                "model": "unknown",
+                "id": "",
+                "created": None,
+                "usage": {},
                 "choices": [],
             }
-
+            
+            # Try different ways to access the model
+            if hasattr(response, "model"):
+                data["model"] = response.model
+            
+            # Try different ways to access the ID
+            if hasattr(response, "id"):
+                data["id"] = response.id
+                
+            # Try different ways to access the created timestamp
+            if hasattr(response, "created"):
+                data["created"] = response.created
+                
+            # Try different ways to access the usage information
+            usage = {}
+            
+            # First attempt - direct attribute
+            if hasattr(response, "usage"):
+                usage_obj = response.usage
+                
+                # Check if usage is an object with attributes or a dict
+                if hasattr(usage_obj, "prompt_tokens"):
+                    usage["prompt_tokens"] = usage_obj.prompt_tokens
+                    usage["completion_tokens"] = getattr(usage_obj, "completion_tokens", 0)
+                    usage["total_tokens"] = getattr(usage_obj, "total_tokens", 
+                                                   usage["prompt_tokens"] + usage["completion_tokens"])
+                elif isinstance(usage_obj, dict):
+                    usage = usage_obj
+                elif hasattr(usage_obj, "model_dump"):
+                    # Pydantic model
+                    usage = usage_obj.model_dump()
+                elif hasattr(usage_obj, "dict") and callable(usage_obj.dict):
+                    # Legacy pydantic v1
+                    usage = usage_obj.dict()
+                elif hasattr(usage_obj, "to_dict") and callable(usage_obj.to_dict):
+                    # OpenAI-style conversion
+                    usage = usage_obj.to_dict()
+                    
+            # If we still don't have usage data, try to estimate from content length
+            if not usage and hasattr(response, "choices") and response.choices:
+                first_choice = response.choices[0]
+                if hasattr(first_choice, "message") and hasattr(first_choice.message, "content"):
+                    content = first_choice.message.content or ""
+                    completion_tokens = max(1, len(content) // 4)  # Rough estimate
+                    prompt_tokens = max(1, len(content) // 4)  # Rough estimate
+                    usage = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens
+                    }
+                    
+                    # Log that we're using estimated values
+                    if self.debug_mode:
+                        self.logger.debug(f"Using estimated token counts: {usage}")
+                        
+            # Store the usage data
+            data["usage"] = usage
+            
+            # Extract choices
             if hasattr(response, "choices"):
                 for choice in response.choices:
                     choice_data = {
@@ -1283,6 +1343,10 @@ class OpenAIPatcher(BasePatcher):
                         }
 
                     data["choices"].append(choice_data)
+                
+            # If debug mode is enabled, log the extracted data
+            if self.debug_mode:
+                self.logger.debug(f"Extracted response data: {data}")
 
             return data
         except Exception as e:
@@ -1376,64 +1440,63 @@ class OpenAIPatcher(BasePatcher):
 
     @classmethod
     def patch_module(cls) -> None:
-        """Apply global patches to OpenAI module.
-
-        This method patches the constructor of OpenAI client classes to automatically
-        intercept all instances created, without requiring explicit patching.
-        """
+        """Apply patching to the OpenAI module itself."""
         global _is_module_patched
 
         if _is_module_patched:
             return
 
-        logger = logging.getLogger("CylestioMonitor.OpenAI")
-        logger.debug("Starting OpenAI module-level patch")
-
-        # Ensure OpenAI is available
+        # Check if OpenAI is available
         if not OPENAI_AVAILABLE:
-            logger.warning("OpenAI module not available, skipping module-level patch")
+            logger = logging.getLogger("CylestioMonitor.OpenAI")
+            logger.debug("OpenAI module not available for patching")
             return
 
+        logger = logging.getLogger("CylestioMonitor.OpenAI")
+        logger.debug("Patching OpenAI module...")
+
         try:
-            # Patch regular OpenAI client
+            # Patch the OpenAI client class constructor to intercept instance creation
+            # This ensures all new instances are automatically patched
             original_init = OpenAI.__init__
-            _original_methods["OpenAI.__init__"] = original_init
+            async_original_init = AsyncOpenAI.__init__
 
             @functools.wraps(original_init)
             def patched_init(self, *args, **kwargs):
                 # Call original init
                 original_init(self, *args, **kwargs)
-
-                # Automatically patch this instance
+                
+                # Patch this instance automatically
+                logger.debug("Auto-patching new OpenAI client instance")
                 patcher = cls(client=self)
                 patcher.patch()
 
-            # Apply the patch
+            @functools.wraps(async_original_init)
+            def patched_async_init(self, *args, **kwargs):
+                # Call original init
+                async_original_init(self, *args, **kwargs)
+                
+                # Patch this instance automatically
+                logger.debug("Auto-patching new AsyncOpenAI client instance")
+                patcher = cls(client=self)
+                patcher.patch()
+
+            # Apply our patched constructors
             OpenAI.__init__ = patched_init
+            AsyncOpenAI.__init__ = patched_async_init
 
-            # Patch AsyncOpenAI client if it exists
-            if "AsyncOpenAI" in globals():
-                async_original_init = AsyncOpenAI.__init__
-                _original_methods["AsyncOpenAI.__init__"] = async_original_init
-
-                @functools.wraps(async_original_init)
-                def patched_async_init(self, *args, **kwargs):
-                    # Call original init
-                    async_original_init(self, *args, **kwargs)
-
-                    # Automatically patch this instance
-                    patcher = cls(client=self)
-                    patcher.patch()
-
-                # Apply the patch
-                AsyncOpenAI.__init__ = patched_async_init
+            # Store original methods for restoration
+            _original_methods["OpenAI.__init__"] = original_init
+            _original_methods["AsyncOpenAI.__init__"] = async_original_init
 
             _is_module_patched = True
-            logger.info("OpenAI module successfully patched")
-
+            logger.info("OpenAI module patched - all new client instances will be automatically monitored")
+            
         except Exception as e:
-            logger.error(f"Error patching OpenAI module: {e}")
-            logger.debug(f"Stack trace: {traceback.format_exc()}")
+            logger.error(f"Failed to patch OpenAI module: {e}")
+            if logger.level <= logging.DEBUG:
+                import traceback
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
     @classmethod
     def unpatch_module(cls) -> None:

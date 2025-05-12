@@ -156,14 +156,16 @@ Example source: [examples/agents/weather_agent/weather_client.py](examples/agent
 
 ## Version History
 
-Latest release: v0.1.10 (May 12, 2025)
+Latest release: v0.1.11 (May 12, 2025)
 
 Highlights:
-- Added configurable telemetry endpoint to allow custom host/port configuration
-- Improved error handling for endpoint connections
-- Documentation improvements for configuration options
+- Fixed token usage tracking for OpenAI clients created after initial patching
+- Improved token extraction from various OpenAI response formats
+- Fixed patchers to work with updated log_event interface
+- Enhanced error reporting for patching failures
 
 Previous releases:
+- v0.1.10 (May 12, 2025): Added configurable telemetry endpoint to allow custom host/port configuration
 - v0.1.9 (May 5, 2025): Reimplemented MCP patching with version-specific method signatures
 - v0.1.8 (May 5, 2025): Fixed MCP patching compatibility issue for tool call monitoring
 - v0.1.7 (May 1, 2025): Added compatibility layer for various framework versions

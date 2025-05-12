@@ -39,6 +39,13 @@ class LangChainPatcher(BasePatcher):
         self._document_methods = {}
         self._agent_methods = {}  # For AgentExecutor methods
 
+    def patch(self) -> None:
+        """Apply the LangChain patches.
+        
+        Implementation of the required abstract method from BasePatcher.
+        """
+        self.apply()
+
     def apply(self) -> bool:
         """Apply the LangChain patches.
 
@@ -57,10 +64,9 @@ class LangChainPatcher(BasePatcher):
                 attributes={
                     "framework.name": "langchain",
                     "patch.type": "monkey_patch",
-                    "patch.components": ["LLMChain", "ChatModel", "Retriever", "AgentExecutor"],
+                    "patch.components": ["callbacks", "chains", "chat_models", "llms", "retrievers"],
                 },
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
 
             # Apply individual patches
@@ -83,7 +89,6 @@ class LangChainPatcher(BasePatcher):
                 error=e,
                 attributes={"framework.name": "langchain"},
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangChain: {e}")
             return False
