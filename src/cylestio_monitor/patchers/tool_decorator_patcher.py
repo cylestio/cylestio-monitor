@@ -61,7 +61,6 @@ class ToolDecoratorPatcher(BasePatcher):
                     "patch.components": ["@tool"],
                 },
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
 
             # Try to patch langchain_core first (newer versions)
@@ -88,7 +87,6 @@ class ToolDecoratorPatcher(BasePatcher):
                 error=e,
                 attributes={"framework.name": "langchain_tools"},
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangChain @tool decorator: {e}")
             return False

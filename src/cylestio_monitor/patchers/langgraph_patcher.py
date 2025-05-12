@@ -53,11 +53,10 @@ class LangGraphPatcher(BasePatcher):
                 name="framework.patch",
                 attributes={
                     "framework.name": "langgraph",
-                    "patch.type": "module",
-                    "patch.components": ["StateGraph", "Graph"],
+                    "patch.type": "monkey_patch",
+                    "patch.components": ["StateGraph", "workflows", "node_execution"],
                 },
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
 
             # Patch Graph module if available
@@ -93,7 +92,6 @@ class LangGraphPatcher(BasePatcher):
                 error=e,
                 attributes={"framework.name": "langgraph"},
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching LangGraph: {e}")
             return False

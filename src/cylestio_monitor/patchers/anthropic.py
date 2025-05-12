@@ -589,98 +589,107 @@ class AnthropicPatcher(BasePatcher):
         )
 
     def _extract_response_data(self, result: Any) -> Dict[str, Any]:
-        """Extract comprehensive, serializable data from response objects.
+        """Extract structured data from an Anthropic API response.
 
         Args:
-            result: Result from the API call
+            result: Anthropic API response
 
         Returns:
-            Dict with extracted data
+            Dict: Structured response data
         """
+        if not result:
+            return {}
+
+        data = {
+            "id": "",
+            "model": "unknown",
+            "usage": {},
+            "type": "text",
+            "content": [],
+            "role": "assistant",
+            "stop_reason": None,
+        }
+
         try:
-            # Check if the result is a message object
+            # Extract ID
+            if hasattr(result, "id"):
+                data["id"] = result.id
+
+            # Extract model
             if hasattr(result, "model"):
-                # Extract basic attributes
-                data = {
-                    "id": getattr(result, "id", ""),
-                    "model": getattr(result, "model", "unknown"),
-                    "role": getattr(result, "role", "assistant"),
-                    "stop_reason": getattr(result, "stop_reason", None),
-                    "type": "message",
+                data["model"] = result.model
+
+            # Extract stop reason
+            if hasattr(result, "stop_reason"):
+                data["stop_reason"] = result.stop_reason
+
+            # Extract type
+            if hasattr(result, "type"):
+                data["type"] = result.type
+            elif hasattr(result, "content_type"):
+                data["type"] = result.content_type
+
+            # Extract content
+            content = ""
+            if hasattr(result, "content"):
+                for block in result.content:
+                    if hasattr(block, "text") and block.text:
+                        content += block.text
+                        data["content"].append({"type": "text", "text": block.text})
+                    elif hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
+                        content += block.text
+                        data["content"].append({"type": "text", "text": block.text})
+            
+            # Extract usage information - try multiple approaches
+            usage = {}
+            
+            # Direct attribute access
+            if hasattr(result, "usage"):
+                usage_obj = result.usage
+                
+                # Check if usage is an object with attributes or a dict
+                if hasattr(usage_obj, "input_tokens"):
+                    usage["input_tokens"] = usage_obj.input_tokens
+                    usage["output_tokens"] = getattr(usage_obj, "output_tokens", 0)
+                elif isinstance(usage_obj, dict):
+                    usage = usage_obj
+                elif hasattr(usage_obj, "model_dump"):
+                    # Pydantic model
+                    usage = usage_obj.model_dump()
+                elif hasattr(usage_obj, "dict") and callable(usage_obj.dict):
+                    # Legacy pydantic v1
+                    usage = usage_obj.dict()
+                elif hasattr(usage_obj, "to_dict") and callable(usage_obj.to_dict):
+                    # Anthropic-style conversion
+                    usage = usage_obj.to_dict()
+            
+            # If we don't have usage data, estimate from content length
+            if not usage and content:
+                # Anthropic has good token usage reporting, but as fallback:
+                output_tokens = max(1, len(content) // 4)  # Rough estimate
+                input_tokens = max(1, len(content) // 4)  # Rough estimate
+                usage = {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens
                 }
+                
+                # Log that we're using estimated values
+                if self.debug_mode:
+                    self.logger.debug(f"Using estimated token counts for Anthropic: {usage}")
+            
+            data["usage"] = usage
 
-                # Handle content with special handling for TextBlock objects
-                content = getattr(result, "content", [])
-                if content:
-                    serializable_content = []
+            # Extract custom fields
+            if self.debug_mode:
+                self.logger.debug(f"Extracted Anthropic response data: {data}")
 
-                    for item in content:
-                        # Check for object with type attribute (TextBlock, ImageBlock, etc.)
-                        if hasattr(item, "type"):
-                            item_type = getattr(item, "type", "")
-
-                            if item_type == "text" and hasattr(item, "text"):
-                                serializable_content.append(
-                                    {"type": "text", "text": getattr(item, "text", "")}
-                                )
-                            elif item_type == "image" and hasattr(item, "source"):
-                                # Handle image blocks specifically
-                                source_data = self._safe_serialize(
-                                    getattr(item, "source", {})
-                                )
-                                serializable_content.append(
-                                    {"type": "image", "source": source_data}
-                                )
-                            else:
-                                # Generic block handling
-                                serializable_content.append(
-                                    {"type": item_type, "content": str(item)}
-                                )
-                        # Dictionary content handling
-                        elif isinstance(item, dict):
-                            # If it's a dict with a 'type' field, preserve the type
-                            if "type" in item and item["type"] == "image":
-                                serializable_content.append(self._safe_serialize(item))
-                            else:
-                                serializable_content.append(self._safe_serialize(item))
-                        # Object with to_dict method
-                        elif hasattr(item, "to_dict"):
-                            try:
-                                serializable_content.append(
-                                    self._safe_serialize(item.to_dict())
-                                )
-                            except Exception:
-                                serializable_content.append(
-                                    {"type": "text", "text": str(item)}
-                                )
-                        # Fallback to string
-                        else:
-                            serializable_content.append(
-                                {"type": "text", "text": str(item)}
-                            )
-
-                    data["content"] = serializable_content
-
-                # Extract usage statistics if available
-                if hasattr(result, "usage"):
-                    usage = result.usage
-                    data["usage"] = {
-                        "input_tokens": getattr(usage, "input_tokens", 0),
-                        "output_tokens": getattr(usage, "output_tokens", 0),
-                    }
-
-                return data
-            elif isinstance(result, dict):
-                # It's already a dict, ensure it's serializable
-                return self._safe_serialize(result)
-            else:
-                # Convert to string representation as fallback
-                return {"type": type(result).__name__, "content": str(result)}
+            return data
         except Exception as e:
             self.logger.error(f"Error extracting response data: {e}")
             if self.debug_mode:
+                import traceback
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
-            return {"error": str(e), "content": str(result)}
+            return data
 
     def unpatch(self) -> None:
         """Restore original methods."""
@@ -707,57 +716,50 @@ class AnthropicPatcher(BasePatcher):
 
     @classmethod
     def patch_module(cls) -> None:
-        """Patch the Anthropic module to intercept client creation."""
+        """Apply patching to the Anthropic module itself."""
         global _is_module_patched
-
-        if not ANTHROPIC_AVAILABLE:
-            return
 
         if _is_module_patched:
             return
 
-        # Get the original __init__ method
-        original_init = Anthropic.__init__
+        # Check if Anthropic is available
+        if not ANTHROPIC_AVAILABLE:
+            logger = logging.getLogger("CylestioMonitor.Anthropic")
+            logger.debug("Anthropic module not available for patching")
+            return
 
-        # Store the original for unpatch
-        _original_methods["Anthropic.__init__"] = original_init
-
-        @functools.wraps(original_init)
-        def patched_init(self, *args, **kwargs):
-            # Call original init
-            original_init(self, *args, **kwargs)
-
-            # Generate a span for initialization
-            span_id = TraceContext.start_span("framework.initialization")["span_id"]
-            trace_id = TraceContext.get_current_context().get("trace_id")
-
-            # Log the initialization as a framework initialization event
-            log_event(
-                name="framework.initialization",
-                attributes={
-                    "framework.name": "anthropic",
-                    "framework.type": "client",
-                    "framework.version": "1.0.0",  # Replace with actual version when available
-                    "framework.initialization_time": format_timestamp(),
-                },
-                level="INFO",
-                span_id=span_id,
-                trace_id=trace_id,
-            )
-
-            # End the span
-            TraceContext.end_span()
-
-            # Patch the new instance
-            patcher = cls(self)
-            patcher.patch()
-
-        # Replace the method
-        Anthropic.__init__ = patched_init
-
-        _is_module_patched = True
         logger = logging.getLogger("CylestioMonitor.Anthropic")
-        logger.info("Patched Anthropic module")
+        logger.debug("Patching Anthropic module...")
+
+        try:
+            # Patch the Anthropic client class constructor to intercept instance creation
+            # This ensures all new instances are automatically patched
+            original_init = Anthropic.__init__
+
+            @functools.wraps(original_init)
+            def patched_init(self, *args, **kwargs):
+                # Call original init
+                original_init(self, *args, **kwargs)
+                
+                # Patch this instance automatically
+                logger.debug("Auto-patching new Anthropic client instance")
+                patcher = cls(client=self)
+                patcher.patch()
+
+            # Apply our patched constructor
+            Anthropic.__init__ = patched_init
+
+            # Store original method for restoration
+            _original_methods["Anthropic.__init__"] = original_init
+
+            _is_module_patched = True
+            logger.info("Anthropic module patched - all new client instances will be automatically monitored")
+            
+        except Exception as e:
+            logger.error(f"Failed to patch Anthropic module: {e}")
+            if logger.level <= logging.DEBUG:
+                import traceback
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
     @classmethod
     def unpatch_module(cls) -> None:

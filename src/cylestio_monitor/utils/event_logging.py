@@ -223,7 +223,6 @@ def log_error(
     error: Exception, 
     attributes: Optional[Dict[str, Any]] = None,
     trace_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """Log an error event with structured error information.
@@ -233,7 +232,6 @@ def log_error(
         error: The exception that occurred
         attributes: Additional attributes to include
         trace_id: Optional trace ID (uses current context if None)
-        agent_id: Optional agent ID (uses current context if None)
         **kwargs: Additional parameters to pass to log_event
 
     Returns:
@@ -246,32 +244,14 @@ def log_error(
             "error.message": str(error),
         }
     )
-
-    # Pass agent_id only if it's in the log_event signature
-    try:
-        from inspect import signature
-        sig = signature(log_event)
-        log_kwargs = kwargs.copy()
-        
-        if 'agent_id' in sig.parameters:
-            log_kwargs['agent_id'] = agent_id
-            
-        return log_event(
-            name=name, 
-            attributes=error_attributes, 
-            level="ERROR", 
-            trace_id=trace_id,
-            **log_kwargs
-        )
-    except Exception as e:
-        # Fallback to simpler call if there's any issue with signature inspection
-        logger.debug(f"Using fallback log_event call: {e}")
-        return log_event(
-            name=name, 
-            attributes=error_attributes, 
-            level="ERROR", 
-            trace_id=trace_id
-        )
+    
+    return log_event(
+        name=name, 
+        attributes=error_attributes, 
+        level="ERROR", 
+        trace_id=trace_id,
+        **kwargs
+    )
 
 
 def log_info(

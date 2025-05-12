@@ -122,7 +122,6 @@ class OpenAIEventConverter(BaseEventConverter):
             level=common_fields.get("level", "INFO"),
             agent_id=common_fields.get("agent_id"),
             name=common_fields.get("event_type", "llm.response"),
-            event_category=event_category,
             attributes=attributes,
             performance=performance,
             model=model,

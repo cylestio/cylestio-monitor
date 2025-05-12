@@ -45,15 +45,15 @@ class TestOpenAIConverter:
         # Check if the standardized event is returned
         assert isinstance(standardized_event, StandardizedEvent)
 
-        # Check that token usage metrics are included in the performance section
-        assert "llm.usage.input_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.input_tokens"] == 100
+        # Check that token usage metrics are included in the attributes
+        assert "performance.llm.usage.input_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.input_tokens"] == 100
         
-        assert "llm.usage.output_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.output_tokens"] == 50
+        assert "performance.llm.usage.output_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.output_tokens"] == 50
         
-        assert "llm.usage.total_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.total_tokens"] == 150
+        assert "performance.llm.usage.total_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.total_tokens"] == 150
 
     def test_response_from_patcher_format(self):
         """Test that token usage from patcher format is also included."""
@@ -76,12 +76,12 @@ class TestOpenAIConverter:
         converter = OpenAIEventConverter()
         standardized_event = converter.convert(patcher_event)
 
-        # Check that token usage metrics are included in the performance section
-        assert "llm.usage.input_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.input_tokens"] == 100
+        # Check that token usage metrics are included in the attributes
+        assert "performance.llm.usage.input_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.input_tokens"] == 100
         
-        assert "llm.usage.output_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.output_tokens"] == 50
+        assert "performance.llm.usage.output_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.output_tokens"] == 50
         
-        assert "llm.usage.total_tokens" in standardized_event.performance
-        assert standardized_event.performance["llm.usage.total_tokens"] == 150 
+        assert "performance.llm.usage.total_tokens" in standardized_event.attributes
+        assert standardized_event.attributes["performance.llm.usage.total_tokens"] == 150 

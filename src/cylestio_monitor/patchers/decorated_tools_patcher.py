@@ -53,11 +53,10 @@ class DecoratedToolsPatcher(BasePatcher):
                 name="framework.patch",
                 attributes={
                     "framework.name": "decorated_tools",
-                    "patch.type": "decorator",
-                    "patch.components": ["functions", "tools"],
+                    "patch.type": "tool_decorator",
+                    "patch.components": ["@tool", "AgentExecutor", "tool.call"],
                 },
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
 
             # Reset patch count
@@ -86,12 +85,12 @@ class DecoratedToolsPatcher(BasePatcher):
                 return False
 
         except Exception as e:
+            # Log error if patching fails
             log_error(
                 name="framework.patch.error",
                 error=e,
                 attributes={"framework.name": "decorated_tools"},
                 trace_id=context.get("trace_id"),
-                agent_id=context.get("agent_id"),
             )
             logger.exception(f"Error patching decorated tools: {e}")
             return False
