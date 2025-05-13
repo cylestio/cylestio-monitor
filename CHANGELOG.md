@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2025-05-13
+
 ### Added
 - Security pipeline implementation:
-  - Added pip-audit for dependency scanning
+  - Added pip-audit for dependency scanning, replacing Safety
   - Added detect-secrets for credential detection
   - Added Semgrep for static analysis
+  - Added OWASP Dependency Check for comprehensive vulnerability detection
   - Added package validation to prevent sensitive data leakage
   - Added pre-commit hooks for local security checks
   - Created security documentation with best practices
+- Enhanced URL validation to prevent file scheme vulnerabilities
+- Added secure random number generation for span IDs using the secrets module
+- Replaced MD5 with SHA-256 for generating IDs
+
+### Fixed
+- Fixed naked try/except/pass blocks with proper error handling
+- Improved error logging to avoid silent failures
+- Enhanced security pattern matching to prevent false positives
 
 ## [0.1.11] - 2025-05-12
 
@@ -162,7 +173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Simplified repository documentation to focus on core SDK functionality
-- Moved comprehensive documentation to centralized docs site (https://docs.cylestio.com)
+- Moved comprehensive documentation to the GitHub repository README
 - Updated documentation URLs in package metadata
 - Removed redundant documentation files
 - Enhanced README with clearer installation and usage instructions

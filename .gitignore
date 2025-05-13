@@ -86,6 +86,13 @@ output/
 *_monitoring.json
 *monitoring*.json
 
+# Security reports and artifacts
+security-reports/
+*-report.json
+*-scan.json
+*-audit.json
+security-summary.md
+
 # Test artifacts
 test_agent
 test_processor_agent
@@ -301,3 +308,4 @@ temp*/
 build_test*/
 tasks/
 security_pipeline/
+security-reports/

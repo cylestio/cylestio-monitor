@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cylestio-monitor"
-version = "0.1.11"
+version = "0.1.12"
 description = "A monitoring tool for LLM API calls"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,7 +40,7 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/cylestio/cylestio-monitor"
 "Bug Tracker" = "https://github.com/cylestio/cylestio-monitor/issues"
-"Documentation" = "https://docs.cylestio.com"
+"Documentation" = "https://github.com/cylestio/cylestio-monitor#readme"
 "Changelog" = "https://github.com/cylestio/cylestio-monitor/blob/main/CHANGELOG.md"
 "Source" = "https://github.com/cylestio/cylestio-monitor"
 
@@ -67,6 +67,7 @@ security = [
     "semgrep>=1.48.0",
     "pre-commit>=3.5.0",
     "sentence-transformers>=3.1.0",  # Fix for PVE-2024-73169
+    "dependency-check>=0.7.0"  # OWASP Dependency Check wrapper
 ]
 
 [tool.pytest.ini_options]

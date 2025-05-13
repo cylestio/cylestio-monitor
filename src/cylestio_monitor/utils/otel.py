@@ -5,7 +5,7 @@ This module provides utility functions for generating OpenTelemetry-compliant
 trace and span IDs for use in telemetry events.
 """
 
-import random
+import secrets
 import uuid
 from typing import Dict, Optional, Tuple
 
@@ -34,8 +34,8 @@ def generate_span_id() -> str:
     Returns:
         A 16-character hex string representing a valid span ID.
     """
-    # Generate a random 8-byte array (as hexadecimal string)
-    return "".join(f"{random.randint(0, 255):02x}" for _ in range(8))
+    # Generate a secure random 8-byte array (as hexadecimal string)
+    return secrets.token_hex(8)
 
 
 def generate_trace_context(parent_span_id: Optional[str] = None) -> Dict[str, str]:

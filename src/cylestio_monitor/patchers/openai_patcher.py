@@ -1210,7 +1210,7 @@ class OpenAIPatcher(BasePatcher):
 
         # Generate a unique message ID based on timestamp and keywords
         import hashlib
-        alert_hash = hashlib.md5(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
+        alert_hash = hashlib.sha256(f"{detection_timestamp}-{'-'.join(security_info['keywords'])}".encode()).hexdigest()[:8]
         message_id = f"security-{alert_hash}"
 
         # Create security attributes

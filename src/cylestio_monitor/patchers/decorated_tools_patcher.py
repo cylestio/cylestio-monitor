@@ -392,7 +392,10 @@ class DecoratedToolsPatcher(BasePatcher):
                                         raise
                                     finally:
                                         # End span
-                                        TraceContext.end_span()
+                                        try:
+                                            TraceContext.end_span()
+                                        except Exception as trace_exception:
+                                            logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
                                 # Mark as patched
                                 patched_call_tool.__cylestio_patched__ = True
@@ -483,7 +486,10 @@ class DecoratedToolsPatcher(BasePatcher):
                                         raise
                                     finally:
                                         # End span
-                                        TraceContext.end_span()
+                                        try:
+                                            TraceContext.end_span()
+                                        except Exception as trace_exception:
+                                            logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
                                 # Mark as patched
                                 patched_get_tool_return.__cylestio_patched__ = True
@@ -560,8 +566,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                         # End span
                                         try:
                                             TraceContext.end_span()
-                                        except Exception:
-                                            pass
+                                        except Exception as trace_exception:
+                                            logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
                                 # Mark as patched
                                 patched_invoke.__cylestio_patched__ = True
@@ -629,8 +635,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                         # End span
                                         try:
                                             TraceContext.end_span()
-                                        except Exception:
-                                            pass
+                                        except Exception as trace_exception:
+                                            logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
                                 # Mark as patched
                                 patched_run.__cylestio_patched__ = True
@@ -865,8 +871,8 @@ class DecoratedToolsPatcher(BasePatcher):
                                     # End span
                                     try:
                                         TraceContext.end_span()
-                                    except Exception:
-                                        pass
+                                    except Exception as trace_exception:
+                                        logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
                             # Mark as patched
                             patched_invoke.__cylestio_patched__ = True
@@ -1064,7 +1070,10 @@ class DecoratedToolsPatcher(BasePatcher):
                 raise
             finally:
                 # End span
-                TraceContext.end_span()
+                try:
+                    TraceContext.end_span()
+                except Exception as trace_exception:
+                    logger.warning(f"Failed to end span in trace context: {trace_exception}")
 
         # Mark as patched
         monitored_tool.__cylestio_patched__ = True
