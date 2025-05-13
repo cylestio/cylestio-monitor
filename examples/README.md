@@ -33,10 +33,6 @@ The [agents](./agents) directory contains fully implemented AI agents:
 - **[RAG Agent](./agents/rag_agent)**: Demonstrates retrieval-augmented generation
 - **[Chatbot](./agents/chatbot)**: Simple LLM-based chatbot
 
-### Individual Examples
-
-- **[anthropic_enhanced_monitoring.py](./anthropic_enhanced_monitoring.py)**: Shows advanced monitoring features with Anthropic Claude
-
 ## Running Examples
 
 Each example includes its own `requirements.txt` file for dependencies:

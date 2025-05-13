@@ -21,5 +21,7 @@ repos:
   rev: 1.8.3
   hooks:
   - id: bandit
-    args: ['-s', 'B110,B311,B404,B603,B324', '-r', 'src', '--severity-level', 'medium', '--confidence-level', 'medium']
+    name: bandit (security linting)
+    files: ^src/
+    args: ['-s', 'B110,B311,B404,B603,B324', '--severity-level', 'medium', '--confidence-level', 'medium']
     exclude: 'tests/'

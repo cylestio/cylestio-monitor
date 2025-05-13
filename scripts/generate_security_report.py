@@ -24,12 +24,12 @@ def setup_directories():
 def run_command(cmd, description, output_file=None):
     """Run a command and capture output."""
     print(f"Running {description}...")
-    
+
     try:
         if output_file:
             with open(output_file, "w") as f:
                 result = subprocess.run(
-                    cmd, 
+                    cmd,
                     stdout=f,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -37,19 +37,19 @@ def run_command(cmd, description, output_file=None):
                 )
         else:
             result = subprocess.run(
-                cmd, 
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 check=False
             )
-            
+
         if result.returncode != 0:
             print(f"Warning: {description} completed with return code {result.returncode}")
             print(f"Error output: {result.stderr}")
         else:
             print(f"{description} completed successfully")
-            
+
         return result
     except Exception as e:
         print(f"Error running {description}: {e}")
@@ -97,11 +97,11 @@ def run_semgrep_scan(reports_dir):
 def generate_summary_report(reports_dir):
     """Generate a summary report of all scans."""
     summary_file = reports_dir / "security-summary.md"
-    
+
     with open(summary_file, "w") as f:
         f.write(f"# Cylestio Monitor Security Scan Summary\n\n")
         f.write(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
+
         # Bandit summary
         bandit_file = reports_dir / "bandit-report.json"
         if bandit_file.exists():
@@ -109,13 +109,13 @@ def generate_summary_report(reports_dir):
                 with open(bandit_file) as bf:
                     bandit_data = json.load(bf)
                     f.write("## Bandit Security Issues\n\n")
-                    
+
                     results = bandit_data.get("results", [])
                     metrics = bandit_data.get("metrics", {})
-                    
+
                     if results:
                         f.write(f"Found {len(results)} potential issues\n\n")
-                        
+
                         # Group by severity
                         issues_by_severity = {}
                         for issue in results:
@@ -123,7 +123,7 @@ def generate_summary_report(reports_dir):
                             if severity not in issues_by_severity:
                                 issues_by_severity[severity] = []
                             issues_by_severity[severity].append(issue)
-                        
+
                         for severity, issues in issues_by_severity.items():
                             f.write(f"### {severity.capitalize()} Severity ({len(issues)})\n\n")
                             for issue in issues:
@@ -134,7 +134,7 @@ def generate_summary_report(reports_dir):
                         f.write("No issues found\n\n")
             except Exception as e:
                 f.write(f"Error parsing Bandit results: {e}\n\n")
-        
+
         # Dependency scan summary
         dep_file = reports_dir / "dependency-audit.json"
         if dep_file.exists():
@@ -142,11 +142,11 @@ def generate_summary_report(reports_dir):
                 with open(dep_file) as df:
                     dep_data = json.load(df)
                     f.write("## Dependency Vulnerabilities\n\n")
-                    
+
                     vulns = dep_data.get("vulnerabilities", [])
                     if vulns:
                         f.write(f"Found {len(vulns)} vulnerabilities\n\n")
-                        
+
                         # Group by severity
                         vulns_by_severity = {}
                         for vuln in vulns:
@@ -154,9 +154,9 @@ def generate_summary_report(reports_dir):
                             if severity not in vulns_by_severity:
                                 vulns_by_severity[severity] = []
                             vulns_by_severity[severity].append(vuln)
-                        
-                        for severity, severity_vulns in sorted(vulns_by_severity.items(), 
-                                                          key=lambda x: {"critical": 0, "high": 1, "medium": 2, 
+
+                        for severity, severity_vulns in sorted(vulns_by_severity.items(),
+                                                          key=lambda x: {"critical": 0, "high": 1, "medium": 2,
                                                                          "low": 3, "unknown": 4}.get(x[0], 5)):
                             f.write(f"### {severity.capitalize()} Severity ({len(severity_vulns)})\n\n")
                             for vuln in severity_vulns:
@@ -168,7 +168,7 @@ def generate_summary_report(reports_dir):
                         f.write("No vulnerabilities found\n\n")
             except Exception as e:
                 f.write(f"Error parsing dependency results: {e}\n\n")
-        
+
         # Secrets scan summary
         secrets_file = reports_dir / "secrets-scan.json"
         if secrets_file.exists():
@@ -176,12 +176,12 @@ def generate_summary_report(reports_dir):
                 with open(secrets_file) as sf:
                     secrets_data = json.load(sf)
                     f.write("## Secret Detection\n\n")
-                    
+
                     results = secrets_data.get("results", {})
                     if results:
                         total_secrets = sum(len(secrets) for secrets in results.values())
                         f.write(f"Found {total_secrets} potential secrets in {len(results)} files\n\n")
-                        
+
                         for filename, secrets in results.items():
                             f.write(f"### {filename}\n\n")
                             for secret in secrets:
@@ -191,7 +191,7 @@ def generate_summary_report(reports_dir):
                         f.write("No secrets found\n\n")
             except Exception as e:
                 f.write(f"Error parsing secrets results: {e}\n\n")
-    
+
     print(f"Summary report generated: {summary_file}")
     return summary_file
 
@@ -204,32 +204,32 @@ def main():
     parser.add_argument("--secrets", action="store_true", help="Run secrets scan")
     parser.add_argument("--semgrep", action="store_true", help="Run Semgrep scan")
     parser.add_argument("--all", action="store_true", help="Run all scans")
-    
+
     args = parser.parse_args()
-    
+
     # If no specific scan is requested, run all
     if not (args.bandit or args.dependencies or args.secrets or args.semgrep):
         args.all = True
-    
+
     reports_dir = setup_directories()
-    
+
     if args.all or args.bandit:
         run_bandit_scan(reports_dir)
-    
+
     if args.all or args.dependencies:
         run_dependency_scan(reports_dir)
-    
+
     if args.all or args.secrets:
         run_secrets_scan(reports_dir)
-    
+
     if args.all or args.semgrep:
         run_semgrep_scan(reports_dir)
-    
+
     summary_file = generate_summary_report(reports_dir)
-    
+
     print("\nSecurity scan complete")
     print(f"Summary report: {summary_file}")
-    
+
 
 if __name__ == "__main__":
-    main() 
+    main()

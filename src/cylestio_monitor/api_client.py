@@ -9,6 +9,7 @@ import logging
 import threading
 import time
 import urllib.request
+import urllib.parse
 from datetime import datetime
 from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
@@ -143,6 +144,12 @@ class ApiClient:
             bool: True if the event was sent successfully, False otherwise
         """
         try:
+            # Validate URL scheme to prevent file:// vulnerabilities
+            parsed_url = urllib.parse.urlparse(endpoint)
+            if parsed_url.scheme not in ["http", "https"]:
+                logger.error(f"Invalid URL scheme: {parsed_url.scheme}. Only http and https schemes are allowed.")
+                return False
+
             # Convert event to JSON
             event_json = json.dumps(event)
             event_bytes = event_json.encode("utf-8")
@@ -157,7 +164,7 @@ class ApiClient:
             req.add_header("User-Agent", "Cylestio-Monitor/1.0")
 
             # Send request
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310 - URL is validated above
                 status = response.status
 
                 if status < 200 or status >= 300:
@@ -225,9 +232,9 @@ def _background_sender_thread():
             try:
                 client = ApiClient(endpoint, http_method)
                 client._send_event_direct(endpoint, http_method, timeout, event)
-            except Exception:
-                # Just log and continue
-                logger.error("Failed to send event during thread shutdown")
+            except Exception as send_exception:
+                # Log detailed error
+                logger.error(f"Failed to send event during thread shutdown: {send_exception}")
 
 
 def _ensure_background_thread_running():

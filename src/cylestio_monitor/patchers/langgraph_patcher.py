@@ -369,8 +369,8 @@ class LangGraphPatcher(BasePatcher):
                                             "framework.component": "pregel",
                                         },
                                     )
-                                except Exception:
-                                    pass
+                                except Exception as log_error_exception:
+                                    logger.warning(f"Failed to log tool error: {log_error_exception}")
                                 raise
                             finally:
                                 # End span
@@ -470,8 +470,8 @@ class LangGraphPatcher(BasePatcher):
                                         "framework.component": "prebuilt.execute_tools",
                                     },
                                 )
-                            except Exception:
-                                pass
+                            except Exception as log_error_exception:
+                                logger.warning(f"Failed to log tool error: {log_error_exception}")
                             raise
                         finally:
                             # End span
@@ -1141,9 +1141,9 @@ def patch_langgraph() -> None:
                         compiled_graph.add_listener(monitor)
                     elif hasattr(compiled_graph, "register_callback"):
                         compiled_graph.register_callback(monitor)
-                except Exception:
-                    # Ignore errors in callback registration
-                    pass
+                except Exception as callback_exception:
+                    # Log error in callback registration
+                    logger.warning(f"Failed to register callback with LangGraph: {callback_exception}")
 
                 return compiled_graph
 

@@ -86,8 +86,8 @@ def validate_iso8601(timestamp_str: str) -> bool:
         >>> validate_iso8601("2023-09-15 14:30:45")
         False
     """
-    # ISO-8601 pattern with optional fractional seconds and timezone
-    iso_pattern = r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$'
+    # ISO-8601 pattern with stricter validation for date/time components
+    iso_pattern = r'^(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):(?:[0-5]\d):(?:[0-5]\d))(\.\d+)?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$'
     return bool(re.match(iso_pattern, timestamp_str))
 
 

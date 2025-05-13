@@ -4,13 +4,11 @@ A comprehensive security and monitoring solution for AI agents with OpenTelemetr
 
 [![PyPI version](https://badge.fury.io/py/cylestio-monitor.svg)](https://badge.fury.io/py/cylestio-monitor)
 [![CI](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/ci.yml)
-[![Security](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/security.yml)
+[![Security](https://github.com/cylestio/cylestio-monitor/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/cylestio/cylestio-monitor/actions/workflows/dependency-review.yml)
 
 ## Overview
 
 Cylestio Monitor is a Python SDK that provides security and monitoring capabilities for AI agents with OpenTelemetry-compliant telemetry. While it works as a standalone solution, it integrates seamlessly with the Cylestio UI and smart dashboards for enhanced visibility and security monitoring across your entire agentic workforce.
-
-**For full documentation, visit [https://docs.cylestio.com](https://docs.cylestio.com)**
 
 ## Installation
 
@@ -136,11 +134,17 @@ All events follow OpenTelemetry standards with trace context:
 
 Cylestio Monitor maintains security through a comprehensive security pipeline that includes:
 
-- **Dependency scanning**: Automated scanning for vulnerable dependencies using pip-audit
-- **Secret detection**: Detection of potential leaked credentials or API keys with detect-secrets
-- **Static analysis**: Code vulnerability scanning with Semgrep and Bandit
-- **Secure package validation**: Verification that packages don't contain sensitive information
-- **Pre-commit hooks**: Local security checks before code is committed
+- **Dependency scanning**: Automated scanning for vulnerable dependencies using pip-audit to detect and remediate known CVEs
+- **OWASP Dependency Check**: In-depth analysis of dependencies against the OWASP Top 10 and known CVEs
+- **Secret detection**: Detection of potential leaked credentials or API keys with detect-secrets across the entire codebase
+- **Static analysis**: Code vulnerability scanning with Semgrep and Bandit to identify security anti-patterns
+- **Secure package validation**: Verification that packages don't contain sensitive information before publishing
+- **Pre-commit hooks**: Local security checks before code is committed to prevent security issues from entering the codebase
+- **Secure cryptography**: Using SHA-256 instead of MD5 for all hash generation to comply with cryptographic best practices
+- **Input validation**: Strict validation of inputs, including URLs and timestamps, to prevent injection vulnerabilities
+- **Error handling**: Comprehensive error handling to ensure security operations don't fail silently
+
+This security pipeline is designed to help organizations meet regulatory and compliance requirements including SOC2, GDPR, HIPAA, and industry best practices for machine learning systems. The pipeline is continuously monitored and updated to address emerging security threats specific to AI and LLM systems.
 
 For more details on our security approach and best practices, see [our security documentation](docs/security/security.md).
 
@@ -170,30 +174,48 @@ Cylestio Monitor enables organizations to maintain regulatory compliance as they
 
 The monitoring system itself is designed with compliance in mind, ensuring all sensitive data is properly masked in logs and events. Security patterns and detection rules are fully configurable to match your organization's specific compliance requirements.
 
-## Complete Example
+## Example Use Cases
 
-The project includes several example agents with full integration:
+For practical implementations of Cylestio Monitor in various agent architectures, check out the [Cylestio Use Cases repository](https://github.com/cylestio/usecases), which includes working examples such as:
 
-- **Weather Agent**: Uses MCP and Anthropic Claude
-- **RAG Agent**: Demonstrates retrieval-augmented generation
-- **Chatbot**: Simple LLM-based chatbot
+- **CustomerSuccessAgent**: A customer service agent with SQLite integration and comprehensive monitoring
+- **WeatherAgent**: A weather forecast agent using the National Weather Service API via MCP
+- Additional examples demonstrating different agent patterns and monitoring scenarios
 
-Example source: [examples/agents/weather_agent/weather_client.py](examples/agents/weather_agent/weather_client.py)
+Each example demonstrates how to integrate Cylestio monitoring with just a few lines of code:
+
+```python
+import cylestio_monitor
+
+cylestio_monitor.start_monitoring(
+    agent_id="agent-name",
+    config={
+        "log_file": "output/monitoring.json",
+        "debug_level": "DEBUG"
+    }
+)
+
+# Your agent code here...
+
+cylestio_monitor.stop_monitoring()
+```
 
 ## Version History
 
-Latest release: v0.1.11 (May 12, 2025)
+Latest release: v0.1.12 (May 13, 2025)
 
 Highlights:
-- Fixed token usage tracking for OpenAI clients created after initial patching
-- Improved token extraction from various OpenAI response formats
-- Fixed patchers to work with updated log_event interface
-- Enhanced error reporting for patching failures
+- Implemented comprehensive security pipeline with pip-audit, OWASP Dependency Check, detect-secrets, and Semgrep
+- Enhanced cryptographic security by replacing MD5 with SHA-256
+- Improved URL validation to prevent file scheme vulnerabilities
+- Added secure random number generation for span IDs
+- Fixed error handling in patchers and utility functions
 
 Previous releases:
-- v0.1.10 (May 12, 2025): Added configurable telemetry endpoint to allow custom host/port configuration
-- v0.1.9 (May 5, 2025): Reimplemented MCP patching with version-specific method signatures
-- v0.1.8 (May 5, 2025): Fixed MCP patching compatibility issue for tool call monitoring
+- v0.1.11 (May 12, 2025): Fixed token usage tracking and improved error reporting
+- v0.1.10 (May 12, 2025): Added configurable telemetry endpoint
+- v0.1.9 (May 5, 2025): Reimplemented MCP patching with version-specific signatures
+- v0.1.8 (May 5, 2025): Fixed MCP patching compatibility for tool call monitoring
 - v0.1.7 (May 1, 2025): Added compatibility layer for various framework versions
 - v0.1.6 (April 30, 2025): Added OpenAI API support and enhanced LangChain integration
 
