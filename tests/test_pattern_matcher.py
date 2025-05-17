@@ -83,8 +83,8 @@ class TestPatternRegistry:
             },
             "email_pattern": {
                 "regex": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
-                "category": "sensitive_data",
-                "severity": "medium",
+                "category": "private_data",
+                "severity": "low",
                 "description": "Email Address"
             }
         }
@@ -290,8 +290,7 @@ class TestPatternRegistry:
         assert matches[0]["pattern_name"] == "ssn"
         assert matches[0]["matched_value"] == "123-45-6789"  # Original value
         assert matches[0]["masked_value"] != matches[0]["matched_value"]  # Should be masked
-        assert matches[0]["masked_value"].endswith("6789")  # Should keep last 4 digits
-        assert matches[0]["masked_value"].startswith("***")  # Should mask first part
+        assert matches[0]["masked_value"] == "***-**-****"  # Should fully mask all digits
 
         # Test API key masking
         text = "API key: sk-abcdefghijklmnopqrstuvwxyz123456"

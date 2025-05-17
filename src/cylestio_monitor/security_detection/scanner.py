@@ -366,78 +366,117 @@ class SecurityScanner:
     def scan_text(self, text: str) -> Dict[str, Any]:
         """Scan text for security concerns.
 
+        This method scans the given text for:
+        1. Keywords from alert categories
+        2. Regex patterns for sensitive data like API keys, PII
+
         Args:
             text: Text to scan
 
         Returns:
-            Dict with scan results including alert level, category, severity, and found keywords
+            Dict with scan results including:
+                alert_level: "none", "suspicious", "dangerous"
+                category: Type of alert if any
+                severity: Severity level
+                description: Description of the alert
+                keywords: Found keywords
+                pattern_matches: Matched patterns
         """
         # Skip if None or empty
-        if not text:
-            return {"alert_level": "none", "category": None, "severity": None, "description": None, "keywords": []}
+        if not text or not isinstance(text, str):
+            return {
+                "alert_level": "none",
+                "category": "",
+                "severity": "",
+                "description": "",
+                "keywords": []
+            }
 
-        # Original text for exact case matching
-        original = text
-
-        # Normalize text to lowercase for case-insensitive matching
-        normalized = text.lower()
-
-        # Collect ALL matches first, then prioritize
-        matches = {
-            "dangerous_commands": [],
-            "prompt_manipulation": [],
-            "sensitive_data": []
-        }
-
-        # Check ALL dangerous commands and collect matches
-        for keyword in self._dangerous_commands_keywords:
-            if self._simple_text_match(keyword, original) or self._simple_text_match(keyword, normalized):
-                matches["dangerous_commands"].append(keyword)
-
-        # Check ALL prompt manipulation keywords and collect matches
-        for keyword in self._prompt_manipulation_keywords:
-            # For multi-word prompt manipulation phrases, use simple contains on either original or lowercase
-            if " " in keyword:
-                if keyword in original or (keyword.lower() in normalized and keyword.lower() == keyword):
-                    matches["prompt_manipulation"].append(keyword)
-            # For uppercase keywords (like "REMOVE"), check in original case
-            elif keyword.isupper() and keyword in original:
-                matches["prompt_manipulation"].append(keyword)
-            # For single words, use word boundary match to avoid false positives
-            elif self._word_boundary_match(keyword, normalized):
-                matches["prompt_manipulation"].append(keyword)
-
-        # Check ALL sensitive data keywords and collect matches
-        for keyword in self._sensitive_data_keywords:
-            if self._word_boundary_match(keyword, normalized):
-                matches["sensitive_data"].append(keyword)
-
-        # Check patterns with pattern registry
-        pattern_matches = []
-        masked_pattern_refs = []
-        if self._pattern_registry:
-            pattern_matches = self._pattern_registry.scan_text(original, mask_values=True)
-
-            # Add pattern matches to the appropriate categories using masked values
-            for match in pattern_matches:
-                category = match.get("category", "sensitive_data")
-                if category in matches:
-                    masked_value = match.get("masked_value", match.get("matched_value", ""))
-                    pattern_ref = f"{match['pattern_name']}:{masked_value}"
-                    matches[category].append(pattern_ref)
-                    masked_pattern_refs.append(pattern_ref)
-
-        # Determine category, severity, and alert level
-        category, severity, alert_level, description, found_keywords = self._determine_category_and_severity(matches, pattern_matches)
-
-        # Return detailed result with pattern matches
+        # Initialize with no alert
         result = {
-            "alert_level": alert_level,
-            "category": category,
-            "severity": severity,
-            "description": description,
-            "keywords": found_keywords
+            "alert_level": "none",
+            "category": "",
+            "severity": "",
+            "description": "",
+            "keywords": []
         }
+
+        # Scan for keywords first
+        for category, config in self._categories.items():
+            # Skip category if disabled in config
+            if not config.get("enabled", True):
+                continue
+
+            # Get keywords for this category
+            keywords = config.get("keywords", [])
+            if not keywords:
+                continue
+
+            # Check for keywords with word boundary matching
+            matched_keywords = []
+            for keyword in keywords:
+                if self._is_keyword_in_text(keyword, text):
+                    matched_keywords.append(keyword)
+
+            # If any keywords found, set alert level based on severity
+            if matched_keywords:
+                severity = config.get("severity", "medium")
+                description = config.get("description", f"Found {category} keywords")
+
+                # Set alert level based on severity
+                if severity == "high":
+                    result["alert_level"] = "dangerous"
+                else:
+                    result["alert_level"] = "suspicious"
+
+                # Set category, severity, and description
+                result["category"] = category
+                result["severity"] = severity
+                result["description"] = description
+                result["keywords"] = matched_keywords
+                break  # Stop checking after first match
+
+        # Scan with pattern registry if available
+        pattern_matches = []
+        if self._pattern_registry:
+            # Get pattern matches
+            pattern_matches = self._pattern_registry.scan_text(text, mask_values=True)
+
+            # Filter to only include pattern matches that are in the "sensitive_data" category
+            sensitive_pattern_matches = [match for match in pattern_matches if match.get("category") == "sensitive_data"]
+
+            # If any sensitive patterns matched, update alert if needed
+            if sensitive_pattern_matches:
+                # Get highest severity match
+                highest_sev_match = max(sensitive_pattern_matches, key=lambda x: self._severity_to_num(x.get("severity", "medium")))
+                highest_sev = highest_sev_match.get("severity", "medium")
+
+                # Update alert level if pattern severity is higher than keyword severity
+                current_sev_num = self._severity_to_num(result.get("severity", ""))
+                pattern_sev_num = self._severity_to_num(highest_sev)
+
+                if pattern_sev_num > current_sev_num:
+                    # Use pattern match as the primary alert
+                    result["category"] = highest_sev_match.get("category", "sensitive_data")
+                    result["severity"] = highest_sev
+                    result["description"] = highest_sev_match.get("description", "Sensitive data detected")
+
+                    # Set alert level based on severity
+                    if highest_sev == "high":
+                        result["alert_level"] = "dangerous"
+                    else:
+                        result["alert_level"] = "suspicious"
+
+                # Add the matched keywords if any
+                if pattern_matches:
+                    # Add to keywords list with some context
+                    for match in sensitive_pattern_matches:
+                        pattern_name = match.get("pattern_name", "unknown")
+                        masked_value = match.get("masked_value", "")
+                        if masked_value:
+                            keyword = f"{pattern_name}: {masked_value}"
+                            if keyword not in result["keywords"]:
+                                result["keywords"].append(keyword)
 
         # Add pattern_matches if any were found, but ensure sensitive data is masked
         if pattern_matches:
@@ -704,32 +743,32 @@ class SecurityScanner:
 
         # Create a shallow copy of the event and update with masked text
         return self._update_event_with_masked_text(event, masked_text)
-        
+
     def _mask_agent_response(self, event: Any) -> Optional[Any]:
         """Specifically handle masking of agent responses.
-        
-        This method provides targeted handling for agent responses, which need 
+
+        This method provides targeted handling for agent responses, which need
         special attention to ensure sensitive data like credit cards and SSNs
         are properly masked when returned from an agent/LLM.
-        
+
         Args:
             event: Event object that might be an agent response
-            
+
         Returns:
             Masked event if this was an agent response, None otherwise
         """
         # Skip if pattern registry isn't available
         if not self._pattern_registry:
             return None
-            
+
         import copy
-        
+
         # Handle common agent response patterns
         if isinstance(event, dict):
             # Create a copy to avoid modifying the original
             masked_event = copy.copy(event)
             modified = False
-            
+
             # Look for direct response content field
             if "response" in event:
                 response = event["response"]
@@ -741,7 +780,7 @@ class SecurityScanner:
                     masked_event["response"] = copy.copy(response)
                     masked_event["response"]["content"] = masked_content
                     modified = True
-            
+
             # Look for OpenAI-style responses
             elif "choices" in event and isinstance(event["choices"], list):
                 masked_event["choices"] = copy.deepcopy(event["choices"])
@@ -756,12 +795,12 @@ class SecurityScanner:
                         elif "text" in choice:
                             choice["text"] = self._pattern_registry.mask_text_in_place(str(choice["text"]))
                             modified = True
-            
+
             # Look for response payload in attributes
             elif "attributes" in event and isinstance(event["attributes"], dict):
                 attributes = event["attributes"]
                 masked_event["attributes"] = copy.copy(attributes)
-                
+
                 # Check for common response fields
                 for key in list(attributes.keys()):
                     if "response" in key and isinstance(attributes[key], (dict, str)):
@@ -777,25 +816,25 @@ class SecurityScanner:
                             )
                             masked_event["attributes"][key] = content_copy
                             modified = True
-                
+
                 # Check for message arrays in attributes
                 for key in list(attributes.keys()):
                     if "messages" in key and isinstance(attributes[key], list):
                         messages = attributes[key]
                         masked_messages = copy.deepcopy(messages)
-                        
+
                         for i, msg in enumerate(masked_messages):
                             if isinstance(msg, dict) and "content" in msg:
                                 masked_messages[i]["content"] = self._pattern_registry.mask_text_in_place(
                                     str(msg["content"])
                                 )
                                 modified = True
-                                
+
                         masked_event["attributes"][key] = masked_messages
-            
+
             if modified:
                 return masked_event
-                
+
         return None
 
     def _update_event_with_masked_text(self, event: Any, masked_text: str) -> Any:
@@ -916,7 +955,7 @@ class SecurityScanner:
                             if all(isinstance(item, str) for item in content):
                                 # List of strings
                                 attributes[key] = [
-                                    self._pattern_registry.mask_text_in_place(str(item)) 
+                                    self._pattern_registry.mask_text_in_place(str(item))
                                     for item in content
                                 ]
                             elif all(isinstance(item, dict) for item in content):
@@ -953,3 +992,19 @@ class SecurityScanner:
                         request_data["prompt"] = masked_text
 
         return masked_event
+
+    def _severity_to_num(self, severity: str) -> int:
+        """Convert severity string to a numeric value for comparison.
+
+        Args:
+            severity: Severity string ("low", "medium", "high")
+
+        Returns:
+            Numeric value for comparison (1 for low, 2 for medium, 3 for high)
+        """
+        severity_map = {
+            "low": 1,
+            "medium": 2,
+            "high": 3
+        }
+        return severity_map.get(severity.lower(), 0)

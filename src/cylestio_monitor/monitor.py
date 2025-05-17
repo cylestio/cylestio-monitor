@@ -366,10 +366,13 @@ def start_monitoring(
 
             # Get terminal output monitoring configuration - default to enabled
             enable_terminal_monitoring = config.get("enable_terminal_monitoring", True)
+            # Get enforce masking setting - default to False (just alert, don't mask)
+            enforce_terminal_masking = config.get("enforce", False)
 
-            if enable_terminal_monitoring and patch_terminal_output():
-                logger.info("Terminal output monitoring enabled for sensitive data detection")
-                monitor_logger.info("Terminal output monitoring enabled for sensitive data detection")
+            if enable_terminal_monitoring and patch_terminal_output(enforce_masking=enforce_terminal_masking):
+                masking_status = "with masking enforced" if enforce_terminal_masking else "in detection-only mode"
+                logger.info(f"Terminal output monitoring enabled for sensitive data detection {masking_status}")
+                monitor_logger.info(f"Terminal output monitoring enabled {masking_status}")
             elif not enable_terminal_monitoring:
                 logger.info("Terminal output monitoring disabled by configuration")
             else:
