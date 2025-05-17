@@ -137,7 +137,7 @@ class SecurityScanner:
         if not sensitive_data:
             logger.warning("No sensitive data keywords found in config, using defaults")
             sensitive_data = [
-                "password", "api_key", "token", "secret", "ssn", "credit card"
+                "password", "api_key"
             ]
         self._sensitive_data_keywords = set(k.lower() for k in sensitive_data)
 
@@ -673,12 +673,25 @@ class SecurityScanner:
         Returns:
             Event with sensitive data masked
         """
-        # Skip if None
+        # Handle None
         if event is None:
             return None
 
-        # Extract text from event based on type
+        # Handle primitive types
+        if isinstance(event, (str, int, float, bool)):
+            if isinstance(event, str):
+                return self._pattern_registry.mask_text_in_place(event)
+            return event
+
+        # Special handling for agent responses
+        masked_event = self._mask_agent_response(event)
+        if masked_event is not None:
+            return masked_event
+
+        # Extract text from the event
         text = self._extract_text_from_event(event)
+
+        # If no text found, return original event
         if not text:
             return event
 
@@ -691,6 +704,99 @@ class SecurityScanner:
 
         # Create a shallow copy of the event and update with masked text
         return self._update_event_with_masked_text(event, masked_text)
+        
+    def _mask_agent_response(self, event: Any) -> Optional[Any]:
+        """Specifically handle masking of agent responses.
+        
+        This method provides targeted handling for agent responses, which need 
+        special attention to ensure sensitive data like credit cards and SSNs
+        are properly masked when returned from an agent/LLM.
+        
+        Args:
+            event: Event object that might be an agent response
+            
+        Returns:
+            Masked event if this was an agent response, None otherwise
+        """
+        # Skip if pattern registry isn't available
+        if not self._pattern_registry:
+            return None
+            
+        import copy
+        
+        # Handle common agent response patterns
+        if isinstance(event, dict):
+            # Create a copy to avoid modifying the original
+            masked_event = copy.copy(event)
+            modified = False
+            
+            # Look for direct response content field
+            if "response" in event:
+                response = event["response"]
+                if isinstance(response, str):
+                    masked_event["response"] = self._pattern_registry.mask_text_in_place(response)
+                    modified = True
+                elif isinstance(response, dict) and "content" in response:
+                    masked_content = self._pattern_registry.mask_text_in_place(str(response["content"]))
+                    masked_event["response"] = copy.copy(response)
+                    masked_event["response"]["content"] = masked_content
+                    modified = True
+            
+            # Look for OpenAI-style responses
+            elif "choices" in event and isinstance(event["choices"], list):
+                masked_event["choices"] = copy.deepcopy(event["choices"])
+                for i, choice in enumerate(masked_event["choices"]):
+                    if isinstance(choice, dict):
+                        if "message" in choice and isinstance(choice["message"], dict):
+                            if "content" in choice["message"]:
+                                choice["message"]["content"] = self._pattern_registry.mask_text_in_place(
+                                    str(choice["message"]["content"])
+                                )
+                                modified = True
+                        elif "text" in choice:
+                            choice["text"] = self._pattern_registry.mask_text_in_place(str(choice["text"]))
+                            modified = True
+            
+            # Look for response payload in attributes
+            elif "attributes" in event and isinstance(event["attributes"], dict):
+                attributes = event["attributes"]
+                masked_event["attributes"] = copy.copy(attributes)
+                
+                # Check for common response fields
+                for key in list(attributes.keys()):
+                    if "response" in key and isinstance(attributes[key], (dict, str)):
+                        if isinstance(attributes[key], str):
+                            masked_event["attributes"][key] = self._pattern_registry.mask_text_in_place(
+                                attributes[key]
+                            )
+                            modified = True
+                        elif isinstance(attributes[key], dict) and "content" in attributes[key]:
+                            content_copy = copy.copy(attributes[key])
+                            content_copy["content"] = self._pattern_registry.mask_text_in_place(
+                                str(attributes[key]["content"])
+                            )
+                            masked_event["attributes"][key] = content_copy
+                            modified = True
+                
+                # Check for message arrays in attributes
+                for key in list(attributes.keys()):
+                    if "messages" in key and isinstance(attributes[key], list):
+                        messages = attributes[key]
+                        masked_messages = copy.deepcopy(messages)
+                        
+                        for i, msg in enumerate(masked_messages):
+                            if isinstance(msg, dict) and "content" in msg:
+                                masked_messages[i]["content"] = self._pattern_registry.mask_text_in_place(
+                                    str(msg["content"])
+                                )
+                                modified = True
+                                
+                        masked_event["attributes"][key] = masked_messages
+            
+            if modified:
+                return masked_event
+                
+        return None
 
     def _update_event_with_masked_text(self, event: Any, masked_text: str) -> Any:
         """Update event with masked text in the appropriate field.
@@ -727,9 +833,35 @@ class SecurityScanner:
             if "content" in masked_event:
                 masked_event["content"] = masked_text
             elif "messages" in masked_event:
-                masked_event["messages"] = masked_text
+                # Handle message arrays more thoroughly
+                if isinstance(masked_event["messages"], list):
+                    for i, msg in enumerate(masked_event["messages"]):
+                        if isinstance(msg, dict) and "content" in msg:
+                            # Scan and mask individual message contents
+                            msg_content = str(msg["content"])
+                            msg_masked = self._pattern_registry.mask_text_in_place(msg_content)
+                            masked_event["messages"][i]["content"] = msg_masked
+                else:
+                    masked_event["messages"] = masked_text
             elif "prompt" in masked_event:
                 masked_event["prompt"] = masked_text
+            # Handle response field directly
+            elif "response" in masked_event:
+                if isinstance(masked_event["response"], str):
+                    masked_event["response"] = masked_text
+                elif isinstance(masked_event["response"], dict) and "content" in masked_event["response"]:
+                    masked_event["response"]["content"] = masked_text
+            # Handle choices field for OpenAI-style responses
+            elif "choices" in masked_event and isinstance(masked_event["choices"], list):
+                for i, choice in enumerate(masked_event["choices"]):
+                    if isinstance(choice, dict):
+                        if "message" in choice and isinstance(choice["message"], dict):
+                            if "content" in choice["message"]:
+                                choice["message"]["content"] = self._pattern_registry.mask_text_in_place(
+                                    str(choice["message"]["content"])
+                                )
+                        elif "text" in choice:
+                            choice["text"] = self._pattern_registry.mask_text_in_place(str(choice["text"]))
             # Handle event with attributes that has llm.response.content
             elif "attributes" in masked_event and isinstance(masked_event["attributes"], dict):
                 attributes = masked_event["attributes"]
@@ -760,72 +892,60 @@ class SecurityScanner:
                     elif "content" in node_result:
                         node_result["content"] = masked_text
 
-                # Handle LangGraph node.state (for langgraph.node.start events)
-                elif "node.state" in attributes and isinstance(attributes["node.state"], dict):
-                    node_state = attributes["node.state"]
-
-                    # Handle messages array in node state
-                    if "messages" in node_state and isinstance(node_state["messages"], list):
-                        # We need to scan each message individually and only mask those with sensitive data
-                        for i, msg in enumerate(node_state["messages"]):
+                # Agent runtime events
+                elif "agent.runtime" in attributes and isinstance(attributes["agent.runtime"], dict):
+                    runtime = attributes["agent.runtime"]
+                    if "messages" in runtime and isinstance(runtime["messages"], list):
+                        for i, msg in enumerate(runtime["messages"]):
                             if isinstance(msg, dict) and "content" in msg:
-                                # Extract the original content
                                 original_content = str(msg["content"])
+                                msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
+                                runtime["messages"][i]["content"] = msg_masked_text
 
-                                # Check if this specific message contains sensitive data
-                                # by scanning it with the pattern registry
-                                matches = self._pattern_registry.scan_text(original_content)
+                # Process any field ending with .response or .content for completeness
+                for key in list(attributes.keys()):
+                    if key.endswith(".response") or key.endswith(".content"):
+                        content = attributes[key]
+                        if isinstance(content, str):
+                            attributes[key] = self._pattern_registry.mask_text_in_place(content)
+                        elif isinstance(content, dict) and "content" in content:
+                            attributes[key]["content"] = self._pattern_registry.mask_text_in_place(
+                                str(content["content"])
+                            )
+                        elif isinstance(content, list):
+                            if all(isinstance(item, str) for item in content):
+                                # List of strings
+                                attributes[key] = [
+                                    self._pattern_registry.mask_text_in_place(str(item)) 
+                                    for item in content
+                                ]
+                            elif all(isinstance(item, dict) for item in content):
+                                # List of objects
+                                for i, item in enumerate(content):
+                                    if "text" in item:
+                                        item_text = self._pattern_registry.mask_text_in_place(str(item["text"]))
+                                        content[i]["text"] = item_text
+                                    elif "content" in item:
+                                        item_content = self._pattern_registry.mask_text_in_place(str(item["content"]))
+                                        content[i]["content"] = item_content
 
-                                # Only mask if sensitive data was found in this message
-                                if matches:
-                                    # Mask just this message's content
-                                    msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
-                                    node_state["messages"][i]["content"] = msg_masked_text
+                # LLM response content fields
+                for key in list(attributes.keys()):
+                    # Handle any field containing both 'response' and 'content'
+                    if "response" in key and "content" in key:
+                        content = attributes[key]
+                        if isinstance(content, list):
+                            # Handle array of content blocks
+                            for i, item in enumerate(content):
+                                if isinstance(item, dict) and "text" in item:
+                                    # Create masked version of content blocks
+                                    item_text = self._pattern_registry.mask_text_in_place(str(item["text"]))
+                                    content[i]["text"] = item_text
+                        else:
+                            attributes[key] = self._pattern_registry.mask_text_in_place(str(content))
 
-                    # If content field exists directly in node state
-                    elif "content" in node_state:
-                        node_state["content"] = masked_text
-
-                # Handle LangGraph state_transition events
-                elif "state" in attributes and isinstance(attributes["state"], dict):
-                    state = attributes["state"]
-
-                    # Handle messages array in state
-                    if "messages" in state and isinstance(state["messages"], list):
-                        # We need to scan each message individually and only mask those with sensitive data
-                        for i, msg in enumerate(state["messages"]):
-                            if isinstance(msg, dict) and "content" in msg:
-                                # Extract the original content
-                                original_content = str(msg["content"])
-
-                                # Check if this specific message contains sensitive data
-                                # by scanning it with the pattern registry
-                                matches = self._pattern_registry.scan_text(original_content)
-
-                                # Only mask if sensitive data was found in this message
-                                if matches:
-                                    # Mask just this message's content
-                                    msg_masked_text = self._pattern_registry.mask_text_in_place(original_content)
-                                    state["messages"][i]["content"] = msg_masked_text
-
-                    # If content field exists directly in state
-                    elif "content" in state:
-                        state["content"] = masked_text
-
-                # LLM response content
-                elif "llm.response.content" in attributes:
-                    content = attributes["llm.response.content"]
-                    if isinstance(content, list):
-                        # Handle array of content blocks
-                        for i, item in enumerate(content):
-                            if isinstance(item, dict) and "text" in item:
-                                # Create masked version of content blocks
-                                item_text = self._pattern_registry.mask_text_in_place(item["text"])
-                                content[i]["text"] = item_text
-                    else:
-                        attributes["llm.response.content"] = masked_text
                 # Input content
-                elif "llm.request.data" in attributes and isinstance(attributes["llm.request.data"], dict):
+                if "llm.request.data" in attributes and isinstance(attributes["llm.request.data"], dict):
                     request_data = attributes["llm.request.data"]
                     if "messages" in request_data:
                         request_data["messages"] = masked_text
