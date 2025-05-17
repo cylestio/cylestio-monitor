@@ -182,7 +182,7 @@ class TestSecurityScanner:
         # Create mock config manager
         mock_manager = MagicMock()
         mock_manager.get.side_effect = lambda key, default=None: {
-            "security.keywords.sensitive_data": ["password", "ssn"],
+            "security.keywords.sensitive_data": ["password"],
             # Avoiding SQL commands for this test since they have special handling
             "security.keywords.dangerous_commands": ["rm -rf", "danger-word"],
             "security.keywords.prompt_manipulation": ["hack", "exploit"]

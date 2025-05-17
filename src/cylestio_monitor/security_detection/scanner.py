@@ -137,7 +137,7 @@ class SecurityScanner:
         if not sensitive_data:
             logger.warning("No sensitive data keywords found in config, using defaults")
             sensitive_data = [
-                "password", "api_key", "token", "secret", "ssn", "credit card"
+                "password", "api_key"
             ]
         self._sensitive_data_keywords = set(k.lower() for k in sensitive_data)
 

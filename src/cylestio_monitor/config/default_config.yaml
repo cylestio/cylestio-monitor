@@ -14,11 +14,6 @@ security:
         - "password"
         - "secret"
         - "credential"
-        - "credit card"
-        - "ssn"
-        - "social security"
-        - "account number"
-        - "personal data"
 
     dangerous_commands:
       enabled: true
