@@ -41,6 +41,8 @@ def start_monitoring(
             - telemetry_endpoint: Host and port for the telemetry API (default: http://127.0.0.1:8000)
               The "/v1/telemetry" path will be automatically appended.
             - development_mode: Enable additional development features like detailed logging
+            - enable_rce_detection: Whether to enable RCE detection rules (default: True)
+            - security_sensitivity: Level of security sensitivity (low, medium, high) (default: medium)
 
     Note:
         The SDK automatically detects which frameworks are installed and available to monitor.
@@ -193,6 +195,12 @@ def start_monitoring(
         os.environ["CYLESTIO_TELEMETRY_ENDPOINT"] = telemetry_endpoint
         logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
 
+    # Configure security settings
+    security_sensitivity = config.get("security_sensitivity", "medium")
+    config_manager.set("security.sensitivity", security_sensitivity)
+    if security_sensitivity == "high":
+        os.environ["CYLESTIO_SECURITY_SENSITIVITY"] = "high"
+
     config_manager.save()
 
     # Initialize trace context
@@ -275,6 +283,16 @@ def start_monitoring(
 
         # Step 4: Apply tool patchers early to ensure all tools are intercepted
         try:
+            # Initialize MCP tool patcher for SQL command injection detection
+            try:
+                from .patchers.tool_patcher import initialize as initialize_tool_patcher
+
+                if initialize_tool_patcher():
+                    logger.info("MCP tool patching initialized for SQL command injection detection")
+                    monitor_logger.info("SQL command injection detection enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize tool patcher: {e}")
+
             # Patch @tool decorator BEFORE framework patches so all new tools get instrumented
             from .patchers.tool_decorator_patcher import patch_tool_decorator
 
@@ -286,6 +304,25 @@ def start_monitoring(
                 logger.debug("LangChain @tool decorator not available for patching")
         except Exception as e:
             logger.warning(f"Failed to patch @tool decorator: {e}")
+
+        # Apply process execution monitoring with RCE detection
+        try:
+            from .patchers.process_patcher import patch_process_monitoring
+
+            # Get RCE detection configuration - default to enabled
+            enable_rce_detection = config.get("enable_rce_detection", True)
+
+            if patch_process_monitoring(enable_detection=enable_rce_detection):
+                if enable_rce_detection:
+                    logger.info("Process execution monitoring enabled with RCE detection rules")
+                    monitor_logger.info("Process execution monitoring enabled with RCE detection")
+                else:
+                    logger.info("Process execution monitoring enabled (RCE detection disabled)")
+                    monitor_logger.info("Process execution monitoring enabled (detection rules disabled)")
+            else:
+                logger.warning("Failed to enable process execution monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch process execution monitoring: {e}")
 
         # Step 5: Try to patch framework libraries if enabled
         if enable_framework_patching:
@@ -426,6 +463,14 @@ def stop_monitoring() -> None:
         unpatch_langgraph()
     except Exception as e:
         logger.warning(f"Error while unpatching LangGraph: {e}")
+
+    # Unpatch process monitoring if it was patched
+    try:
+        from .patchers.process_patcher import unpatch_process_monitoring
+
+        unpatch_process_monitoring()
+    except Exception as e:
+        logger.warning(f"Error while unpatching process monitoring: {e}")
 
     # Stop the background API thread
     try:
