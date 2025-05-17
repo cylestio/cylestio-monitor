@@ -23,6 +23,13 @@ _original_print = builtins.print
 # Store whether the patcher is active
 _print_patched = False
 
+# ANSI color codes
+GREEN = "\033[32m"
+RESET = "\033[0m"
+
+# Protection message
+PROTECTION_MSG = f"{GREEN}[MASKED AND PROTECTED BY CYLESTIO]{RESET}"
+
 
 class LLMOutputPatcher(BasePatcher):
     """Patcher for monitoring LLM output printed to terminal."""
@@ -46,6 +53,33 @@ class LLMOutputPatcher(BasePatcher):
             "credit card", "creditcard", "credit-card", "cc number", 
             "ssn", "social security", "social-security", "social security number"
         ]
+
+    def _enhance_masking(self, text: str) -> str:
+        """Apply enhanced masking with protection message.
+        
+        This method:
+        1. Fully masks credit card numbers as ****-****-****-****
+        2. Adds a protection message after masked content
+        
+        Args:
+            text: The text that may have been already masked
+            
+        Returns:
+            Enhanced masked text with protection message
+        """
+        # Check if the text contains partially masked credit card
+        cc_partial_mask = re.compile(r'\b\d{4}-\*{4}-\*{4}-\d{4}\b')
+        ssn_mask = re.compile(r'\b\*{3}-\*{2}-\d{4}\b')
+        
+        # Replace partially masked credit cards with fully masked ones
+        if cc_partial_mask.search(text):
+            text = cc_partial_mask.sub("****-****-****-****", text)
+        
+        # Always add protection message for any masked content
+        if (("****" in text or "***" in text) and PROTECTION_MSG not in text):
+            text = f"{text} {PROTECTION_MSG}"
+            
+        return text
 
     def patch(self) -> bool:
         """Apply print function patching to monitor terminal output.
@@ -71,8 +105,9 @@ class LLMOutputPatcher(BasePatcher):
                 This function will:
                 1. Check if the output contains sensitive data like credit cards or SSNs
                 2. Mask any sensitive data found
-                3. Log a security event if sensitive data is detected
-                4. Pass the masked output to the original print function
+                3. Add a protection message after masked content
+                4. Log a security event if sensitive data is detected
+                5. Pass the masked output to the original print function
                 """
                 # Skip empty calls or non-string content
                 if not args:
@@ -81,19 +116,22 @@ class LLMOutputPatcher(BasePatcher):
                 # Get scanner instance
                 scanner = SecurityScanner.get_instance()
                 
-                # Only process string content
+                # Process all args
                 processed_args = []
                 sensitive_data_found = False
                 for arg in args:
                     if isinstance(arg, str):
-                        # Check for sensitive data patterns
+                        # Check for sensitive data patterns in strings
                         original_text = arg
                         masked_text = scanner._pattern_registry.mask_text_in_place(original_text)
                         
                         # If masking changed the text, sensitive data was found
                         if masked_text != original_text:
                             sensitive_data_found = True
-                            processed_args.append(masked_text)
+                            
+                            # Apply enhanced masking and add protection message
+                            enhanced_masked_text = self._enhance_masking(masked_text)
+                            processed_args.append(enhanced_masked_text)
                             
                             # Log a security event
                             matches = scanner._pattern_registry.scan_text(original_text)
@@ -109,6 +147,10 @@ class LLMOutputPatcher(BasePatcher):
                                 )
                         else:
                             processed_args.append(arg)
+                    elif isinstance(arg, dict):
+                        # Handle dictionaries - convert to string, mask, then convert back
+                        masked_dict = self._mask_dict_values(arg, scanner)
+                        processed_args.append(masked_dict)
                     else:
                         processed_args.append(arg)
                 
@@ -150,6 +192,55 @@ class LLMOutputPatcher(BasePatcher):
         except Exception as e:
             self.logger.error(f"Failed to unpatch terminal output: {e}")
             return False
+
+    def _mask_dict_values(self, data: dict, scanner) -> dict:
+        """Recursively mask sensitive values in a dictionary.
+        
+        Args:
+            data: Dictionary that may contain sensitive values
+            scanner: SecurityScanner instance
+            
+        Returns:
+            Dictionary with masked sensitive values
+        """
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                # Check for sensitive data in string values
+                masked_value = scanner._pattern_registry.mask_text_in_place(value)
+                if masked_value != value:
+                    # Apply enhanced masking
+                    masked_value = self._enhance_masking(masked_value)
+                    result[key] = masked_value
+                    
+                    # Log a security event
+                    matches = scanner._pattern_registry.scan_text(value)
+                    for match in matches:
+                        log_warning(
+                            name="security.sensitive_data.terminal_output",
+                            attributes={
+                                "security.category": "sensitive_data",
+                                "security.severity": "high",
+                                "security.pattern_name": match.get("pattern_name", "unknown"),
+                                "security.description": f"Sensitive data ({match.get('pattern_name', 'unknown')}) detected in nested data"
+                            }
+                        )
+                else:
+                    result[key] = value
+            elif isinstance(value, dict):
+                # Recursively process nested dictionaries
+                result[key] = self._mask_dict_values(value, scanner)
+            elif isinstance(value, list):
+                # Process lists of values
+                result[key] = [
+                    self._mask_dict_values(item, scanner) if isinstance(item, dict)
+                    else scanner._pattern_registry.mask_text_in_place(item) if isinstance(item, str)
+                    else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+        return result
 
 
 def patch_terminal_output(enable_monitoring: bool = True) -> bool:

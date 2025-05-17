@@ -197,12 +197,17 @@ class PatternRegistry:
             return "********"
 
         elif mask_method == "credit_card":
-            # Credit card - keep first 4 digits, mask the rest
-            digits_only = re.sub(r'[^0-9]', '', value)
-            if len(digits_only) >= 12:  # Only mask if it looks like a credit card
-                return digits_only[:4] + '-****-****-' + digits_only[-4:]
+            # Credit card - fully mask all digits for enhanced privacy
+            # Parse the separator used (dash, space, or none)
+            if '-' in value:
+                separator = '-'
+            elif ' ' in value:
+                separator = ' '
             else:
-                return "****-****-****-****"  # Fallback
+                separator = ''
+                
+            # Return fully masked credit card
+            return f"****{separator}****{separator}****{separator}****"
 
         elif mask_method == "email":
             # Email - mask username part, keep domain

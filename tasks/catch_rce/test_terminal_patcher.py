@@ -34,10 +34,12 @@ def main():
     
     print("\n=== Testing output with sensitive data ===")
     
-    # Test with credit card
-    print("Customer credit card: 4111-1111-1111-1111")
+    # Test with credit card in different formats
+    print("Credit card with dashes: 4111-1111-1111-1111")
+    print("Credit card with spaces: 4111 1111 1111 1111")
+    print("Credit card without separators: 4111111111111111")
     
-    # Test with SSN
+    # Test with SSN in different formats
     print("Social Security Number: 123-45-6789")
     
     # Test with multiple sensitive data in one string
@@ -47,7 +49,8 @@ def main():
     print("Complex data:", {
         "customer": {
             "name": "Test User",
-            "credit_card": "4111-1111-1111-1111"
+            "credit_card": "4111-1111-1111-1111",
+            "ssn": "123-45-6789"
         }
     })
     
