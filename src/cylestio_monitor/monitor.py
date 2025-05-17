@@ -323,6 +323,42 @@ def start_monitoring(
                 logger.warning("Failed to enable process execution monitoring")
         except Exception as e:
             logger.warning(f"Failed to patch process execution monitoring: {e}")
+            
+        # Apply network connection monitoring with threat detection
+        try:
+            from .patchers.network_patcher import patch_network_monitoring
+
+            # Get network detection configuration - default to enabled
+            enable_network_detection = config.get("enable_network_detection", True)
+
+            if patch_network_monitoring(enable_detection=enable_network_detection):
+                if enable_network_detection:
+                    logger.info("Network connection monitoring enabled with threat detection rules")
+                    monitor_logger.info("Network connection monitoring enabled with threat detection")
+                else:
+                    logger.info("Network connection monitoring enabled (threat detection disabled)")
+                    monitor_logger.info("Network connection monitoring enabled (detection rules disabled)")
+            else:
+                logger.warning("Failed to enable network connection monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch network connection monitoring: {e}")
+
+        # Apply HTTP client monitoring for shell access detection
+        try:
+            from .patchers.http_patcher import patch_http_monitoring
+
+            # Get HTTP monitoring configuration - default to enabled
+            enable_http_monitoring = config.get("enable_http_monitoring", True)
+
+            if enable_http_monitoring and patch_http_monitoring():
+                logger.info("HTTP client monitoring enabled for shell access detection")
+                monitor_logger.info("HTTP client monitoring enabled for RCE detection")
+            elif not enable_http_monitoring:
+                logger.info("HTTP client monitoring disabled by configuration")
+            else:
+                logger.warning("Failed to enable HTTP client monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch HTTP client monitoring: {e}")
 
         # Step 5: Try to patch framework libraries if enabled
         if enable_framework_patching:
@@ -471,6 +507,22 @@ def stop_monitoring() -> None:
         unpatch_process_monitoring()
     except Exception as e:
         logger.warning(f"Error while unpatching process monitoring: {e}")
+        
+    # Unpatch network monitoring if it was patched
+    try:
+        from .patchers.network_patcher import unpatch_network_monitoring
+
+        unpatch_network_monitoring()
+    except Exception as e:
+        logger.warning(f"Error while unpatching network monitoring: {e}")
+
+    # Unpatch HTTP monitoring if it was patched
+    try:
+        from .patchers.http_patcher import unpatch_http_monitoring
+
+        unpatch_http_monitoring()
+    except Exception as e:
+        logger.warning(f"Error while unpatching HTTP monitoring: {e}")
 
     # Stop the background API thread
     try:
@@ -514,7 +566,7 @@ def stop_monitoring() -> None:
         sdk_logger.setLevel(logging.CRITICAL)
 
     # Final log message through standard logger (not SDK logger)
-    logger.info("Monitoring stopped")
+    logger.info("Monitoring stopped successfully")
 
 
 __all__ = ["start_monitoring", "stop_monitoring"]

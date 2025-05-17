@@ -60,22 +60,48 @@ PROCESS_SECURITY_CATEGORIES = [
     "privilege_escalation"
 ]
 
+# Security categories related to network connections
+NETWORK_SECURITY_CATEGORIES = [
+    "outbound_connection",
+    "direct_ip",
+    "potential_c2",
+    "potential_data_exfiltration",
+    "network_connection",
+    "shell_access_detected",
+    "network_shell_traffic"
+]
+
+# Combined security categories
+SECURITY_CATEGORIES = PROCESS_SECURITY_CATEGORIES + NETWORK_SECURITY_CATEGORIES
+
 # Security risk types
 SECURITY_RISK_TYPES = [
+    # Process security risks
     "command_injection",
     "potential_rce",
     "mcp_shell_transition",
     "context_switching_attempt",
     "unusual_execution_directory",
-    "privilege_escalation"
+    "privilege_escalation",
+    # Network security risks
+    "potential_c2",
+    "potential_data_exfiltration",
+    "network_shell_access",
+    "interactive_shell_detected"
 ]
 
 # Security alert schema
 SECURITY_ALERT_SCHEMA = {
     "security.alert": {
-        "description": "Security alert for suspicious process execution",
+        "description": "Security alert for suspicious activity",
         "required_attributes": ["alert.type", "alert.severity", "session.id"],
-        "optional_attributes": ["alert.evidence", "security.risk", "security.description", "proc.path", "proc.args", "proc.calling_context"],
+        "optional_attributes": [
+            "alert.evidence", "security.risk", "security.description", 
+            # Process attributes
+            "proc.path", "proc.args", "proc.calling_context",
+            # Network attributes
+            "net.transport", "net.dst.ip", "net.dst.port", "net.traffic.direction"
+        ],
         "example": {
             "alert.type": "Context Switching Attempt Detected",
             "alert.severity": "critical",

@@ -49,6 +49,27 @@ def patch_process_monitoring(enable_detection: bool = True) -> bool:
         # Initialize process monitoring
         initialize()
 
+        # Register shell process callback with HTTP monitoring
+        try:
+            from cylestio_monitor.patchers.http_patcher import register_shell_process_execution
+
+            # Register the shell process callback
+            from cylestio_monitor._sensors.process import register_shell_callback
+            register_shell_callback(register_shell_process_execution)
+            
+            # Verify the callback was registered with a test call
+            try:
+                register_shell_process_execution(-999, -998, "/bin/sh")
+                logger.info("Successfully tested shell process callback integration")
+            except Exception as e:
+                logger.error(f"Shell process callback test failed: {e}")
+                
+            logger.info("Registered shell process callback with HTTP monitoring")
+        except ImportError as e:
+            logger.warning(f"Could not register shell process callback with HTTP monitoring: {e}")
+        except Exception as e:
+            logger.error(f"Error registering shell callback: {e}")
+
         # Mark as patched
         _process_patched = True
 
@@ -75,6 +96,13 @@ def unpatch_process_monitoring() -> bool:
         import subprocess
         import os
         from cylestio_monitor._sensors.process import _orig_popen, _orig_system
+
+        # Remove shell callback
+        try:
+            from cylestio_monitor._sensors.process import unregister_shell_callback
+            unregister_shell_callback()
+        except:
+            pass
 
         # Restore original functions
         subprocess.Popen = _orig_popen

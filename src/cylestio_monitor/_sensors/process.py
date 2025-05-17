@@ -11,7 +11,8 @@ import shlex
 import subprocess
 import sys
 import traceback
-from typing import Any, Dict, List, Optional, Union
+import time
+from typing import Any, Dict, List, Optional, Union, Callable
 
 from cylestio_monitor.utils.event_context import get_session_id
 from cylestio_monitor.utils.event_logging import log_event, log_error
@@ -32,6 +33,28 @@ _orig_system = os.system
 
 # Toggle for enabling/disabling RCE detection
 ENABLE_RCE_DETECTION = True
+
+# Shell process callback function (used to integrate with HTTP monitoring)
+_shell_process_callback = None
+
+def register_shell_callback(callback: Callable[[int, int, str], None]) -> None:
+    """
+    Register a callback function to be called when a shell process is executed.
+    Used to integrate with HTTP-based RCE detection.
+    
+    Args:
+        callback: Function to call with shell process information (pid, parent_pid, executable)
+    """
+    global _shell_process_callback
+    _shell_process_callback = callback
+
+
+def unregister_shell_callback() -> None:
+    """
+    Unregister the shell process callback.
+    """
+    global _shell_process_callback
+    _shell_process_callback = None
 
 
 def _get_process_metadata():
@@ -92,6 +115,35 @@ def _get_process_metadata():
         pass
 
     return metadata
+
+
+def _check_if_shell_process(exec_path: str, args: List[str]) -> bool:
+    """
+    Check if a process is a shell process that should be reported to HTTP monitoring.
+    
+    Args:
+        exec_path: Path to the executable
+        args: Process arguments
+        
+    Returns:
+        bool: True if this is a shell process
+    """
+    # Common shell executable paths
+    shell_executables = [
+        "/bin/sh", "/bin/bash", "/bin/zsh", "/bin/dash", 
+        "cmd.exe", "powershell.exe", "pwsh.exe"
+    ]
+    
+    # Check if this is a shell executable
+    if any(shell in exec_path.lower() for shell in ["sh", "bash", "zsh", "cmd", "powershell", "pwsh"]):
+        return True
+    
+    # Check if the path ends with any of the shell executables
+    for shell in shell_executables:
+        if exec_path.lower().endswith(shell):
+            return True
+    
+    return False
 
 
 def _process_alerts(alerts: List[Dict], process_data: Dict) -> None:
@@ -198,37 +250,26 @@ def _span_popen(args, **kwargs):
                 proc_metadata[f"proc.{stream_option}"] = "PIPE"
             elif stream_value == subprocess.DEVNULL:
                 proc_metadata[f"proc.{stream_option}"] = "DEVNULL"
-            elif stream_value == subprocess.STDOUT:
-                proc_metadata[f"proc.{stream_option}"] = "STDOUT"
-            elif hasattr(stream_value, 'name'):
-                # If it's a file, capture the name without the full path for privacy
-                proc_metadata[f"proc.{stream_option}"] = os.path.basename(getattr(stream_value, 'name', 'unknown'))
 
-    # Determine appropriate severity level based on process characteristics
-    severity = "high"  # Default severity
+    # Determine security risk severity based on the command
+    severity = "medium"
 
-    # Adjust severity for common system tools called by Python internals
-    if (exec_path in ["uname", "file", "which"] and
-        "platform.py" in proc_metadata.get("proc.calling_context", "")):
-        severity = "info"
+    # Shell execution is higher risk
+    if shell:
+        severity = "high"
 
-    # Complete process data for telemetry and analysis
+    # Build complete process data
     process_data = {
-        # Basic command info
         "proc.path": exec_path,
         "proc.args": cmd_str,
         "proc.shell": shell,
         "proc.parent_id": os.getpid(),
         "session.id": get_session_id(),
 
-        # Working directory and environment
-        "proc.cwd": kwargs.get("cwd", proc_metadata.get("proc.cwd", "")),
-        "proc.env_modified": kwargs.get("env") is not None,
-
         # Add process user and privilege information
         **proc_metadata,
 
-        # Security categorization - kept minimal for all events
+        # Add security assessment with severity based on the process
         "security.category": "process_execution",
         "security.severity": severity,
     }
@@ -255,6 +296,14 @@ def _span_popen(args, **kwargs):
         result = _orig_popen(args, **kwargs)
         # Add additional telemetry if process was created successfully
         if result.pid:
+            # Check if this is a shell process, and if so, report it to HTTP monitoring
+            if _check_if_shell_process(exec_path, cmd_args) and _shell_process_callback:
+                try:
+                    _shell_process_callback(result.pid, os.getpid(), exec_path)
+                except Exception as e:
+                    # Don't let callback errors affect process execution
+                    log_error(f"Error in shell process callback: {str(e)}")
+            
             log_event(
                 "process.started",
                 level="INFO",
@@ -333,6 +382,17 @@ def _span_system(cmd):
 
     # Execute the command with original functionality
     try:
+        # Register this as a shell process for HTTP correlation
+        # We don't have the actual PID, but we can use a timestamp-based approximation
+        if _shell_process_callback:
+            try:
+                # Use negative PID to indicate it's an estimated shell process from os.system
+                pseudo_pid = -int(time.time() * 1000) % 100000  # Use timestamp-based unique negative ID
+                _shell_process_callback(pseudo_pid, os.getpid(), shell)
+            except Exception as e:
+                # Don't let callback errors affect process execution
+                log_error(f"Error in shell process callback: {str(e)}")
+        
         result = _orig_system(cmd)
         return result
     except Exception as e:

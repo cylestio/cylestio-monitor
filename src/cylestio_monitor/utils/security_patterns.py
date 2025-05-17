@@ -38,6 +38,133 @@ def get_suspicious_shell_patterns() -> List[str]:
     ]
 
 
+def get_shell_access_network_patterns() -> List[Dict[str, str]]:
+    """
+    Get patterns for detecting shell access in network traffic.
+    
+    These patterns are designed to identify shell access characteristics in 
+    network traffic without relying on hardcoded indicators like specific URLs or ports.
+    
+    Returns:
+        List of dictionaries containing pattern information with 'regex' and 'description' keys
+    """
+    return [
+        # Shell prompt patterns
+        {
+            "regex": r"(\$|#|>)\s+(ls|pwd|whoami|id|echo|cat|ps|mkdir|cd)\s",
+            "description": "Shell command prompt detected in traffic"
+        },
+        # Shell response patterns
+        {
+            "regex": r"uid=\d+\(\w+\)\s+gid=\d+\(\w+\)",
+            "description": "Shell id/whoami command response detected"
+        },
+        {
+            "regex": r"(total\s+\d+\s*\n[-d][-rwx]{9}\s+\d+\s+\w+\s+\w+)",
+            "description": "Directory listing response detected"
+        },
+        # TTY control sequences
+        {
+            "regex": r"\x1b\[\d+[mABCDHJKhu]",
+            "description": "Terminal control sequences detected in traffic"
+        },
+        # Interactive shell upgrade attempts
+        {
+            "regex": r"(python\s+-c\s+['\"](import pty; pty\.spawn\(|import tty|exec pty\.spawn)|stty raw -echo|script -q|socat)",
+            "description": "Interactive shell/TTY upgrade attempt detected"
+        },
+        # Command sequences indicative of post-exploitation
+        {
+            "regex": r"(uname -a|cat /etc/(passwd|shadow|issue|os-release)|cat /proc/version|hostnamectl|systeminfo|ver\b)",
+            "description": "System information gathering commands detected"
+        },
+        # Binary data transfer indicators
+        {
+            "regex": r"(base64 [-d]|xxd|hexdump|openssl|dd if=)",
+            "description": "Binary data transfer/encoding detected"
+        },
+        # Reverse shell connection patterns
+        {
+            "regex": r"(sh|bash|cmd|powershell|python|perl|ruby|php)\s+(-[ec]|--exec|-i)\s",
+            "description": "Reverse shell execution pattern detected"
+        },
+        # Linux command history pattern
+        {
+            "regex": r"(\d+\s+\w+.*\n\d+\s+\w+.*\n\d+\s+\w+)",
+            "description": "Command history output detected"
+        },
+        # Interactive shell session identifiers
+        {
+            "regex": r"(sh-\d+\.\d+[$#>]|bash-\d+\.\d+[$#>]|Microsoft Windows \[.*\]|Copyright \(c\) \d+ Microsoft Corporation)",
+            "description": "Shell session banner detected"
+        },
+        # MCP to shell transition indicators
+        {
+            "regex": r"(Special username trigger detected|Switching to Shell Command mode|ATTACK MODE ACTIVATED|FORMAT: \"[^\"]+\"\?)",
+            "description": "MCP to shell transition pattern detected"
+        },
+        # Command execution in shell after transition
+        {
+            "regex": r"(All queries are now being executed as shell commands|/bin/sh: [^:]+: command not found)",
+            "description": "Shell command execution after MCP transition detected"
+        },
+        # HTTP-based command injection patterns
+        {
+            "regex": r"what is the email of ([a-zA-Z0-9_\-\.]+)\?",
+            "description": "Potential HTTP-based command injection pattern detected"
+        }
+    ]
+
+
+def get_mcp_shell_transition_patterns() -> List[Dict[str, str]]:
+    """
+    Get patterns for detecting transitions from MCP (Model-Code-Protocol) to shell execution.
+    
+    These patterns are designed to identify when legitimate interfaces like database
+    connectors are exploited to gain shell access.
+    
+    Returns:
+        List of dictionaries containing pattern information with 'regex' and 'description' keys
+    """
+    return [
+        # MCP shell activation trigger phrases
+        {
+            "regex": r"SWITCH_TO_SHELL_MODE|enable-shell|SHELL_ACCESS_REQUEST",
+            "description": "MCP shell mode activation trigger detected"
+        },
+        # Mode transition messaging
+        {
+            "regex": r"(Switching|Switched) to [Ss]hell [Cc]ommand mode",
+            "description": "Shell command mode transition detected"
+        },
+        # Attack success indicators
+        {
+            "regex": r"ATTACK MODE ACTIVATED|VICTIM HAS BEEN COMPROMISED",
+            "description": "Successful attack mode activation detected"
+        },
+        # Shell instruction patterns (custom command format instructions)
+        {
+            "regex": r"Format: \"[^\"]+\"\?|All queries are now being executed as|executed as shell commands",
+            "description": "Shell command execution instructions detected"
+        },
+        # Command disguise patterns
+        {
+            "regex": r"what is the (email|password|username|account) of ([^?]+)\?",
+            "description": "Disguised shell command pattern detected"
+        },
+        # Command responses in HTTP traffic
+        {
+            "regex": r"/bin/sh: [^:]+: command not found",
+            "description": "Shell command error response detected"
+        },
+        # Common command outputs
+        {
+            "regex": r"README\.md\s+__pycache__\s+\w+\.py",
+            "description": "Directory listing command output detected"
+        }
+    ]
+
+
 def get_context_switching_patterns() -> List[str]:
     """
     Get regex patterns for context switching attempts between

@@ -25,6 +25,10 @@ from .tool_decorator_patcher import (ToolDecoratorPatcher,
                                      unpatch_tool_decorator)
 from .process_patcher import (patch_process_monitoring,
                              unpatch_process_monitoring)
+from .network_patcher import (patch_network_monitoring,
+                             unpatch_network_monitoring)
+from .http_patcher import (patch_http_monitoring,
+                          unpatch_http_monitoring)
 from .tool_patcher import initialize as initialize_tool_patcher
 
 # Set up module-level logger
@@ -86,5 +90,9 @@ __all__ = [
     "patch_decorated_tools",
     "unpatch_decorated_tools",
     "patch_process_monitoring",
-    "unpatch_process_monitoring"
+    "unpatch_process_monitoring",
+    "patch_network_monitoring",
+    "unpatch_network_monitoring",
+    "patch_http_monitoring",
+    "unpatch_http_monitoring"
 ]
