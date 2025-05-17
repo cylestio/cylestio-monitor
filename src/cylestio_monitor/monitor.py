@@ -323,7 +323,7 @@ def start_monitoring(
                 logger.warning("Failed to enable process execution monitoring")
         except Exception as e:
             logger.warning(f"Failed to patch process execution monitoring: {e}")
-            
+
         # Apply network connection monitoring with threat detection
         try:
             from .patchers.network_patcher import patch_network_monitoring
@@ -507,7 +507,7 @@ def stop_monitoring() -> None:
         unpatch_process_monitoring()
     except Exception as e:
         logger.warning(f"Error while unpatching process monitoring: {e}")
-        
+
     # Unpatch network monitoring if it was patched
     try:
         from .patchers.network_patcher import unpatch_network_monitoring

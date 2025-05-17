@@ -41,7 +41,7 @@ def register_shell_callback(callback: Callable[[int, int, str], None]) -> None:
     """
     Register a callback function to be called when a shell process is executed.
     Used to integrate with HTTP-based RCE detection.
-    
+
     Args:
         callback: Function to call with shell process information (pid, parent_pid, executable)
     """
@@ -120,29 +120,29 @@ def _get_process_metadata():
 def _check_if_shell_process(exec_path: str, args: List[str]) -> bool:
     """
     Check if a process is a shell process that should be reported to HTTP monitoring.
-    
+
     Args:
         exec_path: Path to the executable
         args: Process arguments
-        
+
     Returns:
         bool: True if this is a shell process
     """
     # Common shell executable paths
     shell_executables = [
-        "/bin/sh", "/bin/bash", "/bin/zsh", "/bin/dash", 
+        "/bin/sh", "/bin/bash", "/bin/zsh", "/bin/dash",
         "cmd.exe", "powershell.exe", "pwsh.exe"
     ]
-    
+
     # Check if this is a shell executable
     if any(shell in exec_path.lower() for shell in ["sh", "bash", "zsh", "cmd", "powershell", "pwsh"]):
         return True
-    
+
     # Check if the path ends with any of the shell executables
     for shell in shell_executables:
         if exec_path.lower().endswith(shell):
             return True
-    
+
     return False
 
 
@@ -303,7 +303,7 @@ def _span_popen(args, **kwargs):
                 except Exception as e:
                     # Don't let callback errors affect process execution
                     log_error(f"Error in shell process callback: {str(e)}")
-            
+
             log_event(
                 "process.started",
                 level="INFO",
@@ -392,7 +392,7 @@ def _span_system(cmd):
             except Exception as e:
                 # Don't let callback errors affect process execution
                 log_error(f"Error in shell process callback: {str(e)}")
-        
+
         result = _orig_system(cmd)
         return result
     except Exception as e:

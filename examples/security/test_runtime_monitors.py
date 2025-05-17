@@ -71,7 +71,7 @@ try:
     # Try to connect to a potentially suspicious port (4444 - common C2 port)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1)
-    
+
     print("  → Attempting connection to potentially suspicious port")
     try:
         # This will likely fail to connect but will trigger the monitor
@@ -83,7 +83,7 @@ try:
         s.close()
 except Exception as e:
     print(f"  ✗ Network test failed: {e}")
-    
+
 # === TELEMETRY ENDPOINT FILTERING TEST ===
 
 print("\n🔍 Testing telemetry endpoint filtering...")
@@ -91,12 +91,12 @@ try:
     # Connect to our own telemetry endpoint (this should be ignored by monitoring)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1)
-    
+
     # Parse the telemetry endpoint to get host and port
     parsed = urllib.parse.urlparse(custom_telemetry)
     host = parsed.hostname
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    
+
     print(f"  → Attempting connection to our telemetry endpoint: {host}:{port}")
     try:
         # This will fail to connect since it's a fake endpoint, but that's expected
@@ -121,7 +121,7 @@ def display_security_events(log_file):
     if not log_file.exists():
         print(f"  ✗ Log file not found: {log_file}")
         return
-    
+
     events = []
     with open(log_file, "r") as f:
         for line in f:
@@ -130,28 +130,28 @@ def display_security_events(log_file):
                 events.append(event)
             except json.JSONDecodeError:
                 pass
-    
+
     process_events = [e for e in events if e.get("name") == "process.exec"]
     network_events = [e for e in events if e.get("name") == "net.conn_open"]
     alert_events = [e for e in events if e.get("name") == "security.alert"]
-    
+
     print(f"  • Found {len(events)} total events")
     print(f"  • Process execution events: {len(process_events)}")
     print(f"  • Network connection events: {len(network_events)}")
     print(f"  • Security alerts: {len(alert_events)}")
-    
+
     # Check if we have any connections to our telemetry endpoint
     telemetry_events = []
     for event in network_events:
         attrs = event.get("attributes", {})
         if attrs.get("net.dst.ip") == host and attrs.get("net.dst.port") == port:
             telemetry_events.append(event)
-    
+
     if telemetry_events:
         print(f"  ✗ Found {len(telemetry_events)} events for our telemetry endpoint (should be 0)")
     else:
         print(f"  ✓ No events for our telemetry endpoint (correct behavior)")
-    
+
     if alert_events:
         print("\n🚨 Security Alerts:")
         for i, alert in enumerate(alert_events, 1):
@@ -159,7 +159,7 @@ def display_security_events(log_file):
             alert_type = attrs.get("alert.type", "Unknown")
             severity = attrs.get("alert.severity", "unknown")
             evidence = attrs.get("alert.evidence", "No evidence provided")
-            
+
             print(f"  Alert #{i}: {alert_type} (Severity: {severity})")
             print(f"  Evidence: {evidence}")
             print()
@@ -169,4 +169,4 @@ display_security_events(log_file)
 
 # Stop monitoring
 cylestio_monitor.stop_monitoring()
-print("\n✓ Test completed and monitoring stopped.") 
+print("\n✓ Test completed and monitoring stopped.")

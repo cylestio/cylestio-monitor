@@ -41,7 +41,7 @@ Process execution events are logged with detailed context to facilitate forensic
 The network monitoring system intercepts and analyzes outbound network connections to detect potential C2 channels or data exfiltration attempts:
 
 - Monitors all socket connections
-- Analyzes connection destinations and ports 
+- Analyzes connection destinations and ports
 - Detects connections to known malicious ports
 - Flags direct IP connections vs domain names
 - Generates security alerts for suspicious connections
@@ -52,7 +52,7 @@ Network connection events are logged with detailed context:
 ```json
 {
   "timestamp": "2023-04-25T10:17:45.712Z",
-  "name": "net.conn_open", 
+  "name": "net.conn_open",
   "attributes": {
     "net.transport": "tcp",
     "net.dst.ip": "192.168.1.100",
@@ -120,4 +120,4 @@ For optimal security monitoring:
 2. **Configure appropriate sensitivity** based on your environment
 3. **Review security logs regularly** for suspicious patterns
 4. **Establish incident response procedures** for critical alerts
-5. **Update the monitor regularly** to get the latest security rules 
+5. **Update the monitor regularly** to get the latest security rules

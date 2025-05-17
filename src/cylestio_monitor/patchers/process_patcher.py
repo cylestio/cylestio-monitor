@@ -56,14 +56,14 @@ def patch_process_monitoring(enable_detection: bool = True) -> bool:
             # Register the shell process callback
             from cylestio_monitor._sensors.process import register_shell_callback
             register_shell_callback(register_shell_process_execution)
-            
+
             # Verify the callback was registered with a test call
             try:
                 register_shell_process_execution(-999, -998, "/bin/sh")
                 logger.info("Successfully tested shell process callback integration")
             except Exception as e:
                 logger.error(f"Shell process callback test failed: {e}")
-                
+
             logger.info("Registered shell process callback with HTTP monitoring")
         except ImportError as e:
             logger.warning(f"Could not register shell process callback with HTTP monitoring: {e}")

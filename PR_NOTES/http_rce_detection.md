@@ -1,6 +1,6 @@
 # HTTP-based RCE Detection
 
-This PR implements HTTP-based RCE detection capabilities in Cylestio Monitor to detect shell access patterns and command execution in HTTP traffic. 
+This PR implements HTTP-based RCE detection capabilities in Cylestio Monitor to detect shell access patterns and command execution in HTTP traffic.
 
 ## Overview
 
@@ -8,7 +8,7 @@ The implementation addresses a critical security gap where RCE attacks could occ
 
 ## Key Components
 
-1. **HTTP Client Patching**: 
+1. **HTTP Client Patching**:
    - Added patching for popular HTTP client libraries (`httpx` and `requests`)
    - Monitors both request and response bodies for shell patterns
    - Detects MCP to shell transitions and shell command execution patterns
@@ -61,4 +61,4 @@ To test the new HTTP monitoring capabilities:
 python examples/security/test_http_shell_detection.py
 ```
 
-The test script simulates various HTTP-based attack patterns and verifies that the system correctly detects them. 
+The test script simulates various HTTP-based attack patterns and verifies that the system correctly detects them.

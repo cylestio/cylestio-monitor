@@ -41,10 +41,10 @@ def get_suspicious_shell_patterns() -> List[str]:
 def get_shell_access_network_patterns() -> List[Dict[str, str]]:
     """
     Get patterns for detecting shell access in network traffic.
-    
-    These patterns are designed to identify shell access characteristics in 
+
+    These patterns are designed to identify shell access characteristics in
     network traffic without relying on hardcoded indicators like specific URLs or ports.
-    
+
     Returns:
         List of dictionaries containing pattern information with 'regex' and 'description' keys
     """
@@ -119,10 +119,10 @@ def get_shell_access_network_patterns() -> List[Dict[str, str]]:
 def get_mcp_shell_transition_patterns() -> List[Dict[str, str]]:
     """
     Get patterns for detecting transitions from MCP (Model-Code-Protocol) to shell execution.
-    
+
     These patterns are designed to identify when legitimate interfaces like database
     connectors are exploited to gain shell access.
-    
+
     Returns:
         List of dictionaries containing pattern information with 'regex' and 'description' keys
     """

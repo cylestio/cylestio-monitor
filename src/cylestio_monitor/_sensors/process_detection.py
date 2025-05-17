@@ -59,7 +59,7 @@ def track_process(process_data: Dict) -> None:
     # Track process lineage (parent-child relationships)
     if pid and parent_pid:
         _process_lineage[pid] = parent_pid
-    
+
     if proc_path and caller_context:
         if proc_path not in _process_callers:
             _process_callers[proc_path] = set()
@@ -69,45 +69,45 @@ def track_process(process_data: Dict) -> None:
 def _is_network_related_process(process_data: Dict) -> bool:
     """
     Determine if a process is related to network operations (HTTP, SQL, etc).
-    
+
     Args:
         process_data: Process execution data
-        
+
     Returns:
         bool: True if the process is related to network operations
     """
     # Check process name
     proc_path = process_data.get("proc.path", "").lower()
     proc_args = process_data.get("proc.args", "").lower()
-    
+
     # Network-related process indicators
     network_indicators = [
-        "http", "curl", "wget", "sqlite", "mysql", "postgres", 
+        "http", "curl", "wget", "sqlite", "mysql", "postgres",
         "mongodb", "redis", "mcp", "client", "server", "proxy"
     ]
-    
+
     # Check if process name or arguments contain network indicators
     for indicator in network_indicators:
         if indicator in proc_path or indicator in proc_args:
             return True
-    
+
     return False
 
 
 def _get_process_ancestors(pid: int, max_depth: int = 5) -> List[int]:
     """
     Get the ancestor PIDs of a process up to a certain depth.
-    
+
     Args:
         pid: Process ID
         max_depth: Maximum number of ancestors to return
-        
+
     Returns:
         List of ancestor PIDs
     """
     ancestors = []
     current_pid = pid
-    
+
     for _ in range(max_depth):
         if current_pid in _process_lineage:
             parent_pid = _process_lineage[current_pid]
@@ -115,7 +115,7 @@ def _get_process_ancestors(pid: int, max_depth: int = 5) -> List[int]:
             current_pid = parent_pid
         else:
             break
-    
+
     return ancestors
 
 
@@ -223,7 +223,7 @@ def check_context_transition(process_data: Dict) -> Optional[Dict]:
                     "risk": "mcp_shell_transition",
                     "proc.path": proc_path
                 }
-            
+
             # If any ancestor process is network-related, this could be an HTTP-based RCE
             elif network_related_ancestors:
                 return {

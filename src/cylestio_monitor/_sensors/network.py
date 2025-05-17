@@ -43,33 +43,33 @@ def _setup_own_endpoints():
     Gets telemetry endpoint from config or environment variables.
     """
     global _OWN_ENDPOINTS
-    
+
     # Get telemetry endpoint from environment variable first
     telemetry_endpoint = os.environ.get("CYLESTIO_TELEMETRY_ENDPOINT")
-    
+
     # If not in environment, try from config
     if not telemetry_endpoint:
         config_manager = ConfigManager()
         telemetry_endpoint = config_manager.get("api.endpoint")
-    
+
     # Default endpoint if none configured
     if not telemetry_endpoint:
         telemetry_endpoint = "http://127.0.0.1:8000"
-    
+
     # Parse the endpoint to get host and port
     try:
         parsed = urllib.parse.urlparse(telemetry_endpoint)
         host = parsed.hostname or "127.0.0.1"
         # Use default ports if not specified
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        
+
         # Add to our exclusion set
         _OWN_ENDPOINTS.add((host, port))
-        
+
         # Also add the host with default ports in case they're used implicitly
         _OWN_ENDPOINTS.add((host, 80))
         _OWN_ENDPOINTS.add((host, 443))
-        
+
         # Add localhost/127.0.0.1 alternatives
         if host in ("localhost", "127.0.0.1"):
             _OWN_ENDPOINTS.add(("localhost", port))
@@ -83,12 +83,12 @@ def _is_own_endpoint(host: str, port: int) -> bool:
     """Determine if this connection is to our own telemetry endpoint."""
     if not _OWN_ENDPOINTS:
         _setup_own_endpoints()
-    
+
     # Normalize host
     normalized_host = host.lower()
     if normalized_host == "localhost":
         normalized_host = "127.0.0.1"
-    
+
     return (normalized_host, port) in _OWN_ENDPOINTS
 
 
@@ -114,15 +114,15 @@ def _categorize_connection(host: str, port: int) -> str:
     # Check for common C2 patterns
     if port in [4444, 4445, 1337, 6667, 6668, 6669, 31337]:  # Common reverse shell/C2 ports
         return "potential_c2"
-    
+
     # Check for common exfiltration ports
     if port in [21, 22, 2222, 23]:  # FTP, SSH, Telnet
         return "potential_exfiltration"
-    
+
     # Check for direct IP connections vs domain names
     if all(c.isdigit() or c == '.' for c in host):
         return "direct_ip"
-    
+
     # Default category
     return "outbound_connection"
 
@@ -131,27 +131,27 @@ def _determine_severity(host: str, port: int, is_local: bool) -> str:
     """Determine the security severity based on connection details."""
     if is_local:
         return "low"
-    
+
     category = _categorize_connection(host, port)
-    
+
     if category == "potential_c2":
         return "critical"
     elif category == "potential_exfiltration":
         return "high"
     elif category == "direct_ip":
         return "medium"
-    
+
     # Standard web ports are lower severity
     if port in [80, 443, 8080, 8443]:
         return "low"
-    
+
     return "medium"
 
 
 def _analyze_network_data(sock: socket.socket, data: bytes, direction: str, conn_id: int) -> None:
     """
     Analyze network traffic data for shell access patterns.
-    
+
     Args:
         sock: The socket object
         data: The data being sent or received
@@ -160,43 +160,43 @@ def _analyze_network_data(sock: socket.socket, data: bytes, direction: str, conn
     """
     if not ENABLE_NETWORK_DETECTION:
         return
-    
+
     # Skip if data is empty or very small
     if not data or len(data) < 8:
         return
-    
+
     # Get connection info
     with _connection_data_lock:
         if (sock, conn_id) not in _connection_data:
             # We don't have info on this connection
             return
-        
+
         conn_info = _connection_data[(sock, conn_id)]
-    
+
     # Skip our own telemetry
     host = conn_info.get("host", "")
     port = conn_info.get("port", 0)
     if _is_own_endpoint(host, port):
         return
-    
+
     # Try to decode data as text - but don't fail if binary
     try:
         text_data = data.decode('utf-8', errors='replace')
     except:
         text_data = str(data)
-    
+
     # Get shell access patterns
     shell_patterns = get_shell_access_network_patterns()
-    
+
     # Match against patterns
     matches = []
     for pattern_info in shell_patterns:
         pattern = pattern_info["regex"]
         description = pattern_info["description"]
-        
+
         if re.search(pattern, text_data, re.MULTILINE):
             matches.append(description)
-    
+
     # If we found matches, log an alert
     if matches:
         alert_attributes = {
@@ -213,13 +213,13 @@ def _analyze_network_data(sock: socket.socket, data: bytes, direction: str, conn
             "net.traffic.direction": direction,
             "session.id": get_session_id()
         }
-        
+
         log_event(
             name="security.alert",
             attributes=alert_attributes,
             level="CRITICAL"
         )
-        
+
         # Update connection info with shell detected flag
         with _connection_data_lock:
             if (sock, conn_id) in _connection_data:
@@ -233,26 +233,26 @@ def _span_connect(self, address):
     """
     # Extract connection information
     host, port = _get_ip_port(address)
-    
+
     # Skip localhost connections to reduce noise (option to change later)
     is_local = host in ('localhost', '127.0.0.1', '::1')
-    
+
     # Skip monitoring our own telemetry connections
     if _is_own_endpoint(host, port):
         # Just call the original function without monitoring
         return _orig_connect(self, address)
-    
+
     # Determine connection type
     sock_type = getattr(self, 'type', 0)
     sock_type_name = {
         socket.SOCK_STREAM: 'tcp',
         socket.SOCK_DGRAM: 'udp'
     }.get(sock_type, 'unknown')
-    
+
     # Set security severity based on the connection type
     category = _categorize_connection(host, port)
     severity = _determine_severity(host, port, is_local)
-    
+
     # Prepare connection event attributes
     conn_attributes = {
         "net.transport": sock_type_name,
@@ -263,14 +263,14 @@ def _span_connect(self, address):
         "security.category": category,
         "security.severity": severity
     }
-    
+
     # Log the connection event
     log_event(
         name="net.conn_open",
         attributes=conn_attributes,
         level="INFO"
     )
-    
+
     # Emit high-severity alert directly for suspicious connections
     if severity in ["critical", "high"]:
         alert_attributes = {
@@ -286,23 +286,23 @@ def _span_connect(self, address):
             "net.dst.port": port,
             "session.id": get_session_id()
         }
-        
+
         # Log critical alerts at CRITICAL level, others at WARNING
         log_level = "CRITICAL" if severity == "critical" else "WARNING"
-        
+
         log_event(
             name="security.alert",
             attributes=alert_attributes,
             level=log_level
         )
-    
+
     # Actually establish the connection
     try:
         result = _orig_connect(self, address)
         # Update local information for future reference
         _local_host.current_host = host
         _local_host.current_port = port
-        
+
         # Store connection info for traffic analysis
         conn_id = id(self)
         with _connection_data_lock:
@@ -313,7 +313,7 @@ def _span_connect(self, address):
                 "is_local": is_local,
                 "shell_detected": False
             }
-        
+
         return result
     except Exception as e:
         # Record the exception but let it propagate
@@ -331,23 +331,23 @@ def _span_connect_ex(self, address):
     Monkey-patched version of socket.connect_ex that records network connection spans.
     """
     host, port = _get_ip_port(address)
-    
+
     # Skip monitoring our own telemetry connections
     if _is_own_endpoint(host, port):
         # Just call the original function without monitoring
         return _orig_connect_ex(self, address)
-    
+
     is_local = host in ('localhost', '127.0.0.1', '::1')
-    
+
     sock_type = getattr(self, 'type', 0)
     sock_type_name = {
         socket.SOCK_STREAM: 'tcp',
         socket.SOCK_DGRAM: 'udp'
     }.get(sock_type, 'unknown')
-    
+
     category = _categorize_connection(host, port)
     severity = _determine_severity(host, port, is_local)
-    
+
     # Prepare connection event attributes
     conn_attributes = {
         "net.transport": sock_type_name,
@@ -358,17 +358,17 @@ def _span_connect_ex(self, address):
         "security.category": category,
         "security.severity": severity
     }
-    
+
     # Log the connection attempt
     log_event(
         name="net.conn_open",
         attributes=conn_attributes,
         level="INFO"
     )
-    
+
     # Actually attempt the connection
     result = _orig_connect_ex(self, address)
-    
+
     # If connection succeeded (result == 0)
     if result == 0:
         # Update connection info for traffic analysis
@@ -381,7 +381,7 @@ def _span_connect_ex(self, address):
                 "is_local": is_local,
                 "shell_detected": False
             }
-        
+
         # Update local information for future reference
         _local_host.current_host = host
         _local_host.current_port = port
@@ -393,7 +393,7 @@ def _span_connect_ex(self, address):
             attributes=conn_attributes,
             level="INFO"
         )
-    
+
     return result
 
 
@@ -403,16 +403,16 @@ def _span_send(self, data, *args, **kwargs):
     """
     # Call original method first
     result = _orig_send(self, data, *args, **kwargs)
-    
+
     # Get connection ID
     conn_id = id(self)
-    
+
     # Analyze the data
     try:
         _analyze_network_data(self, data, 'send', conn_id)
     except Exception as e:
         log_error(f"Error analyzing network send data: {e}")
-    
+
     return result
 
 
@@ -422,13 +422,13 @@ def _span_sendall(self, data, *args, **kwargs):
     """
     # Get connection ID
     conn_id = id(self)
-    
+
     # Analyze the data
     try:
         _analyze_network_data(self, data, 'send', conn_id)
     except Exception as e:
         log_error(f"Error analyzing network sendall data: {e}")
-    
+
     # Call original method
     return _orig_sendall(self, data, *args, **kwargs)
 
@@ -439,17 +439,17 @@ def _span_recv(self, bufsize, *args, **kwargs):
     """
     # Call original method first
     data = _orig_recv(self, bufsize, *args, **kwargs)
-    
+
     # Get connection ID
     conn_id = id(self)
-    
+
     # Analyze the data if we got something
     if data:
         try:
             _analyze_network_data(self, data, 'recv', conn_id)
         except Exception as e:
             log_error(f"Error analyzing network receive data: {e}")
-    
+
     return data
 
 
@@ -472,6 +472,6 @@ def initialize():
     socket.socket.send = _span_send
     socket.socket.sendall = _span_sendall
     socket.socket.recv = _span_recv
-    
+
     # Ensure endpoints are initialized
-    _setup_own_endpoints() 
+    _setup_own_endpoints()

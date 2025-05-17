@@ -63,7 +63,7 @@ NETWORK_SPAN_SCHEMA = {
     "net.conn_open": {
         "description": "Network connection event",
         "required_attributes": ["net.transport", "net.dst.ip", "net.dst.port", "session.id"],
-        "optional_attributes": ["net.is_local", "net.conn.result", "net.conn.error", 
+        "optional_attributes": ["net.is_local", "net.conn.result", "net.conn.error",
                               "security.category", "security.severity"],
         "example": {
             "net.transport": "tcp",
@@ -80,7 +80,7 @@ NETWORK_SPAN_SCHEMA = {
         "required_attributes": ["net.transport", "net.dst.ip", "net.dst.port", "net.conn.error", "session.id"],
         "optional_attributes": ["net.is_local", "security.category", "security.severity"],
         "example": {
-            "net.transport": "tcp", 
+            "net.transport": "tcp",
             "net.dst.ip": "example.com",
             "net.dst.port": 443,
             "net.conn.error": "Connection refused",
@@ -89,4 +89,4 @@ NETWORK_SPAN_SCHEMA = {
             "session.id": "abcd1234-5678-efgh-ijkl"
         }
     }
-} 
+}

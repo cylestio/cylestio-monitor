@@ -86,4 +86,4 @@ def unpatch_network_monitoring() -> bool:
         return True
     except Exception as e:
         logger.error(f"Failed to unpatch network connection monitoring: {e}")
-        return False 
+        return False

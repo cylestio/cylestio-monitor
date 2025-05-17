@@ -7,7 +7,7 @@ import os
 from unittest.mock import patch, MagicMock
 
 from cylestio_monitor._sensors.network import (
-    _span_connect, _span_connect_ex, initialize, _get_ip_port, 
+    _span_connect, _span_connect_ex, initialize, _get_ip_port,
     _categorize_connection, _determine_severity, _is_own_endpoint, _setup_own_endpoints
 )
 from cylestio_monitor.patchers.network_patcher import (
@@ -117,10 +117,10 @@ class TestNetworkSensor(unittest.TestCase):
 
         # Create a socket to test
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
+
         # Setup for mocking the real connect function
         mock_real_connect.return_value = None
-        
+
         # Call socket.connect to trigger our patched version
         try:
             # We expect this to raise an error since we're mocking _real_connect
@@ -141,7 +141,7 @@ class TestNetworkSensor(unittest.TestCase):
         self.assertIn("net.dst.port", kwargs["attributes"])
         self.assertIn("net.is_local", kwargs["attributes"])
         self.assertIn("session.id", kwargs["attributes"])
-        
+
     def test_patcher_functions(self):
         """Test the patch_network_monitoring and unpatch_network_monitoring functions."""
         # Patch network monitoring
@@ -159,7 +159,7 @@ class TestNetworkSensor(unittest.TestCase):
         # Verify that connect and connect_ex are restored
         self.assertEqual(socket.socket.connect, self.orig_connect)
         self.assertEqual(socket.socket.connect_ex, self.orig_connect_ex)
-        
+
     @patch('cylestio_monitor.config.ConfigManager')
     def test_own_endpoint_setup(self, mock_config_manager):
         """Test that our own endpoints are correctly detected and filtered."""
@@ -168,46 +168,46 @@ class TestNetworkSensor(unittest.TestCase):
             # Force reset of endpoints
             from cylestio_monitor._sensors.network import _OWN_ENDPOINTS
             _OWN_ENDPOINTS.clear()
-            
+
             # Run setup
             _setup_own_endpoints()
-            
+
             # Check that our endpoint was added to the exclusion list
             self.assertTrue(_is_own_endpoint("telemetry.mydomain.com", 8443))
             # Check that alternate ports were added
             self.assertTrue(_is_own_endpoint("telemetry.mydomain.com", 80))
             self.assertTrue(_is_own_endpoint("telemetry.mydomain.com", 443))
-            
+
         # Test default endpoint
         with patch.dict(os.environ, {}, clear=True):
             mock_instance = MagicMock()
             mock_instance.get.return_value = None
             mock_config_manager.return_value = mock_instance
-            
+
             # Force reset of endpoints
             _OWN_ENDPOINTS.clear()
-            
+
             # Run setup
             _setup_own_endpoints()
-            
+
             # Check that default endpoint was added
             self.assertTrue(_is_own_endpoint("127.0.0.1", 8000))
-            
+
         # Test config-based endpoint
         with patch.dict(os.environ, {}, clear=True):
             mock_instance = MagicMock()
             mock_instance.get.return_value = "https://api.mycustom.com:9000"
             mock_config_manager.return_value = mock_instance
-            
+
             # Force reset of endpoints
             _OWN_ENDPOINTS.clear()
-            
+
             # Run setup
             _setup_own_endpoints()
-            
+
             # Check that custom endpoint was added
             self.assertTrue(_is_own_endpoint("api.mycustom.com", 9000))
-    
+
     @patch('cylestio_monitor._sensors.network._orig_connect')
     def test_span_connect_skip_own_endpoint(self, mock_orig_connect):
         """Test that connections to our own endpoint are not monitored."""
@@ -217,22 +217,22 @@ class TestNetworkSensor(unittest.TestCase):
             from cylestio_monitor._sensors.network import _OWN_ENDPOINTS
             _OWN_ENDPOINTS.clear()
             _setup_own_endpoints()
-            
+
             # Create a socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            
+
             # Mock the original connect
             mock_orig_connect.return_value = None
-            
+
             # Connect to our own endpoint
             _span_connect(sock, ("api.cylestio.com", 8000))
-            
+
             # Verify original connect was called
             mock_orig_connect.assert_called_once()
-            
+
             # Verify log_event was NOT called (no monitoring for our own endpoint)
             self.mock_log_event.assert_not_called()
 
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

@@ -96,7 +96,7 @@ SECURITY_ALERT_SCHEMA = {
         "description": "Security alert for suspicious activity",
         "required_attributes": ["alert.type", "alert.severity", "session.id"],
         "optional_attributes": [
-            "alert.evidence", "security.risk", "security.description", 
+            "alert.evidence", "security.risk", "security.description",
             # Process attributes
             "proc.path", "proc.args", "proc.calling_context",
             # Network attributes
