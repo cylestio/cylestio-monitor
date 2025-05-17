@@ -360,6 +360,23 @@ def start_monitoring(
         except Exception as e:
             logger.warning(f"Failed to patch HTTP client monitoring: {e}")
 
+        # Apply terminal output monitoring for sensitive data detection
+        try:
+            from .patchers.llm_output_patcher import patch_terminal_output
+
+            # Get terminal output monitoring configuration - default to enabled
+            enable_terminal_monitoring = config.get("enable_terminal_monitoring", True)
+
+            if enable_terminal_monitoring and patch_terminal_output():
+                logger.info("Terminal output monitoring enabled for sensitive data detection")
+                monitor_logger.info("Terminal output monitoring enabled for sensitive data detection")
+            elif not enable_terminal_monitoring:
+                logger.info("Terminal output monitoring disabled by configuration")
+            else:
+                logger.warning("Failed to enable terminal output monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch terminal output monitoring: {e}")
+
         # Step 5: Try to patch framework libraries if enabled
         if enable_framework_patching:
             # Try to patch LangChain if present
@@ -520,9 +537,19 @@ def stop_monitoring() -> None:
     try:
         from .patchers.http_patcher import unpatch_http_monitoring
 
-        unpatch_http_monitoring()
+        if unpatch_http_monitoring():
+            logger.info("HTTP client monitoring disabled")
     except Exception as e:
-        logger.warning(f"Error while unpatching HTTP monitoring: {e}")
+        logger.warning(f"Error unpatching HTTP monitoring: {e}")
+
+    # Unpatch terminal output monitoring if it was patched
+    try:
+        from .patchers.llm_output_patcher import unpatch_terminal_output
+
+        if unpatch_terminal_output():
+            logger.info("Terminal output monitoring disabled")
+    except Exception as e:
+        logger.warning(f"Error unpatching terminal output monitoring: {e}")
 
     # Stop the background API thread
     try:

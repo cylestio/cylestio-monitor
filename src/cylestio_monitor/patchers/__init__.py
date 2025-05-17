@@ -29,6 +29,8 @@ from .network_patcher import (patch_network_monitoring,
                              unpatch_network_monitoring)
 from .http_patcher import (patch_http_monitoring,
                           unpatch_http_monitoring)
+from .llm_output_patcher import (LLMOutputPatcher, patch_terminal_output,
+                                unpatch_terminal_output)
 from .tool_patcher import initialize as initialize_tool_patcher
 
 # Set up module-level logger
@@ -71,6 +73,7 @@ __all__ = [
     "ToolDecoratorPatcher",
     "DecoratedToolsPatcher",
     "ToolMonitorCallbackHandler",
+    "LLMOutputPatcher",
     # Functions
     "get_callback_handler",
     "initialize_tool_patcher",
@@ -94,5 +97,7 @@ __all__ = [
     "patch_network_monitoring",
     "unpatch_network_monitoring",
     "patch_http_monitoring",
-    "unpatch_http_monitoring"
+    "unpatch_http_monitoring",
+    "patch_terminal_output",
+    "unpatch_terminal_output"
 ]
