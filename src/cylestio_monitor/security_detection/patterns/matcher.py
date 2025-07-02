@@ -79,8 +79,19 @@ class PatternRegistry:
         # Initialize patterns dictionary
         self._patterns = {}
 
+        # Handle both dictionary and list formats
+        if isinstance(pattern_configs, list):
+            # List format (data_masking.patterns style)
+            pattern_items = [(item.get("name", f"pattern_{i}"), item) for i, item in enumerate(pattern_configs)]
+        elif isinstance(pattern_configs, dict):
+            # Dictionary format (security.patterns style)
+            pattern_items = pattern_configs.items()
+        else:
+            logger.error(f"Invalid pattern configuration format: {type(pattern_configs)}")
+            return
+
         # Process each pattern
-        for name, config in pattern_configs.items():
+        for name, config in pattern_items:
             try:
                 # For list-style config (data_masking format)
                 if isinstance(config, dict) and "regex" in config:
