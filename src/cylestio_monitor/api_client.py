@@ -15,6 +15,7 @@ from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
 import os
 
+from cylestio_monitor.api_authentication import DescopeAuthenticator
 from cylestio_monitor.config import ConfigManager
 from cylestio_monitor.utils.serialization import safe_event_serialize
 from cylestio_monitor.security_detection import SecurityScanner
@@ -33,7 +34,7 @@ class ApiClient:
     """Client for sending telemetry data to the Cylestio API."""
 
     def __init__(
-        self, endpoint: Optional[str] = None, http_method: Optional[str] = None
+        self, endpoint: Optional[str] = None, http_method: Optional[str] = None, access_key: Optional[str] = None
     ):
         """Initialize the API client.
 
@@ -54,6 +55,7 @@ class ApiClient:
         # 4. Default value
         env_endpoint = os.environ.get("CYLESTIO_TELEMETRY_ENDPOINT")
         telemetry_endpoint = endpoint or env_endpoint or config.get("api.endpoint") or "http://127.0.0.1:8000"
+        access_key = access_key or config.get("api.access_key")
 
         # Ensure the endpoint ends with /v1/telemetry
         if not telemetry_endpoint.endswith("/v1/telemetry"):
@@ -63,9 +65,8 @@ class ApiClient:
             telemetry_endpoint = f"{telemetry_endpoint}/v1/telemetry"
 
         self.endpoint = telemetry_endpoint
+        self.access_key = access_key
 
-        # Get access key from config or environment variable
-        self.access_key = config.get("api.access_key")
 
         # Set HTTP method (defaulting to POST)
         self.http_method = http_method or config.get("api.http_method") or "POST"
@@ -80,11 +81,11 @@ class ApiClient:
         # Set request timeout (default: 5 seconds)
         self.timeout = int(config.get("api.timeout") or 5)
 
-        # Get access key from config or environment variable
-        self.access_key = config.get("api.access_key") or os.environ.get("CYLESTIO_ACCESS_KEY")
-
         # Whether to send in background
         self.send_in_background = bool(config.get("api.background_sending") or True)
+
+        # Initialize Descope authenticator for JWT token generation
+        self._authenticator = DescopeAuthenticator(access_key=access_key)
 
     def send_event(self, event: Dict[str, Any]) -> bool:
         """Send an event to the API.
@@ -171,7 +172,12 @@ class ApiClient:
             
             # Add authorization header if access key is configured
             if self.access_key:
-                req.add_header("Authorization", f"Bearer {self.access_key}")
+                jwt_token = self._authenticator.get_jwt_token()
+                if jwt_token:
+                    req.add_header("Authorization", f"Bearer {jwt_token}")
+                else:
+                    logger.error("Failed to get JWT token")
+                    return False
 
             # Send request
             with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310 - URL is validated above
@@ -186,7 +192,6 @@ class ApiClient:
         except Exception as e:
             logger.error(f"Unexpected error sending event to API: {e}")
             return False
-
 
 def _background_sender_thread():
     """Background thread for sending events to the API."""
