@@ -64,6 +64,9 @@ class ApiClient:
 
         self.endpoint = telemetry_endpoint
 
+        # Get access key from config or environment variable
+        self.access_key = config.get("api.access_key")
+
         # Set HTTP method (defaulting to POST)
         self.http_method = http_method or config.get("api.http_method") or "POST"
         if self.http_method not in ["POST", "PUT"]:
@@ -71,7 +74,7 @@ class ApiClient:
 
         # Log configuration
         logger.info(
-            f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}"
+            f"API client initialized with endpoint: {self.endpoint}, method: {self.http_method}, access_key: {self.access_key}"
         )
 
         # Set request timeout (default: 5 seconds)
