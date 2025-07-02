@@ -85,7 +85,7 @@ class ApiClient:
         self.send_in_background = bool(config.get("api.background_sending") or True)
 
         # Initialize Descope authenticator for JWT token generation
-        self._authenticator = DescopeAuthenticator(access_key=access_key)
+        self._authenticator = DescopeAuthenticator.get_instance(access_key=access_key)
 
     def send_event(self, event: Dict[str, Any]) -> bool:
         """Send an event to the API.
@@ -184,6 +184,11 @@ class ApiClient:
                 status = response.status
 
                 if status < 200 or status >= 300:
+                    # Invalidate token on authentication errors
+                    if status == 401 or status == 403:
+                        self._authenticator.invalidate_token()
+                        logger.warning("Authentication error occurred, invalidating JWT token to refresh next time")
+                    
                     logger.warning(f"API request failed with status {status}")
                     return False
 

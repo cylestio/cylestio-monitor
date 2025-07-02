@@ -5,7 +5,8 @@ including JWT token generation using Descope.
 """
 
 import logging
-from typing import Optional
+import time
+from typing import Optional, Dict
 
 from descope import AuthException, DescopeClient
 
@@ -23,16 +24,43 @@ class DescopeAuthenticator:
     with a cached Descope client instance for improved performance.
     """
     
-    def __init__(self, access_key: str, project_id: str = DESCOPE_PROJECT_ID) -> None:
+    # Class-level cache for singleton instances by access_key
+    _instances: Dict[str, 'DescopeAuthenticator'] = {}
+    
+    def __init__(self, access_key: str, project_id: str = DESCOPE_PROJECT_ID, refresh_buffer_seconds: int = 30) -> None:
         """Initialize the Descope authenticator.
         
         Args:
+            access_key: The access key to use for authentication
             project_id: The Descope project ID to use for authentication
+            refresh_buffer_seconds: Seconds before expiration to refresh token (default: 30)
         """
         self.project_id = project_id
         self._client: Optional[DescopeClient] = None
         self._access_key = access_key
+        self._refresh_buffer_seconds = refresh_buffer_seconds
+        
+        # Token caching
+        self._cached_jwt_token: Optional[str] = None
+        self._token_expires_at: Optional[float] = None
+        
         logger.debug(f"Initialized DescopeAuthenticator with project_id: {project_id} and access_key: {access_key}")
+    
+    @classmethod
+    def get_instance(cls, access_key: str, project_id: str = DESCOPE_PROJECT_ID, refresh_buffer_seconds: int = 30) -> 'DescopeAuthenticator':
+        """Get a singleton instance of DescopeAuthenticator for the given access_key.
+        
+        Args:
+            access_key: The access key to use for authentication
+            project_id: The Descope project ID to use for authentication
+            refresh_buffer_seconds: Seconds before expiration to refresh token (default: 30)
+            
+        Returns:
+            DescopeAuthenticator: Singleton instance for the access_key
+        """
+        if access_key not in cls._instances:
+            cls._instances[access_key] = cls(access_key, project_id, refresh_buffer_seconds)
+        return cls._instances[access_key]
     
     def _get_client(self) -> DescopeClient:
         """Get the cached Descope client instance.
@@ -45,11 +73,35 @@ class DescopeAuthenticator:
             logger.debug("Created new Descope client instance")
         return self._client
     
+    def _is_token_expired(self) -> bool:
+        """Check if the cached token is expired or about to expire.
+        
+        Returns:
+            bool: True if token is expired or expires within refresh_buffer_seconds, False otherwise
+        """
+        if self._token_expires_at is None:
+            return True
+        
+        # Check if token expires within the buffer time
+        is_token_expired = time.time() >= (self._token_expires_at - self._refresh_buffer_seconds)
+        if is_token_expired:
+            logger.info("JWT token expired, forcing a fresh exchange on next call")
+        return is_token_expired
+    
+    def invalidate_token(self) -> None:
+        """Invalidate the cached JWT token, forcing a fresh exchange on next call.
+        
+        This method clears the cached token and expiration time. Useful when 
+        authentication errors occur and you need to force token renewal.
+        """
+        self._cached_jwt_token = None
+        self._token_expires_at = None
+        logger.debug("JWT token cache invalidated")
+    
     def get_jwt_token(self) -> Optional[str]:
         """Exchange an access key for a JWT token using Descope.
 
-        Args:
-            access_key: The access key to exchange for a JWT token
+        Returns cached token if still valid, otherwise exchanges access key for new token.
 
         Returns:
             Optional[str]: The JWT token if successful, None if failed
@@ -57,6 +109,10 @@ class DescopeAuthenticator:
         if not self._access_key:
             logger.error("Access key is required for JWT token exchange")
             return None
+
+        # Return cached token if still valid
+        if self._cached_jwt_token and not self._is_token_expired():
+            return self._cached_jwt_token
 
         try:
             # Exchange access key for JWT using cached client
@@ -69,10 +125,17 @@ class DescopeAuthenticator:
                 session_token = resp.get('sessionToken')
                 if isinstance(session_token, dict):
                     jwt_token = session_token.get('jwt')
-                    if jwt_token:
+                    token_exp = session_token.get('exp')
+                    
+                    if jwt_token and token_exp:
+                        # Cache the token and expiration
+                        self._cached_jwt_token = jwt_token
+                        self._token_expires_at = float(token_exp)
+                        
+                        logger.info(f"Refreshed token, updating cache, expires at: {time.ctime(self._token_expires_at)}")
                         return jwt_token
                     else:
-                        logger.error("JWT token not found in sessionToken")
+                        logger.error("JWT token or expiration not found in sessionToken")
                         return None
                 else:
                     logger.error("sessionToken not found or invalid in response")
