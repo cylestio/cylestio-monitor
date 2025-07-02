@@ -38,11 +38,12 @@ To send events to a remote API endpoint:
 ```python
 import cylestio_monitor
 
-# Enable monitoring with a remote API endpoint
+# Enable monitoring with a remote telemetry endpoint
 cylestio_monitor.start_monitoring(
     agent_id="my-agent",
     config={
-        "api_endpoint": "https://api.example.com/events"
+        "telemetry_endpoint": "https://api.example.com/events",
+        "access_key": "your_access_key_here"
     }
 )
 ```
@@ -54,7 +55,8 @@ cylestio_monitor.start_monitoring(
     agent_id="my-agent",
     config={
         "log_file": "output/monitoring.json",
-        "api_endpoint": "https://api.example.com/events"
+        "telemetry_endpoint": "https://api.example.com/events",
+        "access_key": "your_access_key_here"
     }
 )
 ```
@@ -81,7 +83,8 @@ You can configure the API client using environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `CYLESTIO_API_ENDPOINT` | URL of the remote API endpoint |
+| `CYLESTIO_TELEMETRY_ENDPOINT` | URL of the remote telemetry endpoint |
+| `CYLESTIO_ACCESS_KEY` | Access key for authentication |
 
 ### Direct Configuration
 
@@ -90,11 +93,12 @@ You can configure both the API endpoint and log file when enabling monitoring:
 ```python
 import cylestio_monitor
 
-# Start monitoring with API endpoint and JSON logging
+# Start monitoring with telemetry endpoint and JSON logging
 cylestio_monitor.start_monitoring(
     agent_id="my-agent",
     config={
-        "api_endpoint": "https://api.example.com/events",
+        "telemetry_endpoint": "https://api.example.com/events",
+        "access_key": "your_access_key_here",  # Can also use CYLESTIO_ACCESS_KEY env var
         "log_file": "output/monitoring.json"
     }
 )

@@ -77,6 +77,9 @@ class ApiClient:
         # Set request timeout (default: 5 seconds)
         self.timeout = int(config.get("api.timeout") or 5)
 
+        # Get access key from config or environment variable
+        self.access_key = config.get("api.access_key") or os.environ.get("CYLESTIO_ACCESS_KEY")
+
         # Whether to send in background
         self.send_in_background = bool(config.get("api.background_sending") or True)
 
@@ -162,6 +165,10 @@ class ApiClient:
             # Add headers
             req.add_header("Content-Type", "application/json")
             req.add_header("User-Agent", "Cylestio-Monitor/1.0")
+            
+            # Add authorization header if access key is configured
+            if self.access_key:
+                req.add_header("Authorization", f"Bearer {self.access_key}")
 
             # Send request
             with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310 - URL is validated above

@@ -20,7 +20,8 @@ cylestio_monitor.start_monitoring(
     config={
         "debug_level": "INFO",
         "log_file": "output/monitoring.json",
-        "api_endpoint": "https://api.example.com/events",
+        "telemetry_endpoint": "https://api.example.com/events",
+        "access_key": "your_access_key_here",
         "development_mode": False,
         "enable_framework_patching": True
     }
@@ -35,7 +36,8 @@ cylestio_monitor.start_monitoring(
 | `config` | dict | (Optional) Configuration dictionary with the following options: |
 | - `debug_level` | string | Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 | - `log_file` | string | Path to log file or directory for telemetry events |
-| - `api_endpoint` | string | URL of the remote API endpoint to send events to |
+| - `telemetry_endpoint` | string | URL of the remote telemetry endpoint to send events to |
+| - `access_key` | string | Access key for authentication
 | - `development_mode` | boolean | Enable additional development features like detailed logging |
 | - `enable_framework_patching` | boolean | Whether to automatically patch frameworks like LangChain, LangGraph, etc. |
 
@@ -158,7 +160,8 @@ import cylestio_monitor
 cylestio_monitor.start_monitoring(
     agent_id="production-agent",
     config={
-        "api_endpoint": "https://api.example.com/events",
+        "telemetry_endpoint": "https://api.example.com/events",
+        "access_key": "your_production_access_key",  # Or set CYLESTIO_ACCESS_KEY env var
         "log_file": "/var/log/cylestio/monitoring.json"
     }
 )

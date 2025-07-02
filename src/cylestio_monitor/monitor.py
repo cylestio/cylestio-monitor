@@ -40,6 +40,7 @@ def start_monitoring(
             - debug_level: Logging level for SDK's internal logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             - telemetry_endpoint: Host and port for the telemetry API (default: http://127.0.0.1:8000)
               The "/v1/telemetry" path will be automatically appended.
+            - access_key: Access key for authentication. Can also be set via CYLESTIO_ACCESS_KEY environment variable.
             - development_mode: Enable additional development features like detailed logging
 
     Note:
@@ -192,6 +193,14 @@ def start_monitoring(
         # Set environment variable for immediate use by API client
         os.environ["CYLESTIO_TELEMETRY_ENDPOINT"] = telemetry_endpoint
         logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
+
+    # Configure the access key if provided, checking environment variable first
+    access_key = config.get("access_key") or os.environ.get("CYLESTIO_ACCESS_KEY")
+    if access_key:
+        config_manager.set("api.access_key", access_key)
+        # Set environment variable for immediate use by API client
+        os.environ["CYLESTIO_ACCESS_KEY"] = access_key
+        logger.info("Access key configured")
 
     config_manager.save()
 

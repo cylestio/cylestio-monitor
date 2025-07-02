@@ -84,6 +84,7 @@ cylestio_monitor.start_monitoring(
         "debug_level": "INFO",  # Logging level (DEBUG, INFO, WARNING, ERROR)
         "log_file": "output/my_logs.json",  # Path for local JSON logs
         "telemetry_endpoint": "http://custom.telemetry.server:9000",  # Custom telemetry host/port
+        "access_key": "your_access_key_here",  # Endpoint Access key
         "development_mode": False  # Enable additional development features
     }
 )

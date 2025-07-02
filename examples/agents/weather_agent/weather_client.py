@@ -48,6 +48,9 @@ cylestio_monitor.start_monitoring(
 
         # Custom telemetry endpoint (optional, defaults to http://127.0.0.1:8000)
         "telemetry_endpoint": "http://127.0.0.1:8000",
+        
+        # Access key for authentication (optional, required for using the hosted version)
+        # "access_key": "your_access_key_here",
     }
 )
 
