@@ -25,6 +25,7 @@ classifiers = [
 
 dependencies = [
     "anthropic>=0.18.0",
+    "descope>=1.7.0",
     "mcp>=1.3.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
@@ -34,7 +35,7 @@ dependencies = [
     "requests>=2.31.0",
     "langchain>=0.1.0",
     "langchain-core>=0.1.0",
-    "setuptools>=68.0.0",  # Required for pkg_resources
+    "setuptools>=68.0.0", # Required for pkg_resources
 ]
 
 [project.urls]
@@ -67,7 +68,7 @@ security = [
     "semgrep>=1.48.0",
     "pre-commit>=3.5.0",
     "sentence-transformers>=3.1.0",  # Fix for PVE-2024-73169
-    "dependency-check>=0.7.0"  # OWASP Dependency Check wrapper
+    "dependency-check>=0.6.0"  # OWASP Dependency Check wrapper
 ]
 
 [tool.pytest.ini_options]

@@ -47,7 +47,8 @@ cylestio_monitor.start_monitoring(
     config={
         "debug_level": "INFO",           # Logging level
         "log_file": "output/logs.json",  # Path for local JSON logs
-        "api_endpoint": "https://api.example.com/events",  # Remote endpoint
+        "telemetry_endpoint": "https://api.example.com/events",  # Remote endpoint
+        "access_key": "your_access_key_here",  # Remote endpoint Access key
         "development_mode": False        # Extra development features
     }
 )

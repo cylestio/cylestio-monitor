@@ -48,6 +48,9 @@ cylestio_monitor.start_monitoring(
 
         # Custom telemetry endpoint (optional, defaults to http://127.0.0.1:8000)
         "telemetry_endpoint": "http://127.0.0.1:8000",
+        
+        # Access key for authentication (optional, required for using the hosted version)
+        # "access_key": "your_access_key_here",
     }
 )
 
@@ -115,7 +118,7 @@ class WeatherAIAgent:
             # The SDK will automatically monitor this call
             messages = [{"role": "user", "content": query}]
             response = self.anthropic.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-latest",
                 max_tokens=1000,
                 messages=messages,
                 tools=available_tools,
@@ -148,7 +151,7 @@ class WeatherAIAgent:
 
                         # Get the final response with tool results
                         response = self.anthropic.messages.create(
-                            model="claude-3-haiku-20240307",
+                            model="claude-3-5-sonnet-latest",
                             max_tokens=1000,
                             messages=messages,
                         )
