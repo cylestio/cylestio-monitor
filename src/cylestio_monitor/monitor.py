@@ -41,6 +41,8 @@ def start_monitoring(
             - telemetry_endpoint: Host and port for the telemetry API (default: http://127.0.0.1:8000)
               The "/v1/telemetry" path will be automatically appended.
             - development_mode: Enable additional development features like detailed logging
+            - enable_rce_detection: Whether to enable RCE detection rules (default: True)
+            - security_sensitivity: Level of security sensitivity (low, medium, high) (default: medium)
 
     Note:
         The SDK automatically detects which frameworks are installed and available to monitor.
@@ -193,6 +195,12 @@ def start_monitoring(
         os.environ["CYLESTIO_TELEMETRY_ENDPOINT"] = telemetry_endpoint
         logger.info(f"Telemetry endpoint set to: {telemetry_endpoint}")
 
+    # Configure security settings
+    security_sensitivity = config.get("security_sensitivity", "medium")
+    config_manager.set("security.sensitivity", security_sensitivity)
+    if security_sensitivity == "high":
+        os.environ["CYLESTIO_SECURITY_SENSITIVITY"] = "high"
+
     config_manager.save()
 
     # Initialize trace context
@@ -275,6 +283,16 @@ def start_monitoring(
 
         # Step 4: Apply tool patchers early to ensure all tools are intercepted
         try:
+            # Initialize MCP tool patcher for SQL command injection detection
+            try:
+                from .patchers.tool_patcher import initialize as initialize_tool_patcher
+
+                if initialize_tool_patcher():
+                    logger.info("MCP tool patching initialized for SQL command injection detection")
+                    monitor_logger.info("SQL command injection detection enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize tool patcher: {e}")
+
             # Patch @tool decorator BEFORE framework patches so all new tools get instrumented
             from .patchers.tool_decorator_patcher import patch_tool_decorator
 
@@ -286,6 +304,81 @@ def start_monitoring(
                 logger.debug("LangChain @tool decorator not available for patching")
         except Exception as e:
             logger.warning(f"Failed to patch @tool decorator: {e}")
+
+        # Apply process execution monitoring with RCE detection
+        try:
+            from .patchers.process_patcher import patch_process_monitoring
+
+            # Get RCE detection configuration - default to enabled
+            enable_rce_detection = config.get("enable_rce_detection", True)
+
+            if patch_process_monitoring(enable_detection=enable_rce_detection):
+                if enable_rce_detection:
+                    logger.info("Process execution monitoring enabled with RCE detection rules")
+                    monitor_logger.info("Process execution monitoring enabled with RCE detection")
+                else:
+                    logger.info("Process execution monitoring enabled (RCE detection disabled)")
+                    monitor_logger.info("Process execution monitoring enabled (detection rules disabled)")
+            else:
+                logger.warning("Failed to enable process execution monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch process execution monitoring: {e}")
+
+        # Apply network connection monitoring with threat detection
+        try:
+            from .patchers.network_patcher import patch_network_monitoring
+
+            # Get network detection configuration - default to enabled
+            enable_network_detection = config.get("enable_network_detection", True)
+
+            if patch_network_monitoring(enable_detection=enable_network_detection):
+                if enable_network_detection:
+                    logger.info("Network connection monitoring enabled with threat detection rules")
+                    monitor_logger.info("Network connection monitoring enabled with threat detection")
+                else:
+                    logger.info("Network connection monitoring enabled (threat detection disabled)")
+                    monitor_logger.info("Network connection monitoring enabled (detection rules disabled)")
+            else:
+                logger.warning("Failed to enable network connection monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch network connection monitoring: {e}")
+
+        # Apply HTTP client monitoring for shell access detection
+        try:
+            from .patchers.http_patcher import patch_http_monitoring
+
+            # Get HTTP monitoring configuration - default to enabled
+            enable_http_monitoring = config.get("enable_http_monitoring", True)
+
+            if enable_http_monitoring and patch_http_monitoring():
+                logger.info("HTTP client monitoring enabled for shell access detection")
+                monitor_logger.info("HTTP client monitoring enabled for RCE detection")
+            elif not enable_http_monitoring:
+                logger.info("HTTP client monitoring disabled by configuration")
+            else:
+                logger.warning("Failed to enable HTTP client monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch HTTP client monitoring: {e}")
+
+        # Apply terminal output monitoring for sensitive data detection
+        try:
+            from .patchers.llm_output_patcher import patch_terminal_output
+
+            # Get terminal output monitoring configuration - default to enabled
+            enable_terminal_monitoring = config.get("enable_terminal_monitoring", True)
+            # Get enforce masking setting - default to False (just alert, don't mask)
+            enforce_terminal_masking = config.get("enforce", False)
+
+            if enable_terminal_monitoring and patch_terminal_output(enforce_masking=enforce_terminal_masking):
+                masking_status = "with masking enforced" if enforce_terminal_masking else "in detection-only mode"
+                logger.info(f"Terminal output monitoring enabled for sensitive data detection {masking_status}")
+                monitor_logger.info(f"Terminal output monitoring enabled {masking_status}")
+            elif not enable_terminal_monitoring:
+                logger.info("Terminal output monitoring disabled by configuration")
+            else:
+                logger.warning("Failed to enable terminal output monitoring")
+        except Exception as e:
+            logger.warning(f"Failed to patch terminal output monitoring: {e}")
 
         # Step 5: Try to patch framework libraries if enabled
         if enable_framework_patching:
@@ -427,6 +520,40 @@ def stop_monitoring() -> None:
     except Exception as e:
         logger.warning(f"Error while unpatching LangGraph: {e}")
 
+    # Unpatch process monitoring if it was patched
+    try:
+        from .patchers.process_patcher import unpatch_process_monitoring
+
+        unpatch_process_monitoring()
+    except Exception as e:
+        logger.warning(f"Error while unpatching process monitoring: {e}")
+
+    # Unpatch network monitoring if it was patched
+    try:
+        from .patchers.network_patcher import unpatch_network_monitoring
+
+        unpatch_network_monitoring()
+    except Exception as e:
+        logger.warning(f"Error while unpatching network monitoring: {e}")
+
+    # Unpatch HTTP monitoring if it was patched
+    try:
+        from .patchers.http_patcher import unpatch_http_monitoring
+
+        if unpatch_http_monitoring():
+            logger.info("HTTP client monitoring disabled")
+    except Exception as e:
+        logger.warning(f"Error unpatching HTTP monitoring: {e}")
+
+    # Unpatch terminal output monitoring if it was patched
+    try:
+        from .patchers.llm_output_patcher import unpatch_terminal_output
+
+        if unpatch_terminal_output():
+            logger.info("Terminal output monitoring disabled")
+    except Exception as e:
+        logger.warning(f"Error unpatching terminal output monitoring: {e}")
+
     # Stop the background API thread
     try:
         from cylestio_monitor.api_client import stop_background_thread
@@ -469,7 +596,7 @@ def stop_monitoring() -> None:
         sdk_logger.setLevel(logging.CRITICAL)
 
     # Final log message through standard logger (not SDK logger)
-    logger.info("Monitoring stopped")
+    logger.info("Monitoring stopped successfully")
 
 
 __all__ = ["start_monitoring", "stop_monitoring"]

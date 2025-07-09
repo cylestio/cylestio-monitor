@@ -155,15 +155,15 @@ class PatternRegistry:
             },
             "email_address": {
                 "regex": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
-                "category": "sensitive_data",
-                "severity": "medium",
+                "category": "private_data",
+                "severity": "low",
                 "description": "Email Address",
                 "mask_method": "email"
             },
             "phone_number": {
                 "regex": r"\b\d{3}[-.\\s]?\d{3}[-.\\s]?\d{4}\b",
-                "category": "sensitive_data",
-                "severity": "medium",
+                "category": "private_data",
+                "severity": "low",
                 "description": "Phone Number",
                 "mask_method": "phone"
             },
@@ -197,12 +197,17 @@ class PatternRegistry:
             return "********"
 
         elif mask_method == "credit_card":
-            # Credit card - keep first 4 digits, mask the rest
-            digits_only = re.sub(r'[^0-9]', '', value)
-            if len(digits_only) >= 12:  # Only mask if it looks like a credit card
-                return digits_only[:4] + '-****-****-' + digits_only[-4:]
+            # Credit card - fully mask all digits for enhanced privacy
+            # Parse the separator used (dash, space, or none)
+            if '-' in value:
+                separator = '-'
+            elif ' ' in value:
+                separator = ' '
             else:
-                return "****-****-****-****"  # Fallback
+                separator = ''
+
+            # Return fully masked credit card
+            return f"****{separator}****{separator}****{separator}****"
 
         elif mask_method == "email":
             # Email - mask username part, keep domain
@@ -218,8 +223,8 @@ class PatternRegistry:
                 return '****@****.***'  # Fallback
 
         elif mask_method == "ssn":
-            # SSN - only show last 4 digits
-            return "***-**-" + value[-4:]
+            # SSN - fully mask all digits
+            return "***-**-****"
 
         elif mask_method == "phone":
             # Phone - only show last 4 digits
@@ -267,9 +272,15 @@ class PatternRegistry:
                 # Extract the matched value
                 matched_value = match.group(0)
 
+                # Get category of this pattern
+                category = pattern_info.get("category", "sensitive_data")
+
+                # Only mask if this is sensitive data, not private data
+                should_mask = mask_values and category == "sensitive_data"
+
                 # Mask the value if required
                 masked_value = matched_value
-                if mask_values:
+                if should_mask:
                     mask_method = pattern_info.get("mask_method", "default")
                     masked_value = self._mask_sensitive_value(matched_value, name, mask_method)
 
@@ -279,7 +290,7 @@ class PatternRegistry:
                     "matched_value": matched_value,
                     "masked_value": masked_value,
                     "position": match.start(),
-                    "category": pattern_info["category"],
+                    "category": category,
                     "severity": pattern_info["severity"],
                     "description": pattern_info["description"]
                 })
@@ -328,15 +339,22 @@ class PatternRegistry:
         if not matches:
             return text
 
+        # Filter out private_data matches - we don't want to mask those
+        sensitive_matches = [m for m in matches if m.get("category") == "sensitive_data"]
+
+        # If no sensitive matches, return original text
+        if not sensitive_matches:
+            return text
+
         # Sort matches by position in reverse order to avoid offset issues
         # when replacing substrings
-        matches.sort(key=lambda x: x["position"], reverse=True)
+        sensitive_matches.sort(key=lambda x: x["position"], reverse=True)
 
         # Create a mutable version of the text
         mutable_text = list(text)
 
         # Replace each match with its masked version
-        for match in matches:
+        for match in sensitive_matches:
             start = match["position"]
             end = start + len(match["matched_value"])
             masked_value = match["masked_value"]

@@ -126,6 +126,10 @@ All events follow OpenTelemetry standards with trace context:
 - **Content safety monitoring**: Identify potentially suspicious or dangerous content
 - **PII detection**: Detect and redact personally identifiable information
 - **Content filtering**: Flag harmful or inappropriate content
+- **Network connection monitoring**: Detect suspicious outbound connections that may indicate C2 channels or data exfiltration
+- **HTTP traffic monitoring**: Detect shell access patterns and RCE attacks in HTTP requests/responses
+- **MCP shell transition detection**: Identify when legitimate interfaces like database connectors are exploited to gain shell access
+- **Process execution monitoring**: Track and alert on potentially dangerous process execution
 - **Security classification**: Events are automatically classified by security risk level
 - **Regulatory compliance**: Designed to help satisfy SOC2, GDPR, and HIPAA monitoring requirements
 - **Audit-ready logging**: Generate detailed logs suitable for security audits and compliance verification

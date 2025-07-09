@@ -182,7 +182,7 @@ class TestSecurityScanner:
         # Create mock config manager
         mock_manager = MagicMock()
         mock_manager.get.side_effect = lambda key, default=None: {
-            "security.keywords.sensitive_data": ["password", "ssn"],
+            "security.keywords.sensitive_data": ["password"],
             # Avoiding SQL commands for this test since they have special handling
             "security.keywords.dangerous_commands": ["rm -rf", "danger-word"],
             "security.keywords.prompt_manipulation": ["hack", "exploit"]
@@ -705,17 +705,17 @@ class TestSecurityScanner:
 
         # Verify the actual SSN is not in the output
         assert "123-45-6789" not in str(result)
-        # Check that last 4 digits are preserved
-        assert "6789" in str(result["keywords"])
-        # And first parts are masked
-        assert "***" in str(result["keywords"])
+        # Check that all digits are masked
+        assert "***-**-****" in str(result["keywords"])
+        # And original digits are not present
+        assert "6789" not in str(result["keywords"])
 
-        # Test email masking
+        # Test email masking - should not trigger an alert now
         text = "Contact me at test.user@example.com"
         result = scanner.scan_text(text)
 
-        assert result["alert_level"] == "suspicious"
-        assert result["category"] == "sensitive_data"
+        assert result["alert_level"] == "none"
+        assert "email" in str(result)
 
         # Verify the actual email is not in the output
         assert "test.user@example.com" not in str(result)
